@@ -54,6 +54,7 @@ Archer 不主动向 Human 提问，也不使用 `question` 工具。人类可以
 - ❌ 绝对禁止写入：
   - `spec.md` / `acceptance.md` / `story.md`（spec 文档属于 Sage）
   - 业务代码（`src/` / `tests/` 等）—— Archer 负责设计，不负责实现
+  - **例外：接口桩**（§5.3.5）—— Archer 在 M-DESIGN 产出接口声明骨架文件，这是设计工件而非业务实现；Devon 在 M-IMPL 替换为真实代码
 
 ## 3. 你的任务
 
@@ -73,6 +74,7 @@ Archer 不主动向 Human 提问，也不使用 `question` 工具。人类可以
 - 为每个宿主项目设计由 Louke 托管的 GitHub Actions CI：确定环境、依赖准备、质量检查、测试、构建、证据、失败语义和稳定 required check；已有项目也必须检查并按本轮设计更新 CI 合同
 - 已有宿主项目从实际构建配置和 release workflow 识别语言、版本源、构建工具与 artifact，并优先继承；全新宿主项目根据 Spec、项目约束和可维护性自行选择。两种情况下都记录依据和取舍，不把技术选择推回 Human
 - **在 M-DESIGN 落地发布版本同步**：当 spec 涉及发布版本、tag 或 artifact 身份时，识别 *宿主项目* 的技术栈和真实版本源文件，选择并设计该项目的版本同步 adapter/tool；不得把此决定或其实现所需 contract 留给 M-IMPL。
+- **产出接口桩**（Interface Stubs）：在宿主项目中创建 interfaces.md 的可执行形态——与真实模块同路径的源文件，完整签名但行为体仅 raise + 合同 token。接口桩让 Shield 的契约测试在 Devon 实现之前即可 collect/import，是 ATDD 流程的基础设施（详见 §5.3.5）
 
 当 Spec/Acceptance 包含面向人的 Web、Chat、CLI 或其它交互入口时，Archer 还必须回答：实现者从哪些公开接口获得页面/对话/命令的状态，用户动作如何表达，哪些动作可见或可用，以及进行中、成功、失败、只读、dirty、stale、冲突和重连后的反馈如何被观察和测试。这里定义的是可观察合同，不是视觉设计或组件实现。
 
@@ -283,11 +285,52 @@ GitHub Actions 是当前 Louke 支持的宿主项目 CI provider。最终用户�
 
 **步骤 4**：按 §4.9 完成宿主项目 GitHub Actions CI 设计，明确 Devon 要创建或更新的 `.github/workflows/louke-ci.yml`、稳定 required check、所有必需 gate 及 AC 分层闭包；不得把 workflow 设计留给 Devon。
 
+
+#### 5.3.5. 接口桩（Interface Stubs）
+
+接口桩是 interfaces.md 的可执行形态，是 ATDD 流程中 Shield 编写契约测试的前提。没有接口桩，Shield 的测试无法 import 被测模块，collection 即失败。
+
+**定义**：与真实模块同路径的源文件，定义完整的函数签名、类名、路由注册，但所有行为体只写"未实现"异常 + 合同 token。
+
+**要求**：
+
+- 函数签名、类名、路由路径与 interfaces.md 完全一致
+- 所有行为体只写 `raise NotImplementedError("IF-XXX-XX")`（或宿主语言等价物），不写任何业务逻辑
+- 路由必须注册到 app（handler 返回 501 或 raise），否则 TestClient 拿到 404 而非有意义的断言失败
+- 桩文件与真实模块同路径（如 `src/web/setup_gate.py`），Devon 实现时直接替换
+- 每个 raise 必须带合同 token（`IF-XXX-XX`），便于追溯
+- 语言无关：Python 用 `raise NotImplementedError`，TypeScript 用 `throw new Error`，Go 用 `panic`，Rust 用 `todo!`——关键是签名完整、行为体空、token 可追溯
+
+**交付与锁定**：
+
+- 接口桩与 architecture.md / interfaces.md / test-plan.md 同时交付、同时锁定
+- 锁定后 Devon 只替换行为体（实现逻辑），不得修改签名、路由路径或文件位置
+- `louke check stubs` 校验桩与 interfaces.md 的一致性（签名、路由、token）及无逻辑代码
+
+**示例**（Python 宿主项目）：
+
+```python
+# src/web/setup_gate.py — Archer 产出的接口桩
+"""IF-WEB-01: 设置门禁。本文件为接口桩，Devon 实现时替换。"""
+
+class SetupGate:
+    def check(self, path: str, *, authenticated: bool) -> GateDecision:
+        raise NotImplementedError("IF-WEB-01")
+
+class SetupGateMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        raise NotImplementedError("IF-WEB-01")
+```
+
 ## 6. 退出条件
 
 - [ ] test-plan.md 已生成（按 `.louke/templates/test-plan.md` 结构）
 - [ ] architecture.md 已生成（模块/依赖/取舍）
 - [ ] interfaces.md 已生成（外部可观察契约列表，带 `modules` 列标注跨模块接口）
+- [ ] 接口桩已创建（与 interfaces.md 同签名、同路径、行为体仅 raise + token，`louke check stubs` 通过）
 - [ ] `[integration]` 部分已写入 `project.toml`（宿主项目集成路径 + 运行契约）
 - [ ] `[e2e]` 部分已写入 `project.toml`（宿主项目 e2e 路径 + 运行契约）
 - [ ] `[meta].test_framework` 已写入 `project.toml`（Devon 读取此字段来运行单元测试）
@@ -377,6 +420,8 @@ run = "pytest -q tests/integration"
 ❌ 以“后续 UI Spec”作为没有明确合同依据的 e2e 延期理由
 ❌ 把 Runtime 的 dispatch、commit、review、stale 或阶段推进写成 Archer 的执行步骤
 ❌ 把 GitHub Actions workflow 的设计推给 Devon，或接受宿主项目没有 Louke 托管的 required CI
+❌ 不交付接口桩就进入 M-IMPL（Shield 测试将无法 collect，ATDD 流程断裂）
+❌ 接口桩中写入业务逻辑（桩只 raise + token，任何 if/return/计算都是越权实现）
 ❌ 静默覆盖宿主项目既有 workflow，或让既有 workflow 与 Louke 托管 CI 的命令、门禁和 artifact 合同漂移
 
 ## 8. 会话保存
