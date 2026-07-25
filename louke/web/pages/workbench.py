@@ -1427,10 +1427,11 @@ async def _render_projects_activity(request: Request) -> HTMLResponse:
     state = _read_project_state(request)
     resolved = state.get("state", "empty")
     action = request.query_params.get("action", "")
+    new_param = request.query_params.get("new", "")
     toolbar = _projects_toolbar()
     sidebar = _projects_sidebar()
-    if action == "new_project":
-        main = _projects_new_project_wizard()
+    if action == "new_project" or new_param == "1":
+        main = _projects_new_project_wizard(request)
     elif resolved == "active":
         main = _projects_main_panel_active(state)
     else:
@@ -1489,15 +1490,79 @@ def _projects_sidebar() -> str:
     )
 
 
-def _projects_new_project_wizard() -> str:
+def _projects_new_project_wizard(request: Request | None = None) -> str:
     """IF-ENV-01 + IF-DRAFT-01: Render the New Project wizard with Story form.
 
-    Shows the Environment check steps and a Story/version input form.
+    Shows the Environment check steps (reading gh-ledger.json when available)
+    and a Story/version input form.
     """
+    import json as _json
+
+    # Read gh-ledger.json for real check results when available.
+    ledger: dict = {}
+    if request is not None:
+        try:
+            workspace_root = Path(request.app.state.workspace_root)
+            ledger_path = workspace_root / ".louke" / "gh-ledger.json"
+            if ledger_path.is_file():
+                ledger = _json.loads(ledger_path.read_text(encoding="utf-8"))
+        except (KeyError, AttributeError, OSError, _json.JSONDecodeError):
+            pass
+
+    steps = (
+        ("gh_executable", "GitHub CLI executable"),
+        ("gh_auth_scopes", "GitHub auth & scopes"),
+        ("repository_binding", "Repository binding"),
+        ("canonical_main", "Canonical main branch"),
+    )
+    step_items = []
+    for sid, label in steps:
+        val = ledger.get(sid)
+        if val is True or (isinstance(val, dict) and val):
+            state_cls = "passed"
+            state_txt = "passed"
+        elif val is False or val is None:
+            state_cls = "failed"
+            state_txt = "failed"
+            # Show missing scopes for gh_auth_scopes
+            if sid == "gh_auth_scopes" and isinstance(val, list):
+                state_txt = f"failed (missing: {', '.join(val)})"
+        elif isinstance(val, list):
+            # gh_auth_scopes as list of present scopes
+            required = {"gist", "project", "repo", "workflow"}
+            missing = required - set(val)
+            if missing:
+                state_cls = "failed"
+                state_txt = f"failed (missing scope: {', '.join(sorted(missing))})"
+            else:
+                state_cls = "passed"
+                state_txt = "passed"
+        else:
+            state_cls = "pending"
+            state_txt = "pending"
+        step_items.append(
+            f'<li data-testid="env-step-{sid}" data-step-id="{sid}" '
+            f'data-state="{state_cls}">'
+            f'<span class="env-step-label">{label}</span>'
+            f'<span class="env-step-state">{state_txt}</span>'
+            f"</li>"
+        )
+
+    env_html = (
+        '<section data-testid="env-wizard" aria-label="Environment Wizard">'
+        "<h2>Environment check</h2>"
+        f'<ol data-testid="env-steps" role="list">{"".join(step_items)}</ol>'
+        '<div data-testid="env-diagnosis" hidden></div>'
+        '<div class="projects-actions">'
+        '<button type="button" data-testid="env-retry">Retry</button>'
+        '<button type="button" data-testid="env-cancel">Cancel</button>'
+        "</div></section>"
+    )
+
     return (
         '<div class="projects-card" data-projects-state="new_project">'
         "<h1>New Project</h1>"
-        + _projects_env_wizard()
+        + env_html
         + '<form name="new_project_story" data-testid="new-project-story">'
         '<label class="setup-field">Story'
         '<textarea name="story" rows="4" placeholder="Describe the release story…"'
@@ -1781,7 +1846,8 @@ async def run_detail_compat(request: Request) -> HTMLResponse:
     try:
         workspace_root = Path(request.app.state.workspace_root)
     except (KeyError, AttributeError):
-        workspace_root = Path(".")
+        # No app context (unit test): redirect to bare Projects activity.
+        return _Redirect(url="/workbench?activity=projects", status_code=303)
     state_path = workspace_root / ".louke" / "project-state.json"
     project_id = ""
     if state_path.is_file():
@@ -1796,4 +1862,16 @@ async def run_detail_compat(request: Request) -> HTMLResponse:
             url=f"/workbench?activity=projects&project={project_id}",
             status_code=303,
         )
-    return _Redirect(url="/workbench?activity=projects", status_code=303)
+    # Unknown run: show a not-found / migration-required page.
+    return HTMLResponse(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        "<title>Louke — Run not found</title>"
+        f"<style>{_PROJECTS_STYLES}</style></head><body>"
+        '<div class="projects-card">'
+        "<h1>Run not found</h1>"
+        f"<p>The run <code>{escape(run_id)}</code> could not be mapped to a "
+        "Project. It may require migration or is read-only historical data.</p>"
+        '<p><a href="/workbench?activity=projects">Back to Projects</a></p>'
+        "</div></body></html>",
+        status_code=404,
+    )
