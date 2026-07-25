@@ -473,6 +473,71 @@ if __name__ == "__main__":
 """
 
 
+# ---------------------------------------------------------------------------
+# OpenCode CLI stand-in executable (``opencode`` replacement)
+# ---------------------------------------------------------------------------
+
+_OPENCODE_CLI_STANDIN_SCRIPT = """\
+#!/usr/bin/env python3
+\"\"\"Deterministic ``opencode`` CLI stand-in for the v0.14-004 Setup probe.
+
+Responds to the two ``opencode`` CLI invocations the Setup model probe issues:
+
+  * ``opencode models``                    -> list one configured model id
+  * ``opencode run --model <id> <prompt>`` -> exit 0 (a successful minimal request)
+
+Records every invocation in ``LOUKE_OPENCODE_CLI_LEDGER_PATH`` (JSON lines) so
+tests can independently prove a real ``opencode run --model`` happened. The
+advertised model id is controlled by ``LOUKE_OPENCODE_STANDIN_MODEL``
+(default ``minimax/m2``).
+\"\"\"
+from __future__ import annotations
+
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _record(ledger: str, entry: dict) -> None:
+    if not ledger:
+        return
+    entry["at"] = _now()
+    try:
+        with open(ledger, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, sort_keys=True) + "\\n")
+    except Exception:
+        pass
+
+
+def main(argv: list[str]) -> int:
+    ledger = os.environ.get("LOUKE_OPENCODE_CLI_LEDGER_PATH", "")
+    model = os.environ.get("LOUKE_OPENCODE_STANDIN_MODEL", "minimax/m2")
+    if argv and argv[0] == "models":
+        _record(ledger, {"argv": argv, "kind": "models", "model": model})
+        print(model)
+        return 0
+    if argv and argv[0] == "run":
+        run_model = ""
+        for i, tok in enumerate(argv):
+            if tok == "--model" and i + 1 < len(argv):
+                run_model = argv[i + 1]
+        _record(ledger, {"argv": argv, "kind": "run", "model": run_model})
+        print("hi")
+        return 0
+    _record(ledger, {"argv": argv, "kind": "unsupported"})
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
+"""
+
+
 @dataclass
 class GhLedgerEntry:
     kind: str
@@ -511,6 +576,8 @@ class IsolatedWorkspace:
     bare_remote: Path
     gh_ledger: Path
     gh_bin: Path
+    opencode_bin: Path | None = None
+    opencode_ledger: Path | None = None
 
     def git(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -682,6 +749,18 @@ def build_isolated_workspace(
     gh_bin.write_text(_GH_STANDIN_SCRIPT, encoding="utf-8")
     gh_bin.chmod(gh_bin.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
+    # v0.14-004: an ``opencode`` CLI stand-in for the Setup model probe. It
+    # lives in the same bin dir as the ``gh`` stand-in so the conftest PATH
+    # addition (``workspace.gh_bin.parent``) puts both on PATH. It answers
+    # ``opencode models`` and ``opencode run --model <id>`` deterministically
+    # and records each call to ``LOUKE_OPENCODE_CLI_LEDGER_PATH``.
+    opencode_bin = gh_dir / "opencode"
+    opencode_ledger = tmp_path / "opencode-cli-standin-ledger.jsonl"
+    opencode_bin.write_text(_OPENCODE_CLI_STANDIN_SCRIPT, encoding="utf-8")
+    opencode_bin.chmod(
+        opencode_bin.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+    )
+
     bare_remote = tmp_path / "bare-remote.git"
     subprocess.run(
         ["git", "init", "--bare", str(bare_remote)],
@@ -752,6 +831,8 @@ def build_isolated_workspace(
         bare_remote=bare_remote,
         gh_ledger=gh_ledger,
         gh_bin=gh_bin,
+        opencode_bin=opencode_bin,
+        opencode_ledger=opencode_ledger,
     )
 
 

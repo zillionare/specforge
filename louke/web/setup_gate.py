@@ -145,6 +145,7 @@ class SetupGateMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app, workspace_root: str | Path) -> None:
         super().__init__(app)
+        self._workspace_root = Path(workspace_root)
         self._gate = SetupGate(workspace_root=workspace_root)
 
     async def dispatch(self, request: Request, call_next) -> Response:
@@ -157,6 +158,17 @@ class SetupGateMiddleware(BaseHTTPMiddleware):
         Returns:
             A redirect (303), a 428 JSON error, or the handler response.
         """
+        # Re-read the manifest on every request so the gate observes Setup
+        # completion without a server restart. The Setup API/page mutate the
+        # manifest in-process; without this refresh a freshly completed Setup
+        # would keep redirecting the Human back to ``/setup`` because the gate
+        # still held the startup-time status. ``try_read_manifest`` fails
+        # closed (``None`` on a corrupt/unknown manifest), in which case the
+        # last-known status is retained.
+        manifest = try_read_manifest(self._workspace_root)
+        if manifest is not None:
+            self._gate.set_status(manifest.status.value)
+
         path = request.url.path
         if path.startswith(_API_PREFIX):
             status_code, body = self._gate.guard_api(request.method, path)

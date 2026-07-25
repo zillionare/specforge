@@ -74,6 +74,8 @@ def live_server(tmp_path: Path):
     os.environ["PATH"] = os.pathsep.join([gh_dir, orig_path] if orig_path else [gh_dir])
     os.environ["LOUKE_GH_LEDGER_PATH"] = str(workspace.gh_ledger)
     os.environ["LOUKE_GH_OWNER"] = "zillionare"
+    if workspace.opencode_ledger is not None:
+        os.environ["LOUKE_OPENCODE_CLI_LEDGER_PATH"] = str(workspace.opencode_ledger)
     os.environ["LOUKE_OPENCODE_BASE_URL"] = opencode.base_url
     os.environ["LOUKE_OPENCODE_BACKEND"] = "real"
     os.environ["LOUKE_OPENCODE_USE_SERVER_DEFAULT"] = "1"
@@ -105,6 +107,7 @@ def live_server(tmp_path: Path):
         os.environ["PATH"] = orig_path
         os.environ.pop("LOUKE_GH_LEDGER_PATH", None)
         os.environ.pop("LOUKE_GH_OWNER", None)
+        os.environ.pop("LOUKE_OPENCODE_CLI_LEDGER_PATH", None)
         os.environ.pop("LOUKE_OPENCODE_BASE_URL", None)
         os.environ.pop("LOUKE_OPENCODE_BACKEND", None)
         os.environ.pop("LOUKE_OPENCODE_USE_SERVER_DEFAULT", None)
