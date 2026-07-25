@@ -88,11 +88,15 @@ from .pages.gates import (
 )
 from .pages.runs import (
     run_command as runs_page_command,
-    run_detail as runs_page_detail,
 )
 from .pages.migration import create_app as _create_migration_page_app
-from .pages.workbench import workbench, projects_compat, project_detail_compat
-from .pages.release import release_new_page
+from .pages.workbench import (
+    workbench,
+    projects_compat,
+    project_detail_compat,
+    run_detail_compat,
+    projects_new_compat,
+)
 from .api.files import files as end_user_files
 from .runs.badges import status_badge
 
@@ -329,7 +333,8 @@ def create_app(
                 "/projects/{project_id}/requirements/story",
                 endpoint=story_page,
             ),
-            Route("/projects/new", endpoint=release_new_page, methods=["GET"]),
+            # IF-COMPAT-01: /projects/new → Workbench New Project wizard.
+            Route("/projects/new", endpoint=projects_new_compat, methods=["GET"]),
             # IF-COMPAT-01: legacy /projects and /projects/{id} redirect to
             # the canonical Workbench Projects activity.
             Route("/projects", endpoint=projects_compat, methods=["GET"]),
@@ -338,7 +343,8 @@ def create_app(
                 endpoint=project_detail_compat,
                 methods=["GET"],
             ),
-            Route("/runs/{run_id}", endpoint=runs_page_detail),
+            # IF-COMPAT-01: legacy /runs/{id} resolves to the bound Project.
+            Route("/runs/{run_id}", endpoint=run_detail_compat, methods=["GET"]),
             Route(
                 "/runs/{run_id}/command",
                 endpoint=runs_page_command,
@@ -475,17 +481,21 @@ async def setup_home_redirect(request: Request) -> Response:
         return RedirectResponse(url="/setup", status_code=303)
 
     # Setup is complete -- resolve the active project URL.
+    # The v0.14-004 project-state.json (IF-PROJECT-01) is the authoritative
+    # source.  When absent the workspace is treated as "empty" (no project
+    # parameter) so the Human lands on the bare Projects activity.
     active_project_url: str | None = None
-    store = getattr(request.app.state, "store", None)
-    if store is not None:
+    import json as _json
+
+    project_state_path = workspace_root / ".louke" / "project-state.json"
+    if project_state_path.is_file():
         try:
-            project_info = store.project_info().get("project", {})
-            project_id = project_info.get("project_id") or project_info.get("project")
-            if project_id:
+            ps = _json.loads(project_state_path.read_text(encoding="utf-8"))
+            if ps.get("state") == "active" and ps.get("project_id"):
                 active_project_url = (
-                    f"/workbench?activity=projects&project={project_id}"
+                    f"/workbench?activity=projects&project={ps['project_id']}"
                 )
-        except Exception:
+        except (OSError, _json.JSONDecodeError, KeyError):
             pass
 
     facts = EntryFacts(

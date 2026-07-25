@@ -37,7 +37,7 @@ def test_runtime_run_is_visible_in_ui_projection_and_workbench(
 
     run = _create_runtime_run(client)
     projection = client.get("/api/ui/runs")
-    workbench = client.get("/workbench")
+    workbench = client.get("/workbench?activity=chat")
 
     assert projection.status_code == 200
     assert run["run_id"] in {item["run_id"] for item in projection.json()["current"]}
@@ -73,7 +73,9 @@ def test_runs_read_model_has_an_explicit_empty_state_without_legacy_file(
     assert not (tmp_path / ".louke" / "project" / "runs.json").exists()
     assert client.get("/api/ui/runs").json()["current"] == []
     assert client.get("/api/ui/runs").json()["history"] == []
-    assert 'data-testid="runs-empty-state"' in client.get("/workbench").text
+    assert (
+        'data-testid="runs-empty-state"' in client.get("/workbench?activity=chat").text
+    )
 
 
 def test_run_detail_events_gates_and_ui_share_runtime_store(

@@ -48,7 +48,9 @@ def _select_agent_source(tmp_path: Path) -> str:
     The caller must pass a workspace whose ``.louke/`` layout already
     includes a v2 complete Setup manifest (see :func:`_complete_workspace`).
     """
-    response = TestClient(create_app(_complete_workspace(tmp_path))).get("/workbench")
+    response = TestClient(create_app(_complete_workspace(tmp_path))).get(
+        "/workbench?activity=chat"
+    )
 
     assert response.status_code == 200
     html = response.text
@@ -61,7 +63,9 @@ def test_chat_delta_registers_message_id_before_transcript_refresh(
     tmp_path: Path,
 ) -> None:
     """An SSE-rendered assistant id must be known to refresh deduplication."""
-    response = TestClient(create_app(_complete_workspace(tmp_path))).get("/workbench")
+    response = TestClient(create_app(_complete_workspace(tmp_path))).get(
+        "/workbench?activity=chat"
+    )
 
     assert response.status_code == 200
     html = response.text
@@ -84,7 +88,9 @@ def test_chat_uses_normalized_agent_ids_and_inflight_submit_guard(
     tmp_path: Path,
 ) -> None:
     """Chat setup targets the selected Agent and admits one in-flight submit."""
-    response = TestClient(create_app(_complete_workspace(tmp_path))).get("/workbench")
+    response = TestClient(create_app(_complete_workspace(tmp_path))).get(
+        "/workbench?activity=chat"
+    )
 
     assert response.status_code == 200
     html = response.text

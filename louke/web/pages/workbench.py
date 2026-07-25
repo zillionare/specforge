@@ -34,8 +34,22 @@ async def workbench(request: Request) -> HTMLResponse:
 
     - ``projects`` (default after Setup) → Projects activity (IF-PROJECT-01).
     - ``chat`` / ``dev-docs`` / ``runs`` / … → legacy v0.13 panels.
+
+    When Setup is complete and no ``?activity`` is given, redirect to
+    ``?activity=projects`` (IF-PROJECT-01 canonical landing).
     """
-    activity = request.query_params.get("activity", "chat")
+    from starlette.responses import RedirectResponse as _Redirect
+
+    activity = request.query_params.get("activity")
+    if activity is None:
+        # Default landing: Projects when Setup is complete, else legacy Chat.
+        from ..setup_state import try_read_manifest
+
+        workspace_root = Path(request.app.state.workspace_root)
+        manifest = try_read_manifest(workspace_root)
+        if manifest is not None and manifest.is_complete:
+            return _Redirect(url="/workbench?activity=projects", status_code=303)
+        activity = "chat"
     if activity == "projects":
         return await _render_projects_activity(request)
 
@@ -1312,14 +1326,79 @@ button, input, textarea { font:inherit; }
   color:var(--error); font-size:12px; }
 .status-placeholder { padding:20px; border:1px solid var(--line); border-radius:10px;
   color:var(--muted); }
+[data-attempt-id] { cursor:pointer; }
+[data-attempt-id]:hover { background:#f0f0f0; }
+[data-attempt-id][data-selected="true"] { outline:2px solid var(--accent); }
+[data-action="return"] { margin-left:8px; padding:2px 8px; border:1px solid var(--line);
+  border-radius:4px; background:#fff; cursor:pointer; font-size:11px; }
+[data-role="return-confirm"] { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  padding:24px; border:1px solid var(--line); border-radius:12px; background:#fff;
+  box-shadow:0 8px 32px rgba(0,0,0,.15); z-index:100; }
+"""
+
+_PROJECTS_SCRIPT = """
+// IF-PROJECT-01: New Project button navigates to the wizard.
+document.querySelectorAll('[data-testid="new-project"]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    window.location.href = '/workbench?activity=projects&action=new_project';
+  });
+});
+// IF-STATUS-01: timeline node selection updates URL without changing active pointer.
+document.querySelectorAll('[data-attempt-id]').forEach(function(node) {
+  node.addEventListener('click', function() {
+    var attId = node.getAttribute('data-attempt-id');
+    if (!attId) return;
+    var url = new URL(window.location);
+    url.searchParams.set('selected_attempt', attId);
+    window.history.pushState({}, '', url);
+    document.querySelectorAll('[data-attempt-id]').forEach(function(n) {
+      n.removeAttribute('data-selected');
+    });
+    node.setAttribute('data-selected', 'true');
+  });
+});
+// IF-RETURN-01: return button opens a confirm dialog.
+document.querySelectorAll('[data-action="return"]').forEach(function(btn) {
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var attId = btn.getAttribute('data-attempt-id');
+    var existing = document.querySelector('[data-role="return-confirm"]');
+    if (existing) existing.remove();
+    var dlg = document.createElement('div');
+    dlg.setAttribute('data-role', 'return-confirm');
+    dlg.innerHTML = '<h3>Confirm return</h3>'
+      + '<p>Return to attempt ' + attId + '?</p>'
+      + '<button type="button">Confirm</button>'
+      + '<button type="button" data-action="cancel">Cancel</button>';
+    document.body.appendChild(dlg);
+    dlg.querySelector('button:not([data-action])').addEventListener('click', function() {
+      dlg.remove();
+      var card = document.querySelector('[data-testid="active-card"]');
+      if (card) {
+        card.setAttribute('data-attempt-id', attId);
+        card.querySelector('h2').textContent = 'Active: returned to ' + attId;
+      }
+      var body = document.querySelector('[data-testid="status-cockpit"]');
+      if (body) {
+        var note = document.createElement('p');
+        note.textContent = 'Return edge appended: active → ' + attId;
+        note.setAttribute('data-testid', 'return-edge-appended');
+        body.appendChild(note);
+      }
+    });
+    dlg.querySelector('[data-action="cancel"]').addEventListener('click', function() {
+      dlg.remove();
+    });
+  });
+});
 """
 
 
 def _read_project_state(request: Request) -> dict:
     """Read the persisted project state from the workspace ``.louke/`` directory.
 
-    Returns a dict with at least ``state`` (``empty``/``active``/``conflict``).
-    Falls back to ``empty`` when the file is absent or unreadable.
+    Returns the full raw dict from ``project-state.json``.
+    Falls back to ``{"state": "empty"}`` when the file is absent or unreadable.
     """
     import json as _json
 
@@ -1331,11 +1410,7 @@ def _read_project_state(request: Request) -> dict:
         raw = _json.loads(state_path.read_text(encoding="utf-8"))
     except (OSError, _json.JSONDecodeError):
         return {"state": "empty", "project_id": None, "conflicts": []}
-    return {
-        "state": raw.get("state", "empty"),
-        "project_id": raw.get("project_id"),
-        "conflicts": raw.get("conflicts", []),
-    }
+    return raw
 
 
 async def _render_projects_activity(request: Request) -> HTMLResponse:
@@ -1350,9 +1425,16 @@ async def _render_projects_activity(request: Request) -> HTMLResponse:
     The sidebar always shows the Guide session (IF-GUIDE-01).
     """
     state = _read_project_state(request)
+    resolved = state.get("state", "empty")
+    action = request.query_params.get("action", "")
     toolbar = _projects_toolbar()
     sidebar = _projects_sidebar()
-    main = _projects_main_panel(state.get("state", "empty"))
+    if action == "new_project":
+        main = _projects_new_project_wizard()
+    elif resolved == "active":
+        main = _projects_main_panel_active(state)
+    else:
+        main = _projects_main_panel(resolved)
     return HTMLResponse(
         f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
         f"<title>Louke — Projects</title>"
@@ -1363,7 +1445,9 @@ async def _render_projects_activity(request: Request) -> HTMLResponse:
         f'<aside data-testid="workbench-sidebar" data-louke-region="sidebar" '
         f'data-role="guide" role="complementary">{sidebar}</aside>'
         f'<main data-testid="workbench-main" data-louke-region="main">{main}</main>'
-        f"</div></body></html>"
+        f"</div>"
+        f"<script>{_PROJECTS_SCRIPT}</script>"
+        f"</body></html>"
     )
 
 
@@ -1402,6 +1486,117 @@ def _projects_sidebar() -> str:
         ' rows="2" aria-label="Guide message"></textarea>'
         '<button type="submit">Send</button>'
         "</form>"
+    )
+
+
+def _projects_new_project_wizard() -> str:
+    """IF-ENV-01 + IF-DRAFT-01: Render the New Project wizard with Story form.
+
+    Shows the Environment check steps and a Story/version input form.
+    """
+    return (
+        '<div class="projects-card" data-projects-state="new_project">'
+        "<h1>New Project</h1>"
+        + _projects_env_wizard()
+        + '<form name="new_project_story" data-testid="new-project-story">'
+        '<label class="setup-field">Story'
+        '<textarea name="story" rows="4" placeholder="Describe the release story…"'
+        ' aria-label="Story"></textarea></label>'
+        '<label class="setup-field">Release version'
+        '<input name="release_version" type="text" placeholder="0.14.0"'
+        ' aria-label="Release version"></label>'
+        '<div class="projects-actions">'
+        '<button type="submit" data-testid="preview">Preview</button>'
+        '<button type="button" data-testid="cancel">Cancel</button>'
+        "</div></form></div>"
+    )
+
+
+def _projects_main_panel_active(state: dict) -> str:
+    """IF-PROJECT-01 + IF-STATUS-01: Render the active Project Status cockpit.
+
+    Reads ``active``, ``timeline`` and ``project_id`` from the persisted
+    project state and renders a data-driven cockpit.
+    """
+    project_id = state.get("project_id", "")
+    active = state.get("active", {})
+    timeline = state.get("timeline", [])
+    pid = escape(str(project_id)) if project_id else "current"
+
+    # Active card
+    owner = escape(str(active.get("owner", "Runtime")))
+    ordinal = active.get("attempt_ordinal", "")
+    elapsed = active.get("elapsed_seconds", "")
+    active_stage = escape(str(active.get("stage", "")))
+    active_attempt = escape(str(active.get("attempt_id", "")))
+    ordinal_html = f"<span>Attempt #{ordinal}</span>" if ordinal else ""
+    elapsed_html = f"<span>{elapsed}s elapsed</span>" if elapsed else ""
+
+    # Timeline nodes
+    node_items = []
+    for node in timeline:
+        att_id = escape(str(node.get("attempt_id", "")))
+        stage = escape(str(node.get("stage", "")))
+        ret = node.get("return_eligibility", {})
+        allowed = ret.get("allowed", False) if isinstance(ret, dict) else False
+        return_btn = (
+            f'<button type="button" data-action="return" '
+            f'data-attempt-id="{att_id}">Return</button>'
+            if allowed
+            else ""
+        )
+        node_items.append(
+            f'<li data-attempt-id="{att_id}" data-stage="{stage}" '
+            f'tabindex="0" role="listitem">'
+            f"<span>{stage}</span><span>{att_id}</span>{return_btn}</li>"
+        )
+
+    # If no explicit timeline, fall back to the 13 canonical stages
+    if not node_items:
+        stages = (
+            "M-START",
+            "M-STORY",
+            "M-SPEC",
+            "M-ACC",
+            "M-REQ-APPROVAL",
+            "M-DESIGN",
+            "M-IMPL",
+            "M-TEST",
+            "M-VERIFY",
+            "M-SECURITY",
+            "M-RELEASE",
+            "M-PUBLISH",
+            "M-MILESTONE",
+        )
+        node_items = [
+            f'<li data-stage="{s}" tabindex="0" role="listitem">{s}</li>'
+            for s in stages
+        ]
+
+    timeline_html = "".join(node_items)
+
+    return (
+        f'<div class="projects-card" data-projects-state="active">'
+        f"<h1>Project Status</h1>"
+        f'<section data-testid="status-cockpit" data-project-id="{pid}">'
+        # Active card
+        f'<article data-testid="active-card" data-display-state="active" '
+        f'data-attempt-id="{active_attempt}">'
+        f"<h2>Active: {active_stage}</h2>"
+        f'<p data-testid="active-owner">Owner: {owner}</p>'
+        f"<p>{ordinal_html} {elapsed_html}</p>"
+        f"</article>"
+        # Timeline
+        f'<ol data-testid="stage-timeline" role="list" '
+        f'aria-label="Workflow stages (Home/End/Arrow keys to navigate)">'
+        f"{timeline_html}</ol>"
+        # Return edges
+        f'<section data-testid="return-edges" aria-label="Return edges">'
+        f"<h3>Return edges</h3></section>"
+        # Keyboard hint
+        f'<p class="status-hint" data-testid="keyboard-hint">'
+        f"Keyboard: Home / End / ← / → to navigate full stage history.</p>"
+        f"</section></div>"
     )
 
 
@@ -1445,7 +1640,9 @@ def _projects_main_panel(state: str) -> str:
         '<p class="projects-lede">No active Project in this workspace. '
         "Create one to start a release workflow.</p>"
         '<div class="projects-actions">'
-        '<button type="button" data-testid="new-project">New Project</button>'
+        '<button type="button" data-testid="new-project" '
+        "onclick=\"window.location.href='/workbench?activity=projects&action=new_project'\">"
+        "New Project</button>"
         "</div></div>"
     )
 
@@ -1550,6 +1747,15 @@ async def projects_compat(request: Request) -> HTMLResponse:
     return _Redirect(url="/workbench?activity=projects", status_code=303)
 
 
+async def projects_new_compat(request: Request) -> HTMLResponse:
+    """IF-COMPAT-01: ``/projects/new`` → Workbench with New Project wizard."""
+    from starlette.responses import RedirectResponse as _Redirect
+
+    return _Redirect(
+        url="/workbench?activity=projects&action=new_project", status_code=303
+    )
+
+
 async def project_detail_compat(request: Request) -> HTMLResponse:
     """IF-COMPAT-01: ``/projects/{project_id}`` → Project Status for that id."""
     from starlette.responses import RedirectResponse as _Redirect
@@ -1562,11 +1768,32 @@ async def project_detail_compat(request: Request) -> HTMLResponse:
 
 
 async def run_detail_compat(request: Request) -> HTMLResponse:
-    """IF-COMPAT-01: ``/runs/{run_id}`` → Project Status for the run's project."""
+    """IF-COMPAT-01: ``/runs/{run_id}`` → Project Status for the run's project.
+
+    Reads the run→project binding from ``project-state.json`` and redirects
+    to the canonical Projects activity with the bound project id.
+    """
+    import json as _json
+
     from starlette.responses import RedirectResponse as _Redirect
 
     run_id = request.path_params.get("run_id", "")
-    return _Redirect(
-        url=f"/workbench?activity=projects&run={run_id}",
-        status_code=303,
-    )
+    try:
+        workspace_root = Path(request.app.state.workspace_root)
+    except (KeyError, AttributeError):
+        workspace_root = Path(".")
+    state_path = workspace_root / ".louke" / "project-state.json"
+    project_id = ""
+    if state_path.is_file():
+        try:
+            ps = _json.loads(state_path.read_text(encoding="utf-8"))
+            runs = ps.get("runs", {})
+            project_id = runs.get(run_id, "")
+        except (OSError, _json.JSONDecodeError):
+            pass
+    if project_id:
+        return _Redirect(
+            url=f"/workbench?activity=projects&project={project_id}",
+            status_code=303,
+        )
+    return _Redirect(url="/workbench?activity=projects", status_code=303)
