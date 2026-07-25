@@ -164,7 +164,7 @@ Projects sidebar 始终有 Guide：空 Project session key 为 workspace + princ
 |---|---|---|
 | `louke/web/store.py` user/session persistence | 复用并迁移 | 保留 scrypt 首用户；Setup state 升级为 v2 CAS manifest |
 | `louke/models.py::probe_model` | 复用 adapter 能力 | 必须增加结构化结果、候选/总超时和调用记录；静态 list 不算成功 |
-| `louke/web/pages/setup.py` 旧六步 Wizard | 替代并退役旧路径 | 改为首用户/模型两上下文；删除 repository/dependencies/review/applying 产品路径 |
+| `louke/web/pages/setup.py` 旧六步 Wizard | 替代并退役旧路径 | 改为首用户/模型两上下文；删除 repository/dependencies/review/applying 产品路径。Archer 已交付接口桩（§14），Devon 替换行为体 |
 | `louke/web/api/readiness.py` 一体化 readiness | 拆分替代 | OpenCode probe归 Setup；gh/Git归按需 Environment Gate；Store/Catalog 不成为用户门禁 |
 | `louke/web/api/projects.py` 内存 Project create | 新写入退役、历史只读兼容 | 新 Project 必须走持久 `ReleaseEntryService`/Runtime；不得双写 |
 | `louke/runtime/release_entry.py`、Foundation、Story/Scribe | 复用并收紧 | 加 Environment revision、canonical version、单 Project identity 与 recovery；Foundation preflight只读 |
@@ -172,7 +172,9 @@ Projects sidebar 始终有 Guide：空 Project session key 为 workspace + princ
 | `louke/web/workflow_status.py` | 替代 projection | 增完整 definition、attempt、return edge、artifact/action/readback 字段 |
 | `louke/web/entry_resolver.py` | 替代规则 | 移除 `released` 默认落点；只返回 Setup、Projects active/empty/conflict |
 | `guide_projection.py` / `guide_context.py` | 复用 authority边界并持久化扩充 | 增 context、ordered runtime/advice message 和 dedupe ledger |
+| `louke/web/setup_journey.py` 旧六步模型 | 删除（耦合页面迁移） | 页面桩已移除对 `setup_journey` 的 import；Devon 实现页面后该模块成为死代码，必须删除。`tests/unit/web/test_setup_journey.py` 同步删除 |
 | 旧 v0.14-004 integration/e2e | fixture/harness 可复用，断言重写 | 旧 Setup Wizard 行为不计入当前 44 AC evidence，不允许保留相反断言 |
+| `louke/web/opencode_probe.py` 诊断合同 | 修复（无需桩） | 函数签名正确；`run_minimal` 的 `diagnosis` 必须改为 `{object,known_facts,impact,recovery_url}` 四字段并 redact `stderr_snippet`，当前实现泄漏 provider secret |
 | Issue `#322`—`#342` | `reconcile-required` | Requirement ID 仍存在，但本调用没有可信 remote body/readback；Runtime/Sage必须按当前三份 digest逐条比较后复用或 supersede，Devon不得把旧 PASS 当实现证据 |
 | Issue `#343` (`NFR-0501`) | `removed/superseded` | 当前 locked Spec/Acceptance 没有该 requirement；不得为它发明实现或 AC |
 
@@ -284,3 +286,48 @@ Timeout：quality/ac-trace 15分钟；build/artifact/unit 20分钟；integration
 当前任务输入未提供 program-owned exact active machine-contract schema reference、instance路径或对应逐路径授权；本 Spec也未把 Agent prompt列为规范性工件。因此本 design revision不生成、自证或激活 machine-contract/prompt candidate。Runtime必须在缺少 exact active reference时 fail closed，不能从旧 instance或本设计文档推断 schema。
 
 在上述 program输入缺口之外，产品模块、公开接口、测试资产、数据、版本 adapter 和 CI方案均已确定：Devon可以按 `interfaces.md` 实现，Shield可以按 `test-plan.md` 独立准备 integration/e2e。实现不得保留旧连续 Setup Wizard作为平行成功路径，也不得把旧 Issue/test PASS当当前 44 AC evidence。
+
+## 14. 接口桩（Interface Stubs）
+
+> 本节遵循 Archer.md §5.3.5 接口桩约定。桩是 interfaces.md 的可执行形态，让 Shield 的契约测试在 Devon 实现之前即可 collect/import。
+
+### 14.1 已交付桩
+
+| 桩文件 | 合同 token | 替换目标 | composition root 接线 |
+|---|---|---|---|
+| `louke/web/pages/setup.py` | `IF-SETUP-01`、`IF-SETUP-02` | 旧 982 行六步 Wizard 页面 | `louke/web/app.py:82` `from .pages.setup import create_app as _create_setup_page_app`；`app.py:341` `Mount("/setup", app=setup_page_app)` |
+
+桩签名锁定如下：
+
+- `create_app() -> Starlette`：只注册 `/` 路由（`setup_root` handler）；旧六步路由 `/identity/`、`/repository/`、`/dependencies/`、`/review/`、`/applying/`、`/complete/` 不注册，自然 404。
+- `async setup_root(request: Request) -> Response`：行为体 `raise NotImplementedError("IF-SETUP-01")`。Devon 实现时根据 `request.app.state.workspace_root` 读取 v2 manifest projection，按 `pending_user`/`pending_model`/`complete` 渲染对应上下文。
+- `async _fetch_setup_status(api_base: str, *, request: Request | None = None) -> dict`：测试 seam，行为体 `raise NotImplementedError("IF-SETUP-01")`。生产实现调用 `GET /api/setup/status`；测试通过 `patch.object(setup_page, "_fetch_setup_status", ...)` 注入真实 projection。
+- `async _post_first_user(api_base: str, *, name: str, credential: str) -> dict`：测试 seam，行为体 `raise NotImplementedError("IF-SETUP-02")`。生产实现调用 `POST /api/setup/first-user`。
+
+### 14.2 不需要桩的模块
+
+以下模块已存在且签名/路由与 interfaces.md 一致，Shield 测试可直接 import/collect：
+
+| 模块 | 状态 | 备注 |
+|---|---|---|
+| `louke/web/setup_state.py` | ✓ 已实现 | v2 manifest 三态 CAS、`SetupManifest`/`ModelCheck`/`SetupStatus` |
+| `louke/web/setup_gate.py` | ✓ 已实现 | `SetupGateMiddleware` 全局入口保护 |
+| `louke/web/first_user.py` | ✓ 已实现 | 首用户创建命令 |
+| `louke/web/setup_projection.py` | ✓ 已实现 | `read()` 返回 IF-SETUP-01 projection dict |
+| `louke/web/environment_gate.py` | ✓ 已实现 | `start_check`/`repository_preview`/`repository_confirm` |
+| `louke/web/draft_storage.py` | ✓ 已实现 | `create_draft`/`draft_key` |
+| `louke/web/guide_session.py` | ✓ 已实现 | `create_session` |
+
+### 14.3 Devon 实现交接清单
+
+1. **替换 `louke/web/pages/setup.py` 桩行为体**：实现 `setup_root` 根据 manifest status 渲染两上下文页面；实现 `_fetch_setup_status`/`_post_first_user` seam 调用真实 API。不得修改 `create_app()` 签名或路由注册。
+2. **修复 `louke/web/opencode_probe.py` 诊断**：`run_minimal` 的 timeout 和 nonzero-exit diagnosis 必须改为 `{object, known_facts, impact, recovery_url}` 四字段结构，并 redact `stderr_snippet` 中的 provider secret。函数签名不变。
+3. **删除 `louke/web/setup_journey.py`**：页面桩已移除对该模块的 import；Devon 实现页面后确认无其它引用，删除该模块及 `tests/unit/web/test_setup_journey.py`。
+4. **删除旧六步测试**：按 Shield 的 `deprecated-tests-removal-list.md` 删除 14 个 integration + 4 个 e2e 旧六步 Wizard 测试文件，并清理 conftest skip 规则。
+
+### 14.4 ATDD 闭合
+
+- Shield 的 `tests/unit/web/pages/test_setup.py`（已在 commit `121dcfc` 改写为两上下文合同）可直接 collect：`setup_page.create_app()` 返回 Starlette app，`GET /` 触发 `NotImplementedError("IF-SETUP-01")` 产生可归因 RED。
+- `tests/e2e/v014_workspace_onboarding/test_journey_setup_wizard.py`（已在 `121dcfc` 改写）同理：浏览器访问 `/setup` 得到 500（NotImplementedError），测试在首步断言失败，RED 可归因到 `IF-SETUP-01`。
+- 旧六步路由 `/repository/`、`/dependencies/`、`/review/`、`/applying/` 在桩中不注册，返回 404；`test_setup_retired_step_routes_removed` 直接 GREEN。
+- Devon 实现页面后，上述测试从 RED 转 GREEN，无需修改测试签名或断言。

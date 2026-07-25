@@ -123,44 +123,62 @@ def _iter_test_files(tests_path: Path) -> Iterable[Path]:
         yield path
 
 
-def collect_ac_refs(tests_path: Path) -> frozenset[str]:
+def _normalize_tests_paths(tests_path: Path | Iterable[Path]) -> tuple[Path, ...]:
+    """Normalise ``tests_path`` to a tuple of one or more test roots.
+
+    Accepts either a single :class:`Path` (backward compatible) or an
+    iterable of paths (multi-root scoping). A single path lets the legacy
+    ``--tests tests`` invocation keep working; multiple paths let a
+    spec-scoped gate measure only that spec's own test directories so
+    cross-spec AC tokens cannot mask a coverage gap.
+    """
+    if isinstance(tests_path, Path):
+        return (tests_path,)
+    return tuple(tests_path)
+
+
+def collect_ac_refs(tests_path: Path | Iterable[Path]) -> frozenset[str]:
     """Return the set of AC IDs referenced by any test file under
-    ``tests_path``."""
+    ``tests_path`` (a single root or an iterable of roots)."""
     refs: set[str] = set()
-    for path in _iter_test_files(tests_path):
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        for m in _AC_ID_PATTERN.finditer(text):
-            refs.add(m.group(0).upper())
+    for root in _normalize_tests_paths(tests_path):
+        for path in _iter_test_files(root):
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for m in _AC_ID_PATTERN.finditer(text):
+                refs.add(m.group(0).upper())
     return frozenset(refs)
 
 
-def _tests_without_ac(tests_path: Path) -> tuple[str, ...]:
+def _tests_without_ac(tests_path: Path | Iterable[Path]) -> tuple[str, ...]:
     """Return test file names that do not reference any AC ID."""
     without: list[str] = []
-    for path in _iter_test_files(tests_path):
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        if not _AC_ID_PATTERN.search(text):
-            without.append(path.name)
+    for root in _normalize_tests_paths(tests_path):
+        for path in _iter_test_files(root):
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if not _AC_ID_PATTERN.search(text):
+                without.append(path.name)
     return tuple(sorted(set(without)))
 
 
 def build_closure_report(
     *,
     acceptance_path: Path,
-    tests_path: Path,
+    tests_path: Path | Iterable[Path],
     spec_path: Path | None = None,
 ) -> ClosureReport:
     """Build the AC closure report.
 
     Args:
         acceptance_path: Path to ``acceptance.md``.
-        tests_path: Path to the ``tests/`` directory.
+        tests_path: A single ``tests/`` root or an iterable of roots.
+            Multiple roots scope the scan to a spec's own test directories
+            so cross-spec AC tokens cannot mask a coverage gap.
         spec_path: Optional path to ``spec.md``. Defaults to the sibling
             ``spec.md`` next to ``acceptance_path``.
 
@@ -220,8 +238,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--tests",
         type=Path,
+        nargs="+",
         required=True,
-        help="Path to the tests/ directory",
+        help=(
+            "One or more test roots. A single root scans the whole tree; "
+            "multiple roots scope the scan to a spec's own test directories."
+        ),
     )
     parser.add_argument(
         "--expected-count",
@@ -233,9 +255,10 @@ def main(argv: list[str] | None = None) -> int:
     if not args.acceptance.is_file():
         print(f"acceptance file not found: {args.acceptance}", file=sys.stderr)
         return 1
-    if not args.tests.is_dir():
-        print(f"tests directory not found: {args.tests}", file=sys.stderr)
-        return 1
+    for tests_root in args.tests:
+        if not tests_root.is_dir():
+            print(f"tests directory not found: {tests_root}", file=sys.stderr)
+            return 1
     report = build_closure_report(
         acceptance_path=args.acceptance,
         tests_path=args.tests,

@@ -1,982 +1,107 @@
-"""``/setup`` page sub-app: continuous Setup Wizard (B3a / FR-0101).
+"""IF-SETUP-01 / IF-SETUP-02: Two-context Setup page (interface stub).
 
-Renders a step-by-step Wizard surface for the FR-0101 Setup contract:
-``identity -> repository -> dependencies -> review -> applying -> complete``.
+This file is an **Archer interface stub** (Archer.md §5.3.5).  Devon
+replaces the ``raise NotImplementedError`` bodies with real rendering
+logic; the function signatures, route registration and composition-root
+contract (``create_app``) are **locked** by ``interfaces.md``.
 
-The page is reachable from any step and supports return navigation: the
-Wizard exposes per-step routes ``/setup/<step>/`` plus ``/setup/<step>/complete``
-POST handler and ``/setup/return/<step>`` to revise an earlier choice.
-Readiness and first-user creation remain first-class destinations within
-the same shell; no separate landing page exists.
+The locked v0.14-004 baseline replaces the retired six-step Setup Wizard
+(``identity -> repository -> dependencies -> review -> applying ->
+complete``) with a two-context Setup page:
 
-Upstream HTTP calls go through module-level seams (``_fetch_readiness`` and
-``_post_first_user``) so tests can patch them without a live server.
+  1. ``pending_user``  -> the first-user creation form.
+  2. ``pending_model`` -> the OpenCode model-check view with Retry.
+
+On ``complete`` the page redirects to ``/workbench?activity=projects``.
+The retired per-step routes ``/setup/repository/``, ``/setup/dependencies/``,
+``/setup/review/`` and ``/setup/applying/`` are **not registered** and
+return 404.
+
+Composition root: ``louke.web.app`` imports ``create_app`` and mounts it
+at ``/setup`` (``app.py:82``, ``app.py:341``).
 """
 
 from __future__ import annotations
 
-import secrets
-import subprocess
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs
 
-import httpx
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, RedirectResponse, Response
+from starlette.responses import Response
 from starlette.routing import Route
 
-from ..setup_journey import (
-    SetupStep,
-    SetupJourney,
-    render_step_views,
-)
-
-#: Base URL for upstream API calls. Empty string means same-origin.
-_API_BASE: str = ""
-
-
-def create_app() -> Starlette:
-    """Return a self-contained Starlette sub-app for the ``/setup`` page."""
-    return Starlette(routes=_routes())
-
-
-def _routes() -> list[Route]:
-    """Return the routes for the setup wizard page."""
-    return [
-        Route("/", endpoint=wizard_root, methods=["GET"]),
-        Route("/identity/", endpoint=step_identity_get, methods=["GET"]),
-        Route(
-            "/identity/complete",
-            endpoint=step_identity_complete,
-            methods=["POST"],
-        ),
-        Route("/repository/", endpoint=step_repository_get, methods=["GET"]),
-        Route(
-            "/repository/complete",
-            endpoint=step_repository_complete,
-            methods=["POST"],
-        ),
-        Route("/dependencies/", endpoint=step_dependencies_get, methods=["GET"]),
-        Route(
-            "/dependencies/complete",
-            endpoint=step_dependencies_complete,
-            methods=["POST"],
-        ),
-        Route("/review/", endpoint=step_review_get, methods=["GET"]),
-        Route(
-            "/review/complete",
-            endpoint=step_review_complete,
-            methods=["POST"],
-        ),
-        Route("/applying/", endpoint=step_applying_get, methods=["GET"]),
-        Route("/complete/", endpoint=step_complete_get, methods=["GET"]),
-        Route(
-            "/return/{step}",
-            endpoint=wizard_return,
-            methods=["POST"],
-        ),
-        Route("/first-user", endpoint=create_first_user, methods=["POST"]),
-        Route("/reset", endpoint=wizard_reset, methods=["POST"]),
-    ]
-
 
 # ---------------------------------------------------------------------------
-# Persistence seam
+# Test seams (production implementations call the real API)
 # ---------------------------------------------------------------------------
 
 
-def _read_persisted_state(
-    api_base: str, request: Request | None = None
+async def _fetch_setup_status(
+    api_base: str, *, request: Request | None = None
 ) -> dict[str, Any]:
-    """Read the persisted setup state via the API; return empty on miss.
+    """IF-SETUP-01: Fetch the Setup projection from the backend API.
 
-    Uses an in-process direct call to the store rather than going through
-    uvicorn.  Going through the HTTP socket would block the event loop and
-    could observe torn writes during the redirect chain.
+    Test seam: tests patch this with ``patch.object(setup_page,
+    "_fetch_setup_status", ...)`` to feed the real projection derived
+    from an on-disk v2 manifest.  The production implementation calls
+    ``GET /api/setup/status``.
+
+    If a future implementation reads the projection directly from the
+    bound workspace (``request.app.state.workspace_root``) and drops
+    this seam, the test patch degrades to a no-op.
     """
-
-    payload = _direct_store_call(request, lambda store: store.read_setup_state())
-    return payload if isinstance(payload, dict) else {}
-
-
-def _persist_state(
-    api_base: str, payload: dict[str, Any], request: Request | None = None
-) -> bool:
-    """Persist setup state atomically via the store; return True on success."""
-    from ..store import ProjectStore
-
-    def _write(store: ProjectStore) -> None:
-        store.write_setup_state(payload)
-
-    return bool(_direct_store_call(request, _write))
-
-
-def _direct_store_call(request: Request | None, fn):
-    """Run ``fn(project_store)`` against the workspace backing the server.
-
-    Prefers ``request.app.state.workspace_root`` so the page reads and
-    writes the same store the API uses.  Falls back to ``Path.cwd()``
-    for tests that do not bind the workspace root on the sub-app state.
-    """
-    from ..store import ProjectStore
-
-    candidates: list[Path] = []
-    if request is not None:
-        root = getattr(request.app.state, "workspace_root", None)
-        if root is not None:
-            candidates.append(Path(root))
-    candidates.append(Path.cwd())
-    for root in candidates:
-        if (root / ".louke" / "project" / "project.toml").exists():
-            try:
-                return fn(ProjectStore(root))
-            except Exception:
-                continue
-    return None
-
-
-def _journey_from_payload(payload: dict[str, Any]) -> SetupJourney:
-    """Build a SetupJourney from the API's persisted-state dict."""
-    try:
-        step = SetupStep(payload.get("current_step") or SetupStep.IDENTITY.value)
-    except ValueError:
-        step = SetupStep.IDENTITY
-    completed_raw = payload.get("completed_steps") or []
-    completed: tuple[SetupStep, ...] = tuple(
-        SetupStep(c) for c in completed_raw if c in {s.value for s in SetupStep}
-    )
-    blocking_raw = payload.get("blocking_items") or []
-    blocking: tuple[str, ...] = tuple(str(b) for b in blocking_raw)
-    selections_raw = payload.get("selections") or {}
-    selections: tuple[tuple[str, str], ...] = tuple(
-        (str(k), str(v)) for k, v in selections_raw.items()
-    )
-    return SetupJourney(
-        current_step=step,
-        completed_steps=completed,
-        blocking_items=blocking,
-        selections=selections,
-    )
-
-
-def _payload_from_journey(journey: SetupJourney) -> dict[str, Any]:
-    """Render a SetupJourney as the API's persisted-state dict shape."""
-    return {
-        "current_step": journey.current_step.value,
-        "completed_steps": [s.value for s in journey.completed_steps],
-        "blocking_items": list(journey.blocking_items),
-        "selections": dict(journey.selections),
-    }
-
-
-# ---------------------------------------------------------------------------
-# Wizard root / navigation
-# ---------------------------------------------------------------------------
-
-
-async def wizard_root(request: Request) -> Response:
-    """GET /setup: redirect to the current step page or render first-user form.
-
-    When the user has not yet created a first principal, show the first-user
-    creation form. Otherwise redirect to the current step page.
-    """
-    api_base = _api_base(request)
-    try:
-        status = await _fetch_setup_status(api_base)
-    except Exception:
-        status = {"initialized": False}
-    if not status.get("initialized"):
-        return await setup_page(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    return RedirectResponse(
-        url=f"/setup/{journey.current_step.value}/", status_code=303
-    )
-
-
-async def wizard_return(request: Request) -> Response:
-    """POST /setup/return/<step>: revise an earlier step.
-
-    Invalidates dependent downstream results by re-anchoring the journey to
-    ``step``. Returns the user to that step's page.
-    """
-    step_name = request.path_params["step"]
-    api_base = _api_base(request)
-    try:
-        target = SetupStep(step_name)
-    except ValueError:
-        return RedirectResponse(url="/setup/", status_code=303)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    updated = journey.return_to(target)
-    _persist_state(api_base, _payload_from_journey(updated), request)
-    return RedirectResponse(url=f"/setup/{target.value}/", status_code=303)
-
-
-async def wizard_reset(request: Request) -> Response:
-    """POST /setup/reset: clear persisted state and return to identity."""
-    api_base = _api_base(request)
-    _persist_state(api_base, _payload_from_journey(SetupJourney.new()), request)
-    return RedirectResponse(url="/setup/identity/", status_code=303)
-
-
-# ---------------------------------------------------------------------------
-# Step handlers (GET)
-# ---------------------------------------------------------------------------
-
-
-async def _common_render(
-    request: Request,
-    journey: SetupJourney,
-    body_html: str,
-    *,
-    can_advance: bool,
-) -> HTMLResponse:
-    """Render the wizard shell with the given step body.
-
-    Args:
-        request: Incoming HTTP request.
-        journey: Current Setup journey projection.
-        body_html: Per-step HTML body content.
-        can_advance: Whether the user may submit "Complete this step".
-
-    Returns:
-        An HTMLResponse with the wizard shell rendered around the body.
-    """
-    setup_only = bool(getattr(request.app.state, "setup_only", True))
-    return HTMLResponse(
-        _render_wizard(
-            setup_only=setup_only,
-            journey=journey,
-            body_html=body_html,
-            can_advance=can_advance,
-            error="",
-        )
-    )
-
-
-async def step_identity_get(request: Request) -> Response:
-    """GET /setup/identity/: render the first-user step form.
-
-    If no principal exists yet, render the first-user creation form.
-    Once a user exists, show the established panel. The wizard does
-    NOT auto-advance; if the user returned to this step, the journey
-    stays put until they explicitly proceed.
-    """
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    try:
-        status = await _fetch_setup_status(api_base)
-    except Exception:
-        status = {"initialized": False}
-    if not status.get("initialized"):
-        # First-user form: identity is not yet complete. Render the same
-        # backward-compatible form, but inside the wizard shell.
-        body = await _first_user_form_html(status)
-        return await _common_render(request, journey, body, can_advance=False)
-    body = _identity_done_html(status)
-    return await _common_render(request, journey, body, can_advance=False)
-
-
-async def step_identity_complete(request: Request) -> Response:
-    """POST /setup/identity/complete: complete the identity step.
-
-    The first-user creation itself is handled by ``/setup/first-user``. This
-    endpoint is hit after that submission to advance the wizard.
-    """
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    try:
-        status = await _fetch_setup_status(api_base)
-    except Exception:
-        status = {"initialized": False}
-    if not status.get("initialized"):
-        return RedirectResponse(url="/setup/identity/", status_code=303)
-    if SetupStep.IDENTITY not in journey.completed_steps:
-        journey = journey.complete_current()
-        _persist_state(api_base, _payload_from_journey(journey), request)
-    return RedirectResponse(url="/setup/repository/", status_code=303)
-
-
-async def step_repository_get(request: Request) -> Response:
-    """GET /setup/repository/: render the init/clone choice form."""
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    body = _repository_form_html(journey)
-    return await _common_render(request, journey, body, can_advance=False)
-
-
-async def step_repository_complete(request: Request) -> Response:
-    """POST /setup/repository/complete: record the init/clone selection."""
-    api_base = _api_base(request)
-    body_args = _parse_form(await request.body())
-    mode = body_args.get("mode", "").strip()
-    remote_url = body_args.get("remote_url", "").strip()
-    if mode not in {"init", "clone"}:
-        return HTMLResponse(
-            "Repository selection requires a valid mode.",
-            status_code=400,
-        )
-    if mode == "clone" and not remote_url:
-        return HTMLResponse(
-            "Clone requires a remote URL.",
-            status_code=400,
-        )
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    if journey.current_step != SetupStep.REPOSITORY:
-        return RedirectResponse(
-            url=f"/setup/{journey.current_step.value}/", status_code=303
-        )
-    journey = journey.record_selection("mode", mode)
-    if remote_url:
-        journey = journey.record_selection("remote_url", remote_url)
-    journey = journey.complete_current()
-    _persist_state(api_base, _payload_from_journey(journey), request)
-    return RedirectResponse(url="/setup/dependencies/", status_code=303)
-
-
-async def step_dependencies_get(request: Request) -> Response:
-    """GET /setup/dependencies/: render the runtime readiness report."""
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    try:
-        items = await _fetch_readiness(api_base)
-    except Exception as exc:
-        items = []
-        error = str(exc)
-    else:
-        error = ""
-    # When the user has already selected init/clone at the repository
-    # step, the Git row is expected to be BLOCKED here because the
-    # side effect has not run yet.  Let them proceed to Review with a
-    # hint so they are not trapped on this page.
-    has_pending_apply = bool(journey.get_selection("mode"))
-    body = _dependencies_html(items, error=error, has_pending_apply=has_pending_apply)
-    blocked = [item["name"] for item in items if item.get("status") == "BLOCKED"]
-    blocking = tuple(blocked) if blocked else journey.blocking_items
-    journey = SetupJourney(
-        current_step=journey.current_step,
-        completed_steps=journey.completed_steps,
-        blocking_items=blocking,
-        selections=journey.selections,
-    )
-    _persist_state(api_base, _payload_from_journey(journey), request)
-    # User may proceed whenever they either have all-green readiness or
-    # have a pending Apply that will resolve the Git BLOCKED.
-    git_blocked = any(
-        item.get("name") == "Git" and item.get("status") == "BLOCKED" for item in items
-    )
-    non_git_blocked = [b for b in blocked if b != "Git"]
-    can_advance = not non_git_blocked and (not git_blocked or has_pending_apply)
-    return await _common_render(request, journey, body, can_advance=can_advance)
-
-
-async def step_dependencies_complete(request: Request) -> Response:
-    """POST /setup/dependencies/complete: advance once readiness is non-blocking."""
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    if journey.current_step != SetupStep.DEPENDENCIES:
-        return RedirectResponse(
-            url=f"/setup/{journey.current_step.value}/", status_code=303
-        )
-    journey = journey.complete_current()
-    _persist_state(api_base, _payload_from_journey(journey), request)
-    return RedirectResponse(url="/setup/review/", status_code=303)
-
-
-async def step_review_get(request: Request) -> Response:
-    """GET /setup/review/: show the writable summary before Apply."""
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    body = _review_html(journey)
-    return await _common_render(request, journey, body, can_advance=True)
-
-
-async def step_review_complete(request: Request) -> Response:
-    """POST /setup/review/complete: advance from review to applying."""
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    if journey.current_step != SetupStep.REVIEW:
-        return RedirectResponse(
-            url=f"/setup/{journey.current_step.value}/", status_code=303
-        )
-    journey = journey.complete_current()
-    _persist_state(api_base, _payload_from_journey(journey), request)
-    return RedirectResponse(url="/setup/applying/", status_code=303)
-
-
-async def step_applying_get(request: Request) -> Response:
-    """GET /setup/applying/: run repository provisioning (git init/clone) and roll to complete.
-
-    Applies the selections recorded at the repository step before the
-    journey advances.  Selections that fail to apply leave a blocking
-    item so the user can return to the repository step and retry.
-    """
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    if journey.current_step == SetupStep.APPLYING:
-        workspace_root = _resolve_workspace_root(request)
-        apply_result = _apply_repository_selections(
-            journey, workspace_root=workspace_root
-        )
-        if apply_result.ok:
-            journey = journey.complete_current()
-            _persist_state(api_base, _payload_from_journey(journey), request)
-        else:
-            blocked = journey.blocking_items + (apply_result.message,)
-            updated = SetupJourney(
-                current_step=journey.current_step,
-                completed_steps=journey.completed_steps,
-                blocking_items=blocked,
-                selections=journey.selections,
-            )
-            _persist_state(api_base, _payload_from_journey(updated), request)
-            journey = updated
-    body = _applying_html()
-    return await _common_render(request, journey, body, can_advance=True)
-
-
-@dataclass
-class _ApplyResult:
-    """Outcome of running a repository provisioning command."""
-
-    ok: bool
-    message: str
-
-
-def _resolve_workspace_root(request: Request) -> Path:
-    """Return the workspace root directory for side-effect operations."""
-    workspace_root = getattr(request.app.state, "workspace_root", None)
-    if workspace_root is not None:
-        return Path(workspace_root)
-    return Path.cwd()
-
-
-def _apply_repository_selections(
-    journey: SetupJourney, *, workspace_root: Path
-) -> _ApplyResult:
-    """Execute ``git init`` or ``git clone`` recorded at the repository step.
-
-    Strategy mirrors spec §4.3: ``init`` runs in-place when the workspace
-    is empty or already a safe Git worktree; ``clone`` always runs in a
-    sibling staging directory, then merges into the workspace root.
-    Returns ``_ApplyResult(ok=True)`` on success or
-    ``_ApplyResult(ok=False, message=...)`` when the operation fails or
-    no selection was recorded.
-    """
-    import shutil
-
-    mode = journey.get_selection("mode")
-    if mode is None:
-        return _ApplyResult(ok=False, message="Repository mode is not selected")
-    if mode == "init":
-        result = subprocess.run(
-            ["git", "-C", str(workspace_root), "rev-parse", "--git-dir"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode == 0:
-            return _ApplyResult(ok=True, message="")
-        result = subprocess.run(
-            ["git", "-C", str(workspace_root), "init"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            return _ApplyResult(
-                ok=False,
-                message=f"git init failed: {result.stderr.strip()}",
-            )
-        return _ApplyResult(ok=True, message="")
-    if mode == "clone":
-        remote_url = journey.get_selection("remote_url") or ""
-        if not remote_url:
-            return _ApplyResult(ok=False, message="Clone requires a remote URL")
-        # Use a sibling staging directory so a partially-populated
-        # workspace_root does not abort the clone.
-        staging_parent = workspace_root.parent
-        staging_name = f"{workspace_root.name}.louke-clone-{secrets.token_hex(4)}"
-        staging_dir = staging_parent / staging_name
-        try:
-            staging_dir.mkdir(parents=False, exist_ok=False)
-        except OSError as exc:
-            return _ApplyResult(
-                ok=False,
-                message=f"cannot create staging dir: {exc}",
-            )
-        try:
-            result = subprocess.run(
-                ["git", "clone", remote_url, str(staging_dir)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode != 0:
-                return _ApplyResult(
-                    ok=False,
-                    message=f"git clone failed: {result.stderr.strip()}",
-                )
-            # Move staged clone contents into the workspace_root.
-            staging_git = staging_dir / ".git"
-            if not staging_git.exists():
-                return _ApplyResult(
-                    ok=False,
-                    message="cloned tree does not contain .git",
-                )
-            target_git = workspace_root / ".git"
-            if target_git.exists():
-                shutil.rmtree(target_git)
-            shutil.move(str(staging_git), str(target_git))
-            # Copy tracked files from the staging tree to workspace_root,
-            # skipping files that already exist (do not overwrite user
-            # files).
-            tracked = subprocess.run(
-                [
-                    "git",
-                    "-C",
-                    str(staging_dir),
-                    "ls-files",
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if tracked.returncode == 0:
-                for relpath in tracked.stdout.splitlines():
-                    src = staging_dir / relpath
-                    dst = workspace_root / relpath
-                    if dst.exists() or dst.is_symlink():
-                        continue
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    if src.is_dir():
-                        continue
-                    shutil.copy2(src, dst)
-            return _ApplyResult(ok=True, message="")
-        finally:
-            if staging_dir.exists():
-                shutil.rmtree(staging_dir, ignore_errors=True)
-    return _ApplyResult(ok=False, message=f"Unknown repository mode: {mode}")
-
-
-async def step_complete_get(request: Request) -> Response:
-    """GET /setup/complete/: render the setup-complete confirmation page."""
-    api_base = _api_base(request)
-    journey = _journey_from_payload(_read_persisted_state(api_base, request))
-    body = _complete_html(journey)
-    return await _common_render(request, journey, body, can_advance=False)
-
-
-# ---------------------------------------------------------------------------
-# First-user handling (kept from B3a)
-# ---------------------------------------------------------------------------
-
-
-async def _fetch_readiness(api_base: str) -> list[dict[str, str]]:
-    """Fetch the readiness report from ``GET {api_base}/api/readiness``."""
-    async with httpx.AsyncClient(trust_env=False) as client:
-        resp = await client.get(f"{api_base}/api/readiness/")
-        resp.raise_for_status()
-        return list(resp.json().get("items", []))
+    raise NotImplementedError("IF-SETUP-01")
 
 
 async def _post_first_user(
     api_base: str, *, name: str, credential: str
 ) -> dict[str, Any]:
-    """POST the first-user form to ``{api_base}/api/setup/first-user``."""
-    async with httpx.AsyncClient(trust_env=False) as client:
-        resp = await client.post(
-            f"{api_base}/api/setup/first-user",
-            json={"name": name, "credential": credential},
-        )
-        resp.raise_for_status()
-        return dict(resp.json())
+    """IF-SETUP-02: Submit the first-user creation form to the backend API.
 
-
-async def _fetch_setup_status(api_base: str) -> dict[str, Any]:
-    """Fetch the persisted first-user status from the setup API."""
-    async with httpx.AsyncClient(trust_env=False) as client:
-        resp = await client.get(f"{api_base}/api/setup/status")
-        resp.raise_for_status()
-        return dict(resp.json())
-
-
-def _is_complete(items: list[dict[str, str]]) -> bool:
-    """Return True when every readiness item is READY."""
-    return all(item.get("status") == "READY" for item in items)
-
-
-async def setup_page(request: Request) -> Response:
-    """GET /setup: render the first-user form for a brand-new workspace."""
-    setup_only = bool(getattr(request.app.state, "setup_only", True))
-    try:
-        status = await _fetch_setup_status(_api_base(request))
-    except Exception:
-        status = {"initialized": False}
-    if status.get("initialized"):
-        return RedirectResponse(url="/setup/identity/", status_code=303)
-    body = await _first_user_form_html(status)
-    return HTMLResponse(
-        _render_wizard(
-            setup_only=setup_only,
-            journey=SetupJourney.new(),
-            body_html=body,
-            can_advance=False,
-            error="",
-        )
-    )
-
-
-async def create_first_user(request: Request) -> Response:
-    """POST /setup/first-user: forward the first-user form to the API.
-
-    On success, advances the wizard to the repository step.
+    Test seam; production calls ``POST /api/setup/first-user``.
     """
-    form = _parse_form(await request.body())
-    name = form.get("name", "")
-    credential = form.get("credential", "")
-    api_base = _api_base(request)
-    try:
-        await _post_first_user(api_base, name=name, credential=credential)
-    except Exception as exc:
-        return HTMLResponse(
-            _render_wizard(
-                setup_only=True,
-                journey=SetupJourney.new(),
-                body_html=await _first_user_form_html(
-                    {"initialized": False}, error=str(exc)
-                ),
-                can_advance=False,
-                error=str(exc),
-            ),
-            status_code=400,
-        )
-    # Mark identity complete and advance the journey to the next step.
-    journey = SetupJourney.new().complete_current()
-    _persist_state(api_base, _payload_from_journey(journey), request)
-    return RedirectResponse(url="/setup/repository/", status_code=303)
-
-
-def _api_base(request: Request) -> str:
-    """Return the absolute origin used for same-server API forwarding."""
-    return str(request.base_url).rstrip("/")
-
-
-def _parse_form(body: bytes) -> dict[str, str]:
-    """Parse a urlencoded form body into a flat dict of stripped values."""
-    pairs = parse_qs(body.decode("utf-8", errors="replace"))
-    return {key: (vals[0] if vals else "").strip() for key, vals in pairs.items()}
+    raise NotImplementedError("IF-SETUP-02")
 
 
 # ---------------------------------------------------------------------------
-# Per-step body fragments
+# Route handler
 # ---------------------------------------------------------------------------
 
 
-async def _first_user_form_html(status: dict[str, Any], *, error: str = "") -> str:
-    """Return the first-user form HTML fragment for the identity step."""
-    err_html = f'<div class="error">{_esc(error)}</div>' if error else ""
-    if status.get("initialized"):
-        return (
-            f"<p>First user already created.</p>"
-            f'<div class="provenance">principal_id: {_esc(str(status.get("first_principal_id", "")))}</div>'
-        )
-    return f"""
-<section>
-  <h2>First user</h2>
-  {err_html}
-  <form method="post" action="/setup/first-user">
-    <label for="name">Name</label>
-    <input id="name" name="name" type="text" required />
-    <label for="credential">Credential</label>
-    <input id="credential" name="credential" type="password" required />
-    <button type="submit">Create first user</button>
-  </form>
-</section>
-"""
+async def setup_root(request: Request) -> Response:
+    """IF-SETUP-01: Render the two-context Setup page at ``/``.
 
+    Devon implements:
 
-def _identity_done_html(status: dict[str, Any]) -> str:
-    """Return the identity-complete confirmation fragment."""
-    principal = status.get("first_principal_id") or ""
-    return f"""
-<section>
-  <h2>Local identity</h2>
-  <p class="ok">Identity established.</p>
-  <div class="provenance"><strong>Principal id:</strong> {_esc(principal)}</div>
-  <p><a class="primary-action" href="/setup/repository/">Continue to Repository</a></p>
-</section>
-"""
+    - ``pending_user`` -> 200 HTML with the first-user creation form
+      (``input[name="name"]``, ``input[name="credential"]``).
+    - ``pending_model`` -> 200 HTML with the model-check view and a
+      Retry entry; failure diagnosis shows ``object``, ``known_facts``,
+      ``impact`` and ``recovery_url``.
+    - ``complete`` -> 302/303 redirect to ``/workbench?activity=projects``.
 
-
-def _repository_form_html(journey: SetupJourney) -> str:
-    """Return the repository step HTML form fragment."""
-    mode_value = journey.get_selection("mode") or ""
-    remote_value = journey.get_selection("remote_url") or ""
-    return f"""
-<section>
-  <h2>Repository</h2>
-  <p>Choose how this workspace obtains a repository. The choice is recorded
-     only after Review and Confirm; nothing is executed here.</p>
-  <form method="post" action="/setup/repository/complete">
-    <fieldset>
-      <legend>Mode</legend>
-      <label><input type="radio" name="mode" value="init" {"checked" if mode_value == "init" else ""} />
-        Initialize a new repository in this workspace</label>
-      <label><input type="radio" name="mode" value="clone" {"checked" if mode_value == "clone" else ""} />
-        Clone an existing repository</label>
-    </fieldset>
-    <label for="remote_url">Remote URL (clone only)</label>
-    <input id="remote_url" name="remote_url" type="url" placeholder="https://github.com/org/repo.git" value="{_esc(remote_value)}" />
-    <p class="hint">URLs with userinfo or non-HTTP schemes are rejected before any side effect runs.</p>
-    <button type="submit">Continue</button>
-  </form>
-</section>
-"""
-
-
-def _dependencies_html(
-    items: list[dict[str, str]],
-    *,
-    error: str = "",
-    has_pending_apply: bool = False,
-) -> str:
-    """Render the dependencies step with readiness facts and provenance.
-
-    When ``has_pending_apply`` is True the user has already selected
-    repository init/clone in a prior step and the wizard has not yet
-    run the side effect.  In that case the ``Git`` BLOCKED is expected
-    and we let the user proceed to Review with an explicit warning
-    instead of trapping them on this page.
+    The handler reads the v2 manifest projection (via ``_fetch_setup_status``
+    or directly from ``request.app.state.workspace_root``) and renders
+    the appropriate context.  No retired six-step routes or markers
+    (``Runtime dependencies``, ``/setup/repository/``, etc.) may appear.
     """
-    err_html = f'<div class="error">{_esc(error)}</div>' if error else ""
-    if not items:
-        rows = "<li><em>No readiness items reported.</em></li>"
-    else:
-        rows = "".join(_render_item(i) for i in items)
-    blocked = any(item.get("status") == "BLOCKED" for item in items)
-    git_blocked = any(
-        item.get("name") == "Git" and item.get("status") == "BLOCKED" for item in items
-    )
-    show_continue = not blocked or (git_blocked and has_pending_apply)
-    if show_continue:
-        # Mark the Git row with a class that explains it is pending.
-        rows = _mark_git_pending(rows)
-        extra_hint = (
-            "<p><strong>Git is BLOCKED but you have a pending init/clone "
-            "selection.</strong> Review and Apply will run the operation; "
-            "continue to confirm.</p>"
-            if git_blocked and has_pending_apply
-            else ""
-        )
-        btn_label = "Continue to Review" if git_blocked else "Continue to Review"
-        continue_btn = (
-            f'<form method="post" action="/setup/dependencies/complete">'
-            f'<button type="submit">{btn_label}</button></form>'
-        )
-    else:
-        extra_hint = "<p>Resolve the BLOCKED items below, then return to this step.</p>"
-        continue_btn = (
-            '<form method="post" action="/setup/dependencies/complete">'
-            '<button type="submit" disabled>Continue to Review</button></form>'
-        )
-    return f"""
-<section>
-  <h2>Runtime dependencies</h2>
-  <p>Each item is checked against your installation. Continue only when
-     every required check is <strong>READY</strong>.</p>
-  {extra_hint}
-  {err_html}
-  <ul class="readiness">{rows}</ul>
-  {continue_btn}
-</section>
-"""
+    raise NotImplementedError("IF-SETUP-01")
 
 
-def _mark_git_pending(rows: str) -> str:
-    """Add the ``pending-apply`` class to the Git row when it is BLOCKED.
+# ---------------------------------------------------------------------------
+# Composition root
+# ---------------------------------------------------------------------------
 
-    The handler renders ``<li><strong>Git</strong> ...</li>`` for each
-    readiness item.  Tag the Git row so the page can show a hint about
-    the pending Apply side effect.
+
+def create_app() -> Starlette:
+    """Return the two-context Setup page sub-app.
+
+    Only ``/`` is registered; retired six-step routes naturally 404.
+    ``louke.web.app`` mounts this at ``/setup`` and sets
+    ``app.state.workspace_root`` on the returned instance.
     """
-    return rows.replace(
-        "<li><strong>Git</strong>",
-        '<li class="pending-apply"><strong>Git</strong>',
-        1,
-    )
-
-
-def _review_html(journey: SetupJourney) -> str:
-    """Render the Review step with the writable summary before Apply."""
-    mode = journey.get_selection("mode") or "(not selected)"
-    remote = journey.get_selection("remote_url") or "(none)"
-    return f"""
-<section>
-  <h2>Review</h2>
-  <p>These operations will run on Confirm. Nothing is executed yet.</p>
-  <p>Every value below carries its provenance (the source of the fact):</p>
-  <table class="summary">
-    <tr><th>Local identity</th><td>established</td><td class="provenance">provenance: first principal persisted</td></tr>
-    <tr><th>Repository mode</th><td>{_esc(mode)}</td><td class="provenance">provenance: selected at /setup/repository/</td></tr>
-    <tr><th>Remote URL</th><td>{_esc(remote)}</td><td class="provenance">provenance: selected at /setup/repository/</td></tr>
-    <tr><th>Dependencies</th><td>all required READY</td><td class="provenance">provenance: readiness report</td></tr>
-  </table>
-  <form method="post" action="/setup/review/complete">
-    <button type="submit">Confirm and Apply</button>
-  </form>
-</section>
-"""
-
-
-def _applying_html() -> str:
-    """Render the Apply step body (stub)."""
-    return """
-<section>
-  <h2>Apply</h2>
-  <p>Setup is in the Apply phase. Click Continue to advance.</p>
-  <form method="post" action="/setup/review/complete">
-    <button type="submit">Continue</button>
-  </form>
-</section>
-"""
-
-
-def _complete_html(journey: SetupJourney) -> str:
-    """Render the final Complete step body."""
-    return """
-<section>
-  <h2>Setup Complete</h2>
-  <p class="ok">Your workspace is ready. You can begin a Story.</p>
-  <p><a class="primary-action" href="/projects/new">Start Story</a></p>
-</section>
-"""
-
-
-# ---------------------------------------------------------------------------
-# Wizard shell rendering
-# ---------------------------------------------------------------------------
-
-
-def _render_wizard(
-    *,
-    setup_only: bool,
-    journey: SetupJourney,
-    body_html: str,
-    can_advance: bool,
-    error: str,
-) -> str:
-    """Render the wizard shell HTML around a per-step body."""
-    views = render_step_views(journey)
-    stepper = _render_stepper(views)
-    blocking_html = _render_blocking(journey)
-    error_html = f'<div class="error">{_esc(error)}</div>' if error else ""
-    state = "setup-only" if setup_only else "normal"
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>louke setup</title>
-  <style>
-    body {{ font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; color: #111; }}
-    .shell {{ max-width: 720px; margin: 0 auto; padding: 48px 24px; }}
-    h1 {{ font-size: 24px; }} h2 {{ font-size: 18px; margin-top: 24px; }}
-    .state {{ display: inline-block; padding: 2px 8px; border-radius: 6px; background: #f3f4f6; font-size: 12px; }}
-    .stepper {{ display: flex; gap: 8px; flex-wrap: wrap; padding: 0; margin: 16px 0; list-style: none; }}
-    .stepper li {{ display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 999px; font-size: 13px; background: #fff; }}
-    .stepper li.completed {{ background: #ecfdf5; border-color: #a7f3d0; }}
-    .stepper li.current {{ background: #dbeafe; border-color: #93c5fd; font-weight: 600; }}
-    .stepper li.pending {{ background: #f9fafb; color: #6b7280; }}
-    .stepper li.blocked {{ background: #fee2e2; border-color: #fecaca; color: #991b1b; }}
-    .stepper .badge {{ display: inline-block; padding: 1px 6px; border-radius: 6px; font-size: 11px; background: rgba(0,0,0,0.05); }}
-    form {{ margin: 16px auto; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; max-width: 360px; }}
-    fieldset {{ border: 0; padding: 0; margin: 8px 0; }}
-    label {{ display: block; margin: 8px 0 4px; font-size: 13px; }}
-    input {{ width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }}
-    .hint {{ font-size: 12px; color: #6b7280; margin-top: 4px; }}
-    button {{ margin-top: 12px; padding: 8px 14px; background: #111; color: white; border: 0; border-radius: 6px; cursor: pointer; }}
-    button[disabled] {{ background: #9ca3af; cursor: not-allowed; }}
-    a.primary-action {{ display: inline-block; padding: 8px 14px; background: #111; color: white; border-radius: 6px; text-decoration: none; }}
-    .ok {{ color: #166534; }}
-    .provenance {{ font-size: 12px; color: #6b7280; }}
-    .error {{ color: #b91c1c; margin: 12px 0; }}
-    ul {{ padding-left: 18px; }} li {{ padding: 6px 0; border-bottom: 1px solid #f3f4f6; }}
-    .status-READY {{ color: #166534; font-weight: 600; }}
-    .status-BLOCKED {{ color: #b91c1c; font-weight: 600; }}
-    .status-DEGRADED {{ color: #b45309; font-weight: 600; }}
-    table.summary {{ width: 100%; border-collapse: collapse; margin: 12px 0; }}
-    table.summary th, table.summary td {{ text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }}
-    table.summary th {{ background: #f9fafb; }}
-  </style>
-</head>
-<body><main class="shell">
-  <h1>louke setup</h1>
-  <p>Project state: <span class="state">{_esc(state)}</span> mode</p>
-   {error_html}
-  <section>
-    <h2>Wizard</h2>
-    <ol class="stepper" aria-label="Setup progress">
-      {stepper}
-    </ol>
-  </section>
-  {blocking_html}
-  {body_html}
-</main></body>
-</html>
-"""
-
-
-def _render_stepper(views: tuple[Any, ...]) -> str:
-    """Render the wizard stepper markup."""
-    parts: list[str] = []
-    for view in views:
-        cls = view.state  # "completed" | "current" | "pending" | "blocked"
-        badge_map = {
-            "completed": "done",
-            "current": "now",
-            "pending": "next",
-            "blocked": "blocked",
-        }
-        parts.append(
-            f'<li class="{cls}"><span>{_esc(view.label)}</span>'
-            f'<span class="badge">{badge_map.get(cls, "")}</span></li>'
-        )
-    return "".join(parts)
-
-
-def _render_blocking(journey: SetupJourney) -> str:
-    """Render blocking items prominently near the top of the wizard."""
-    if not journey.blocking_items:
-        return ""
-    items = "".join(f"<li>{_esc(b)}</li>" for b in journey.blocking_items)
-    return (
-        f'<section class="blocking"><h2>Blocking items</h2><ul>{items}</ul></section>'
-    )
-
-
-def _render_item(item: dict[str, str]) -> str:
-    """Return the HTML list item for a single readiness check."""
-    name = _esc(item.get("name", ""))
-    status = _esc(item.get("status", ""))
-    diagnosis = _esc(item.get("diagnosis", ""))
-    remediation = _esc(item.get("remediation", ""))
-    return (
-        f"<li><strong>{name}</strong> "
-        f'<span class="status-{status}">{status}</span>'
-        f"<div>diagnosis: {diagnosis}</div>"
-        f"<div>remediation: {remediation}</div></li>"
-    )
-
-
-def _esc(text: str) -> str:
-    """Return an HTML-escaped version of ``text``."""
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&#39;")
+    return Starlette(
+        routes=[
+            Route("/", endpoint=setup_root, methods=["GET"]),
+        ],
     )
