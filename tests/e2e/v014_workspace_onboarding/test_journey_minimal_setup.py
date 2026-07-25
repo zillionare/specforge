@@ -87,7 +87,7 @@ def test_journey_minimal_setup_recovery_after_restart(browser_page, live_server)
 
     page.goto(f"{base_url}/setup", wait_until="domcontentloaded")
     page.fill('input[name="name"]', "demo_owner")
-    page.fill('input[name="credential"]', "x")
+    page.fill('input[name="credential"]', "canary")
     page.click('button[type="submit"]')
     page.wait_for_load_state("networkidle")
 

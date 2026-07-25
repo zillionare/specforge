@@ -55,7 +55,7 @@ def test_journey_login_lands_on_projects_empty(browser_page, live_server):
     )
     page.goto(f"{base_url}/login", wait_until="domcontentloaded")
     page.fill('input[name="name"]', "demo_owner")
-    page.fill('input[name="password"]', "x")
+    page.fill('input[name="password"]', "canary")
     page.click('button[type="submit"]')
     page.wait_for_load_state("networkidle")
     assert page.url.endswith("/workbench?activity=projects"), page.url
