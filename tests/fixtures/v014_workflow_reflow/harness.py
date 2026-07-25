@@ -534,8 +534,62 @@ class IsolatedWorkspace:
         self.git("branch", "-D", RELEASE_BRANCH)
 
 
+def _seed_setup_manifest(root: Path, setup_status: str) -> None:
+    """Seed the v2 Setup manifest at ``root`` for the requested state.
+
+    Args:
+        root: Workspace root (containing ``.louke/``).
+        setup_status: One of ``complete`` (default workspace; first user +
+            passed model probe), ``pending_model`` (first user established,
+            awaiting a model check), or ``pending_user`` (blank Setup).
+
+    Raises:
+        ValueError: If ``setup_status`` is not one of the three states.
+    """
+    from louke.web.setup_state import (
+        SetupManifest,
+        SetupStatus,
+        write_manifest,
+    )
+
+    manifest = SetupManifest(
+        workspace_id="ws_entry_slice",
+        revision=0,
+        status=SetupStatus.PENDING_USER,
+    )
+    if setup_status == "pending_user":
+        write_manifest(root, manifest)
+        return
+    manifest = manifest.advance_to_pending_model(
+        first_principal_id="prin_entry_slice",
+        expected_revision=0,
+    )
+    if setup_status == "pending_model":
+        write_manifest(root, manifest)
+        return
+    if setup_status == "complete":
+        manifest = manifest.complete(
+            model_check_state="passed",
+            model_check_id="chk_entry_slice",
+            model_check_revision=1,
+            model_id="minimax/m2",
+            diagnosis=None,
+            observed_at="2026-07-24T00:00:00Z",
+            expected_revision=1,
+        )
+        write_manifest(root, manifest)
+        return
+    raise ValueError(
+        f"unknown setup_status {setup_status!r}; expected one of "
+        "'complete', 'pending_model', 'pending_user'"
+    )
+
+
 def build_isolated_workspace(
-    tmp_path: Path, *, include_story: bool = False
+    tmp_path: Path,
+    *,
+    include_story: bool = False,
+    setup_status: str = "complete",
 ) -> IsolatedWorkspace:
     """Create a Louke-like workspace with a bare Git remote.
 
@@ -544,6 +598,16 @@ def build_isolated_workspace(
     ``main`` pushed to a bare ``origin``, and a stand-in ``gh`` script.
     ``story.md`` is intentionally left absent so Foundation creates it
     through the public controlled-worktree commit path.
+
+    Args:
+        tmp_path: Temp directory for the workspace.
+        include_story: Whether to seed a canonical ``story.md``.
+        setup_status: The v2 Setup manifest state to seed. ``"complete"``
+            (default) lets the v0.14-001 entry-slice endpoints run past the
+            v0.14-004 Setup gate; ``"pending_model"`` seeds an established
+            first user awaiting a model check; ``"pending_user"`` seeds a
+            blank Setup so the two-context Setup journey can be driven from
+            the first-user form.
     """
     root = tmp_path / "workspace"
     root.mkdir(parents=True)
@@ -594,38 +658,12 @@ def build_isolated_workspace(
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
-    # v0.14-004: write a v2 complete Setup manifest so the Setup
-    # gate (added in v0.14-004) does not block the v0.14-001
-    # entry-slice endpoints under test. The v0.14-001 flow itself
-    # does not include Setup; the manifest here represents a
-    # workspace that has already completed Setup.
-    from louke.web.setup_state import (
-        SetupManifest,
-        SetupStatus,
-        write_manifest,
-    )
-
-    manifest = (
-        SetupManifest(
-            workspace_id="ws_entry_slice",
-            revision=0,
-            status=SetupStatus.PENDING_USER,
-        )
-        .advance_to_pending_model(
-            first_principal_id="prin_entry_slice",
-            expected_revision=0,
-        )
-        .complete(
-            model_check_state="passed",
-            model_check_id="chk_entry_slice",
-            model_check_revision=1,
-            model_id="minimax/m2",
-            diagnosis=None,
-            observed_at="2026-07-24T00:00:00Z",
-            expected_revision=1,
-        )
-    )
-    write_manifest(root, manifest)
+    # v0.14-004: seed a v2 Setup manifest. The default ``complete`` lets the
+    # Setup gate (added in v0.14-004) pass so the v0.14-001 entry-slice
+    # endpoints under test are reachable; the v0.14-001 flow itself does not
+    # include Setup. ``pending_user`` / ``pending_model`` let the v0.14-004
+    # two-context Setup journey be driven from the matching context.
+    _seed_setup_manifest(root, setup_status)
 
     if include_story:
         story_template_path = REPO_ROOT / "louke" / "templates" / "story.md"
