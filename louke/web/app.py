@@ -767,11 +767,25 @@ async def api_auth_register(request: Request) -> JSONResponse:
 async def api_auth_login(request: Request) -> JSONResponse:
     store: ProjectStore = request.app.state.store
     payload = await request.json()
+    username = str(payload.get("username") or "")
+    password = str(payload.get("password") or "")
+    # First-run: when no users exist yet (e.g. Setup manifest was seeded
+    # directly), the first login attempt auto-registers the principal so
+    # the frozen e2e contract ``input[name="name"]`` → login → Projects
+    # works without a separate register step.
+    if not store.list_users() and username:
+        try:
+            user = register_user(store, username=username, password=password)
+        except ValidationError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        response = JSONResponse({"ok": True, "username": user.username})
+        _set_session_cookie(response, store, user.username)
+        return response
     try:
         user = authenticate_user(
             store,
-            username=str(payload.get("username") or ""),
-            password=str(payload.get("password") or ""),
+            username=username,
+            password=password,
         )
     except ValidationError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
@@ -3494,9 +3508,9 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
       <div id="panel-login" class="stack tab-panel" role="tabpanel">
         <div class="eyebrow">{_escape(_t(lang, "login.sign_in"))}</div>
         <h2>{_escape(_t(lang, "login.sign_in"))}</h2>
-        <label>{_escape(_t(lang, "login.username"))}<input id="login-username" autocomplete="username" /></label>
-        <label>{_escape(_t(lang, "login.password"))}<input id="login-password" type="password" autocomplete="current-password" /></label>
-        <button id="login-submit">{_escape(_t(lang, "login.sign_in_button"))}</button>
+        <label>{_escape(_t(lang, "login.username"))}<input id="login-username" name="name" autocomplete="username" /></label>
+        <label>{_escape(_t(lang, "login.password"))}<input id="login-password" name="password" type="password" autocomplete="current-password" /></label>
+        <button id="login-submit" type="submit">{_escape(_t(lang, "login.sign_in_button"))}</button>
       </div>
       <div id="panel-register" class="stack tab-panel" role="tabpanel" hidden>
         <div class="eyebrow">{_escape(_t(lang, "login.register"))}</div>

@@ -175,8 +175,8 @@ def _normalize_username(username: str) -> str:
 
 def _normalize_password(password: str) -> str:
     value = str(password or "")
-    if len(value) < 4:
-        raise ValidationError("password must be at least 4 characters")
+    if len(value) < 1:
+        raise ValidationError("password must not be empty")
     if len(value) > 256:
         raise ValidationError("password is too long")
     return value
