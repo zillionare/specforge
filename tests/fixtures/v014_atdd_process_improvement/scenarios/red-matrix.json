@@ -1,0 +1,52 @@
+{
+  "identity": "louke.scenario.red-matrix",
+  "description": "Synthetic RED matrix for IF-VALID-RED-01 — Drives and tests valid vs invalid RED classification.",
+  "data_kind": "synthetic-fixture",
+  "data_source": "tests/fixtures/v014_atdd_process_improvement/scenarios/red-matrix.json",
+  "scenarios": [
+    {
+      "case_id": "red-matrix-valid-stub-token",
+      "kind": "valid_red",
+      "trigger": "stub raises NotImplementedError('IF-…')",
+      "expected_classification": "valid_red",
+      "expected_result": "Devon dispatched"
+    },
+    {
+      "case_id": "red-matrix-valid-assertion",
+      "kind": "valid_red",
+      "trigger": "AssertionError binding an AC/IF contract anchor",
+      "expected_classification": "valid_red",
+      "expected_result": "Devon dispatched"
+    },
+    {
+      "case_id": "red-matrix-invalid-zero-collection",
+      "kind": "invalid_red",
+      "trigger": "pytest collected 0 tests under target node id",
+      "expected_classification": "invalid_red",
+      "expected_result": "Not dispatched; return to Shield"
+    },
+    {
+      "case_id": "red-matrix-invalid-import-error",
+      "kind": "invalid_red",
+      "trigger": "unrelated import fails to resolve",
+      "expected_classification": "invalid_red",
+      "expected_result": "Not dispatched; return to Shield"
+    },
+    {
+      "case_id": "red-matrix-invalid-skip",
+      "kind": "invalid_red",
+      "trigger": "pytest.skip instead of assertion failure",
+      "expected_classification": "invalid_red",
+      "expected_result": "Not dispatched; return to Shield"
+    },
+    {
+      "case_id": "red-matrix-invalid-wrong-token",
+      "kind": "invalid_red",
+      "trigger": "stub raises NotImplementedError without the IF-token",
+      "expected_classification": "invalid_red",
+      "expected_result": "Not dispatched; return to Shield"
+    }
+  ],
+  "credential_canary": "SECRET_V014005_RED_MATRIX_DO_NOT_LEAK",
+  "credential_canary_unique_per_run_suffix": true
+}

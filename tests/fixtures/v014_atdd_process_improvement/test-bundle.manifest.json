@@ -1,0 +1,2403 @@
+{
+  "schema_version": "louke.test-bundle.v1",
+  "qualification": "bootstrap_manual",
+  "validation_state": "unvalidated",
+  "bundle_identity": "louke.test-bundle.v0.14-005.bootstrap-r1",
+  "revision": "v0.14-005.bootstrap-r1",
+  "test_revision": "v0.14-005.bootstrap-r1",
+  "baseline_identity": {
+    "story": "sha256:254eb9c753a424275233af446721ca7d18851e1851de392c738858b2b2879a70",
+    "spec": "sha256:f1e29c404775240b820b767df1a450962a291d2c9a0ee2644e067663baccd05d",
+    "acceptance": "sha256:cff523caa12f2d587adabe8a9b2afda260fb8b62ab58c81beb59b6b95ddf9a4d"
+  },
+  "declaration_identity": "sha256:37f67f1d28496a5aa2c556f2d0e04f1cad407faab486fac8747dfec6cb579f0d",
+  "runner_contract_identity": "sha256:57b9f3bfdee0fac8a8aca9332e3f6d84c17d7c9109915bcde99c168b17f6e51f",
+  "adapter_contract_identity": "sha256:7f4a1f1e1ebdd7fd54b829e4446a6941032881677533006206d3ed17264f155d",
+  "write_scope_digest": "49c2bcbafebbaa87ab3e892c03166efc205237fb0195a7fb24a18ec130c4dd4e",
+  "tests": [
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0101_01_declaration_manifest.py::test_ac_fr0101_01_manifest_is_present_and_candidate_only",
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0101-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0101_01_declaration_manifest.py::test_ac_fr0101_01_closed_token_set_matches_interfaces",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0101-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0101_01_declaration_manifest.py::test_ac_fr0101_01_manifest_references_locked_digests",
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0101-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0101_01_declaration_manifest.py::test_ac_fr0101_02_assurance_mode_marks_downstream_atdd_path",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0101-02"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0101_01_declaration_manifest.py::test_ac_fr0101_02_every_entry_is_closed_no_extra_files",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0101-02"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_prepare_shield_task_signature_matches_interface",
+      "path": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0201-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "production_surface": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_atdd_checkpoint_kwargs_01",
+        "ce_if_atdd_checkpoint_extra_kwarg_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_record_implementation_result_carries_candidate_identity",
+      "path": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0201-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "production_surface": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_atdd_checkpoint_kwargs_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0701_01_freeze_test_bundle_requires_prism_review_path",
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0701-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_atdd_checkpoint_freeze_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0701_01_request_declaration_revision_carries_contract_anchor",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0701-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_atdd_checkpoint_freeze_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_record_m_test_closure_documents_m_verify_allowed",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0201-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_atdd_checkpoint_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0501_01_record_shield_submission_requires_red_evidence_path",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0501-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_atdd_checkpoint_freeze_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0301_01_test_bundle_contract.py::test_ac_fr0301_01_test_bundle_minimum_shape_all_tests_have_required_fields",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0301_01_test_bundle_contract.py::test_ac_fr0701_01_new_or_changed_tests_must_declare_red_expectation",
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0701-01"
+      ],
+      "interface_ids": [
+        "IF-TEST-BUNDLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0301_01_test_bundle_contract.py::test_ac_fr0601_01_behavior_class_is_closed_enum",
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0601-01"
+      ],
+      "interface_ids": [
+        "IF-VALID-RED-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0301_01_test_bundle_contract.py::test_ac_fr0301_01_counterexample_references_resolve_to_bundle_cases",
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0301-01"
+      ],
+      "interface_ids": [
+        "IF-TEST-BUNDLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0301_01_test_bundle_contract.py::test_ac_fr0301_01_real_bundle_lists_each_collected_node",
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0301-01"
+      ],
+      "interface_ids": [
+        "IF-TEST-BUNDLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0301_01_test_bundle_contract.py::test_ac_fr0701_01_real_bundle_json_canonical_round_trip_stable",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0301_01_test_bundle_contract.py::test_ac_fr0301_01_bundle_path_is_present_with_required_shape",
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0301-01"
+      ],
+      "interface_ids": [
+        "IF-TEST-BUNDLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_01_valid_red_contract_row_lists_both_triggers",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_01_invalid_red_contract_row_lists_all_failure_modes",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_02_invalid_red_contract_row_states_dispatch_devon_blocked",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_01_each_stub_raises_with_if_token[louke.runtime.atdd_checkpoint-IF-ATDD-CHECKPOINT-01]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_01_each_stub_raises_with_if_token[louke.runtime.atdd_failure_routing-IF-FAILURE-ROUTE-01]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_01_each_stub_raises_with_if_token[louke.runtime.atdd_projection-IF-PROJECT-STATUS-01]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_01_each_stub_raises_with_if_token[louke.runtime.host_required_tests-IF-HOST-RUNNER-01]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_01_each_stub_raises_with_if_token[louke.runtime.semantic_discrimination-IF-DISCRIM-01]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py::test_ac_fr0601_01_each_stub_raises_with_if_token[louke.opencode.replay-IF-LIFECYCLE-01]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_module_paths_align_with_interfaces_md",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_checkpoint-]",
+      "path": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_atdd_checkpoint_kw_only_rem_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.host_required_tests-]",
+      "path": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_host_runner_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.semantic_discrimination-]",
+      "path": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_discrim_kw_only_rem_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_failure_routing-]",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_failure_route_kw_only_rem_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_projection-]",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_projection_kw_only_rem_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.opencode.replay-]",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_replay_same_line_kwonly_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_checkpoint-]",
+      "path": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-VALID-RED-01"
+      ],
+      "production_surface": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_atdd_checkpoint_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.host_required_tests-]",
+      "path": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-VALID-RED-01"
+      ],
+      "production_surface": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_host_runner_token_in_function_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.semantic_discrimination-]",
+      "path": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-VALID-RED-01"
+      ],
+      "production_surface": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_discrim_token_in_function_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_failure_routing-]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-VALID-RED-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_failure_route_token_in_function_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_projection-]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-VALID-RED-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_projection_01",
+        "ce_if_projection_token_in_function_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.opencode.replay-]",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-VALID-RED-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_replay_01",
+        "ce_if_replay_token_in_function_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_web_app_routes_register_stub_handlers",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-DECLARATION-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_phase_set_is_closed",
+      "path": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1001-01"
+      ],
+      "interface_ids": [
+        "IF-HOST-RUNNER-01"
+      ],
+      "production_surface": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_host_runner_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_signature_has_all_run_kwargs",
+      "path": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1001-01"
+      ],
+      "interface_ids": [
+        "IF-HOST-RUNNER-01"
+      ],
+      "production_surface": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_host_runner_extra_kwarg_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_only_keyword_only",
+      "path": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1001-01"
+      ],
+      "interface_ids": [
+        "IF-HOST-RUNNER-01"
+      ],
+      "production_surface": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_host_runner_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_raises_if_runner_token",
+      "path": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1001-01"
+      ],
+      "interface_ids": [
+        "IF-HOST-RUNNER-01"
+      ],
+      "production_surface": "louke/runtime/host_required_tests.py:execute_host_tests",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_host_runner_token_01",
+        "ce_if_host_runner_token_in_function_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_fr1101_01_run_discrimination_kwargs_include_phase_and_manifest",
+      "path": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1101-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_discrim_run_extra_kwarg_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_fr1101_02_verify_restored_candidate_requires_original_digest",
+      "path": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1101-02"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_discrim_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_nfr0301_01_both_functions_raise_if_discrim_token",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0301-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_discrim_token_in_function_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_nfr0301_01_all_parameters_keyword_only",
+      "path": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0301-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "louke/runtime/semantic_discrimination.py:run_discrimination",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_discrim_keyword_only_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_02_counterexample_execution.py::test_counterexample_kills_positive_test[ce_if_atdd_checkpoint_01]",
+      "path": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1101-02"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "louke/runtime/atdd_checkpoint.py:prepare_shield_task",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_02_counterexample_execution.py::test_counterexample_kills_positive_test[ce_if_host_runner_01]",
+      "path": "tests/fixtures/negative/{ce_if_*}.py",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1101-02"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "tests/fixtures/negative/{ce_if_*}.py",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_02_counterexample_execution.py::test_counterexample_kills_positive_test[ce_if_discrim_01]",
+      "path": "tests/fixtures/negative/{ce_if_*}.py",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1101-02"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "tests/fixtures/negative/{ce_if_*}.py",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_02_counterexample_execution.py::test_counterexample_kills_positive_test[ce_if_failure_route_01]",
+      "path": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1101-02"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_02_counterexample_execution.py::test_counterexample_bindings_cover_all_targeted_positive_tests",
+      "path": "tests/fixtures/negative/{ce_if_*}.py",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1101-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": "tests/fixtures/negative/{ce_if_*}.py",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_projection_module_exposes_three_handlers",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_routes_registered_against_production_create_app",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_handler_stubs_raise_if_token",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_project_status_handler_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_app_py_imports_only_declares_routes",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_imports_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr1201_01_app_handlers_unwrapped_through_atddcheck_route",
+      "path": "louke/web/app.py:create_app",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_classify_signature_accepts_prism_diagnostic_optional",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_required_kwargs_present",
+      "path": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "production_surface": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_failure_route_extra_kwarg_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_failure_decision_enum_members_present_in_source",
+      "path": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "production_surface": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_failure_route_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_stub_raises_with_if_token",
+      "path": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "production_surface": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_failure_route_token_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_decision_includes_all_required_fields",
+      "path": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "production_surface": "louke/runtime/atdd_failure_routing.py:classify_atdd_failure",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_failure_route_decision_01"
+      ]
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1601_01_prompt_closed_set.py::test_ac_fr1601_01_closed_source_set_is_exactly_four",
+      "path": "louke/agents/{role}.md (canonical prompt sources)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1601-01"
+      ],
+      "interface_ids": [
+        "IF-PROMPT-01"
+      ],
+      "production_surface": "louke/agents/{role}.md (canonical prompt sources)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1601_01_prompt_closed_set.py::test_ac_fr1601_01_each_source_file_exists_and_has_digest_recorded",
+      "path": "louke/agents/{role}.md (canonical prompt sources)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1601-01"
+      ],
+      "interface_ids": [
+        "IF-PROMPT-01"
+      ],
+      "production_surface": "louke/agents/{role}.md (canonical prompt sources)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1601_01_prompt_closed_set.py::test_ac_fr1601_01_no_dotopencode_alias_in_canonical_sources",
+      "path": "louke/agents/{role}.md (canonical prompt sources)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-FR1601-01"
+      ],
+      "interface_ids": [
+        "IF-PROMPT-01"
+      ],
+      "production_surface": "louke/agents/{role}.md (canonical prompt sources)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1601_01_prompt_closed_set.py::test_ac_nfr0101_01_each_role_has_distinct_model_binding",
+      "path": "louke/agents/{role}.md (canonical prompt sources)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0101-01"
+      ],
+      "interface_ids": [
+        "IF-PROMPT-01"
+      ],
+      "production_surface": "louke/agents/{role}.md (canonical prompt sources)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_fr1601_01_prompt_closed_set.py::test_ac_nfr0101_01_each_role_has_input_output_schema_refs",
+      "path": "louke/agents/{role}.md (canonical prompt sources)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0101-01"
+      ],
+      "interface_ids": [
+        "IF-PROMPT-01"
+      ],
+      "production_surface": "louke/agents/{role}.md (canonical prompt sources)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_nfr0001_01_host_neutral.py::test_ac_nfr0001_01_runner_command_in_project_toml_does_not_specifically_target_python",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0001-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-RUN-01"
+      ],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_nfr0001_01_host_neutral.py::test_ac_nfr0201_01_evidence_envelope_minimum_fields_in_interfaces",
+      "path": ".louke/project/project.toml",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0201-01"
+      ],
+      "interface_ids": [
+        "IF-EVIDENCE-01"
+      ],
+      "production_surface": ".louke/project/project.toml",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_nfr0001_01_host_neutral.py::test_ac_nfr0201_01_bootstrap_qualification_cannot_pass_gates",
+      "path": ".louke/project/project.toml",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0201-01"
+      ],
+      "interface_ids": [
+        "IF-EVIDENCE-01"
+      ],
+      "production_surface": ".louke/project/project.toml",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_nfr0001_01_host_neutral.py::test_ac_nfr0301_01_counterexample_path_is_outside_main_tests",
+      "path": ".louke/project/project.toml",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0301-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "production_surface": ".louke/project/project.toml",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_nfr0001_01_host_neutral.py::test_ac_nfr0301_01_lifecycle_harness_uses_temp_dirs",
+      "path": ".louke/project/project.toml",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0301-01"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": ".louke/project/project.toml",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/integration/v014_atdd_process_improvement/test_ac_nfr0001_01_host_neutral.py::test_ac_nfr0201_01_registry_candidate_explicitly_blocks_activation_state_active",
+      "path": ".louke/project/project.toml",
+      "layer": "integration",
+      "ac_ids": [
+        "AC-NFR0201-01"
+      ],
+      "interface_ids": [
+        "IF-REGISTRY-01"
+      ],
+      "production_surface": ".louke/project/project.toml",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_unknown_action_id_yields_closed_error_code",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_v2_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_stale_expected_run_revision_yields_409_stale_revision",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_v2_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_status_and_workbench_route_pair_is_consistent",
+      "path": "louke/web/app.py:create_app",
+      "layer": "e2e",
+      "ac_ids": [
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_v2_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_checkpoint_action_without_csrf_header_is_rejected",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_v2_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_idempotency_replay_same_payload_yields_same_operation",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_v2_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_idempotency_replay_different_payload_yields_409",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_v2_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_unknown_checkpoint_id_yields_404_not_found",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_v2_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_missing_expected_run_revision_yields_400",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_v2_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_01_full_lifecycle_marker_is_registered",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-01"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_01_scenario_manifest_enumerates_thirteen_stages",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-01"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_wordcount_seed_digest_matches_on_disk_content",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_01_lifecycle_success_journey",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-START]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-STORY]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-SPEC]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-ACC]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-REQ-APPROVAL]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-DESIGN]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-IMPL]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-TEST]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-VERIFY]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-SECURITY]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-RELEASE]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-PUBLISH]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-MILESTONE]",
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "layer": "full-lifecycle",
+      "ac_ids": [
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "production_surface": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_status_route_returns_atdd_projection_envelope",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_checkpoint_detail_route_returns_checkpoint_projection",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_checkpoint_action_route_applies_action",
+      "path": "(unbound \u2014 see test file)",
+      "layer": "integration",
+      "ac_ids": [],
+      "interface_ids": [],
+      "production_surface": "(unbound \u2014 see test file)",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": [
+        "ce_if_app_remove_status_routes_01"
+      ]
+    },
+    {
+      "node_id": "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_workbench_active_card_url_renders_in_complete_workspace",
+      "path": "louke/web/app.py:create_app",
+      "layer": "e2e",
+      "ac_ids": [
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "production_surface": "louke/web/app.py:create_app",
+      "behavior_class": "new_or_changed",
+      "initial_expectation": "red",
+      "counterexample_ids": []
+    }
+  ],
+  "counterexamples": [
+    {
+      "case_id": "ce_if_atdd_checkpoint_01",
+      "ac_ids": [
+        "AC-FR0901-01",
+        "AC-FR1501-01",
+        "AC-FR0201-01",
+        "AC-FR0601-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "original_source_digest": "sha256:a94d1484751378ae29e2cdfb39db50cb15e40f0410a949ece4a7c14294d9c7a5",
+      "patch_digest": "sha256:bfc077f6129d149a966fc8b223fce06f883aab4fc05e42918b0c467a318b74b0",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_checkpoint.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01",
+        "AC-FR1501-01",
+        "AC-FR0201-01",
+        "AC-FR0601-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_checkpoint-]",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_record_m_test_closure_documents_m_verify_allowed"
+      ]
+    },
+    {
+      "case_id": "ce_if_host_runner_01",
+      "ac_ids": [
+        "AC-FR1001-01",
+        "AC-FR0901-01",
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-HOST-RUNNER-01"
+      ],
+      "original_source_digest": "sha256:c929e94ed6697e00a219e2c4b52554ee0e6003bfabd7c0c1604ae5c85d9b634e",
+      "patch_digest": "sha256:14e0f574cfc406ff7f1f4d82f2297e08f22fc5d32bbb9822e2403488fe40adfd",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_host_runner_01.py",
+      "production_paths": [
+        "louke/runtime/host_required_tests.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1001-01",
+        "AC-FR0901-01",
+        "AC-FR1501-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_only_keyword_only",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_phase_set_is_closed",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.host_required_tests-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_01",
+      "ac_ids": [
+        "AC-FR1101-01",
+        "AC-FR1101-02",
+        "AC-NFR0301-01",
+        "AC-FR0901-01",
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "original_source_digest": "sha256:aae401b7eeefbdd8088549356f8fa1dd0358dd2686e8e8e9bc2bb194adcc4646",
+      "patch_digest": "sha256:ea6b2e20670875e23b3889b99753c6b4922fa81951df3f4857c26d75ab2f353f",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_discrim_01.py",
+      "production_paths": [
+        "louke/runtime/semantic_discrimination.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1101-01",
+        "AC-FR1101-02",
+        "AC-NFR0301-01",
+        "AC-FR0901-01",
+        "AC-FR1501-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_fr1101_02_verify_restored_candidate_requires_original_digest"
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_01",
+      "ac_ids": [
+        "AC-FR1301-01",
+        "AC-FR0901-01",
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "original_source_digest": "sha256:ca4604a281a6c2c4be530e87482d6eca971a18b3ec7149a75447970983306fd8",
+      "patch_digest": "sha256:e7da95d1ceaa7c674a6076e279c3bc9b4f9d993ce95c675a32b6c78b7793e1ed",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_failure_routing.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1301-01",
+        "AC-FR0901-01",
+        "AC-FR1501-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_failure_decision_enum_members_present_in_source"
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_decision_01",
+      "ac_ids": [
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "original_source_digest": "sha256:ca4604a281a6c2c4be530e87482d6eca971a18b3ec7149a75447970983306fd8",
+      "patch_digest": "sha256:8a96ddf09be7ce20786e510e276f714ac2228f79e791b4a1281bbc35948c6761",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_decision_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_failure_routing.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1301-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_decision_includes_all_required_fields"
+      ]
+    },
+    {
+      "case_id": "ce_if_projection_01",
+      "ac_ids": [
+        "AC-FR1501-01",
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "original_source_digest": "sha256:eecf7de2bbfabebf8b8aa30cad0c3b7781e31997f76708ef02f430f85ebe8d41",
+      "patch_digest": "sha256:27fc6e3814ff3cadbdd6a95387cde3774ace3d2a0838ec3d5a1a51f92ee43b7d",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_projection_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_projection.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1501-01",
+        "AC-FR0901-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_projection-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_replay_01",
+      "ac_ids": [
+        "AC-FR1501-01",
+        "AC-FR0901-01",
+        "AC-FR1701-01"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "original_source_digest": "sha256:9b55c97be54c2abd34b39f49b078b25e148ec54810c51d35706bc1d2538c178d",
+      "patch_digest": "sha256:95b0d18a73150cfa09ffc2583ceb4d1c6f00d8fe11b3822d4402222dba483496",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_replay_01.py",
+      "production_paths": [
+        "louke/opencode/replay.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1501-01",
+        "AC-FR0901-01",
+        "AC-FR1701-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.opencode.replay-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_project_status_handler_01",
+      "ac_ids": [
+        "AC-FR0901-01",
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "original_source_digest": "sha256:0ce6772be3eba9a8b2813fbf81fc16a85b9b97ef063e033472157294717b50c7",
+      "patch_digest": "sha256:24afb1952ca1d1f1b1398c7c943eeaeb799a6851e86cb75b76be3ac392ac243a",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_project_status_handler_01.py",
+      "production_paths": [
+        "louke/web/api/project_status.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01",
+        "AC-FR1201-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_handler_stubs_raise_if_token"
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_kwargs_01",
+      "ac_ids": [
+        "AC-FR0201-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "original_source_digest": "sha256:a94d1484751378ae29e2cdfb39db50cb15e40f0410a949ece4a7c14294d9c7a5",
+      "patch_digest": "sha256:4c941bf5c4f0e21f5e13169bfdaa8bca2cde390484f3032505ec90fe01a5bab2",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_kwargs_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_checkpoint.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0201-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_prepare_shield_task_signature_matches_interface",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_record_implementation_result_carries_candidate_identity"
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_freeze_01",
+      "ac_ids": [
+        "AC-FR0701-01",
+        "AC-FR0501-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "original_source_digest": "sha256:a94d1484751378ae29e2cdfb39db50cb15e40f0410a949ece4a7c14294d9c7a5",
+      "patch_digest": "sha256:615e96e58a090784a2d51e7f8f18ebd141f62a563f1b6aa7272afbbd22c33961",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_freeze_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_checkpoint.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0701-01",
+        "AC-FR0501-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0701_01_freeze_test_bundle_requires_prism_review_path",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0701_01_request_declaration_revision_carries_contract_anchor",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0501_01_record_shield_submission_requires_red_evidence_path"
+      ]
+    },
+    {
+      "case_id": "ce_if_host_runner_token_01",
+      "ac_ids": [
+        "AC-FR1001-01"
+      ],
+      "interface_ids": [
+        "IF-HOST-RUNNER-01"
+      ],
+      "original_source_digest": "sha256:c929e94ed6697e00a219e2c4b52554ee0e6003bfabd7c0c1604ae5c85d9b634e",
+      "patch_digest": "sha256:bcd9c31314cc5b1e497da0e3a11a561e5eec3605e29a222840117cd89dc61e48",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_host_runner_token_01.py",
+      "production_paths": [
+        "louke/runtime/host_required_tests.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1001-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_raises_if_runner_token"
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_keyword_only_01",
+      "ac_ids": [
+        "AC-NFR0301-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "original_source_digest": "sha256:aae401b7eeefbdd8088549356f8fa1dd0358dd2686e8e8e9bc2bb194adcc4646",
+      "patch_digest": "sha256:eeca4a586fbea9fa025c1520ead17e5efde830aa8977149cf262e46735b83f2b",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_discrim_keyword_only_01.py",
+      "production_paths": [
+        "louke/runtime/semantic_discrimination.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-NFR0301-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_nfr0301_01_all_parameters_keyword_only"
+      ]
+    },
+    {
+      "case_id": "ce_if_app_imports_01",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "original_source_digest": "sha256:c0399295072c1d97a180b423e5fdf91f1e35211fed3caf0f0122080fb9e02242",
+      "patch_digest": "sha256:2668d886fb41a7e71c2d4d7ece91839ccc874df216741d69e47fff80fb1eb4f3",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_app_imports_01.py",
+      "production_paths": [
+        "louke/web/app.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_app_py_imports_only_declares_routes"
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_token_01",
+      "ac_ids": [
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "original_source_digest": "sha256:ca4604a281a6c2c4be530e87482d6eca971a18b3ec7149a75447970983306fd8",
+      "patch_digest": "sha256:cb1a2c24e7dec2e597f10fbb3650d9cc8406914ea9bb2304bdb3f0312c390f6b",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_token_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_failure_routing.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1301-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_stub_raises_with_if_token"
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_kw_only_rem_01",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "original_source_digest": "sha256:a94d1484751378ae29e2cdfb39db50cb15e40f0410a949ece4a7c14294d9c7a5",
+      "patch_digest": "sha256:19eb7bc3b13f4c7d71781072948178d9d1aa9f5a7b26b6689e8fda5aa8ad47ec",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_kw_only_rem_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_checkpoint.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_checkpoint-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_extra_kwarg_01",
+      "ac_ids": [
+        "AC-FR0201-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "original_source_digest": "sha256:a94d1484751378ae29e2cdfb39db50cb15e40f0410a949ece4a7c14294d9c7a5",
+      "patch_digest": "sha256:cfb73f7331f62d380471f2691bc586fef1b1edb6f6aaaeeffa9d897857cdc1bc",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_extra_kwarg_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_checkpoint.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0201-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_prepare_shield_task_signature_matches_interface"
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_kw_only_rem_01",
+      "ac_ids": [
+        "AC-FR0901-01",
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "original_source_digest": "sha256:ca4604a281a6c2c4be530e87482d6eca971a18b3ec7149a75447970983306fd8",
+      "patch_digest": "sha256:0347ae0ea09b2bc4ea1a87a3081d6c64e13210deedd7d4f1467458f49df007de",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_kw_only_rem_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_failure_routing.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01",
+        "AC-FR1301-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_failure_routing-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_kw_only_rem_01",
+      "ac_ids": [
+        "AC-FR0901-01",
+        "AC-FR1101-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "original_source_digest": "sha256:aae401b7eeefbdd8088549356f8fa1dd0358dd2686e8e8e9bc2bb194adcc4646",
+      "patch_digest": "sha256:dc051218e795f936bd2c7a6ea57a041b317cdc63fd5125ae762fc1158369229e",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_discrim_kw_only_rem_01.py",
+      "production_paths": [
+        "louke/runtime/semantic_discrimination.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01",
+        "AC-FR1101-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.semantic_discrimination-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_projection_kw_only_rem_01",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "original_source_digest": "sha256:eecf7de2bbfabebf8b8aa30cad0c3b7781e31997f76708ef02f430f85ebe8d41",
+      "patch_digest": "sha256:ce89d6b9cfa6ad4e21d9db43b0d3ea2f65e6659eac29abe44c6518a06ea2c6b6",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_projection_kw_only_rem_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_projection.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_projection-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_token_in_function_01",
+      "ac_ids": [
+        "AC-FR1501-01",
+        "AC-NFR0301-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "original_source_digest": "sha256:aae401b7eeefbdd8088549356f8fa1dd0358dd2686e8e8e9bc2bb194adcc4646",
+      "patch_digest": "sha256:e45016d4108fe5c0daf7bac27eaf56089224252631e075497a9e141d9da4b754",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_discrim_token_in_function_01.py",
+      "production_paths": [
+        "louke/runtime/semantic_discrimination.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1501-01",
+        "AC-NFR0301-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.semantic_discrimination-]",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_nfr0301_01_both_functions_raise_if_discrim_token"
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_token_in_function_01",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "original_source_digest": "sha256:ca4604a281a6c2c4be530e87482d6eca971a18b3ec7149a75447970983306fd8",
+      "patch_digest": "sha256:31c6889be94465deb078bd900e968b597a6f470f4aed48362910d151df95f350",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_token_in_function_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_failure_routing.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1501-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_failure_routing-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_projection_token_in_function_01",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01"
+      ],
+      "original_source_digest": "sha256:eecf7de2bbfabebf8b8aa30cad0c3b7781e31997f76708ef02f430f85ebe8d41",
+      "patch_digest": "sha256:c80db7f33810c3ce17313f735ca3b80931ebe15031e489c32272374831734d42",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_projection_token_in_function_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_projection.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1501-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_projection-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_replay_token_in_function_01",
+      "ac_ids": [
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "original_source_digest": "sha256:9b55c97be54c2abd34b39f49b078b25e148ec54810c51d35706bc1d2538c178d",
+      "patch_digest": "sha256:392f0679de223f388cc86383a6264de24605d3528f03083d14b9d77e6fea42b3",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_replay_token_in_function_01.py",
+      "production_paths": [
+        "louke/opencode/replay.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1501-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.opencode.replay-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_host_runner_token_in_function_01",
+      "ac_ids": [
+        "AC-FR1001-01",
+        "AC-FR1501-01"
+      ],
+      "interface_ids": [
+        "IF-HOST-RUNNER-01"
+      ],
+      "original_source_digest": "sha256:c929e94ed6697e00a219e2c4b52554ee0e6003bfabd7c0c1604ae5c85d9b634e",
+      "patch_digest": "sha256:bd85354e60a06985d859ad9bf08a639c1bab149e447f715a7238c75613062764",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_host_runner_token_in_function_01.py",
+      "production_paths": [
+        "louke/runtime/host_required_tests.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1001-01",
+        "AC-FR1501-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.host_required_tests-]",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_raises_if_runner_token"
+      ]
+    },
+    {
+      "case_id": "ce_if_host_runner_extra_kwarg_01",
+      "ac_ids": [
+        "AC-FR1001-01"
+      ],
+      "interface_ids": [
+        "IF-HOST-RUNNER-01"
+      ],
+      "original_source_digest": "sha256:c929e94ed6697e00a219e2c4b52554ee0e6003bfabd7c0c1604ae5c85d9b634e",
+      "patch_digest": "sha256:963964b3118f352bdedcdecd77a97499b21191ba15b909b75e29ae0a5d62cd6f",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_host_runner_extra_kwarg_01.py",
+      "production_paths": [
+        "louke/runtime/host_required_tests.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1001-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_signature_has_all_run_kwargs"
+      ]
+    },
+    {
+      "case_id": "ce_if_app_remove_status_routes_01",
+      "ac_ids": [
+        "AC-FR0901-01",
+        "AC-FR1201-01",
+        "AC-FR1701-01",
+        "AC-FR1701-02"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01",
+        "IF-LIFECYCLE-01"
+      ],
+      "original_source_digest": "sha256:c0399295072c1d97a180b423e5fdf91f1e35211fed3caf0f0122080fb9e02242",
+      "patch_digest": "sha256:9372f74a7e6aaf37d97f462cb2368a5e38e8f571bd3b6b00656ce4d72c071893",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_app_remove_status_routes_01.py",
+      "production_paths": [
+        "louke/web/app.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01",
+        "AC-FR1201-01",
+        "AC-FR1701-01",
+        "AC-FR1701-02"
+      ],
+      "target_node_ids": [
+        "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_status_route_returns_atdd_projection_envelope",
+        "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_checkpoint_detail_route_returns_checkpoint_projection",
+        "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_checkpoint_action_route_applies_action",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_routes_registered_against_production_create_app",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr1201_01_app_handlers_unwrapped_through_atddcheck_route",
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_web_app_routes_register_stub_handlers",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_01_lifecycle_success_journey",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-START]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-STORY]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-SPEC]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-ACC]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-REQ-APPROVAL]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-DESIGN]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-IMPL]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-TEST]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-VERIFY]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-SECURITY]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-RELEASE]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-PUBLISH]",
+        "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-MILESTONE]"
+      ]
+    },
+    {
+      "case_id": "ce_if_replay_same_line_kwonly_01",
+      "ac_ids": [
+        "AC-FR0901-01"
+      ],
+      "interface_ids": [
+        "IF-LIFECYCLE-01"
+      ],
+      "original_source_digest": "sha256:9b55c97be54c2abd34b39f49b078b25e148ec54810c51d35706bc1d2538c178d",
+      "patch_digest": "sha256:c8de0f6ea841f9d2bd94d6e0685e0b60da603b8de41a891ae9e521562e1682eb",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_replay_same_line_kwonly_01.py",
+      "production_paths": [
+        "louke/opencode/replay.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.opencode.replay-]"
+      ]
+    },
+    {
+      "case_id": "ce_if_project_status_missing_detail_handler_01",
+      "ac_ids": [
+        "AC-FR0901-01",
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01",
+        "IF-ERROR-01"
+      ],
+      "original_source_digest": "sha256:0ce6772be3eba9a8b2813fbf81fc16a85b9b97ef063e033472157294717b50c7",
+      "patch_digest": "sha256:403b3628cfcc02cbfe97c89d199d0ff37b1df8544d13d2f6c84108d6e795c7ed",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_project_status_missing_detail_handler_01.py",
+      "production_paths": [
+        "louke/web/api/project_status.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01",
+        "AC-FR1201-01"
+      ],
+      "target_node_ids": []
+    },
+    {
+      "case_id": "ce_if_failure_route_extra_kwarg_01",
+      "ac_ids": [
+        "AC-FR1301-01"
+      ],
+      "interface_ids": [
+        "IF-FAILURE-ROUTE-01"
+      ],
+      "original_source_digest": "sha256:ca4604a281a6c2c4be530e87482d6eca971a18b3ec7149a75447970983306fd8",
+      "patch_digest": "sha256:25fdd023a4a9b66411d9700caa58b7ba085ed78e4a8646df9e16ad5fc984baee",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_extra_kwarg_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_failure_routing.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1301-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_required_kwargs_present"
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_run_extra_kwarg_01",
+      "ac_ids": [
+        "AC-FR1101-01"
+      ],
+      "interface_ids": [
+        "IF-DISCRIM-01"
+      ],
+      "original_source_digest": "sha256:aae401b7eeefbdd8088549356f8fa1dd0358dd2686e8e8e9bc2bb194adcc4646",
+      "patch_digest": "sha256:0ac5fe22580fa490d07fcea5db5920f8de47c38c9a33dc2629e3ee0b509378d4",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_discrim_run_extra_kwarg_01.py",
+      "production_paths": [
+        "louke/runtime/semantic_discrimination.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR1101-01"
+      ],
+      "target_node_ids": [
+        "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_fr1101_01_run_discrimination_kwargs_include_phase_and_manifest"
+      ]
+    },
+    {
+      "case_id": "ce_if_app_remove_status_routes_v2_01",
+      "ac_ids": [
+        "AC-FR0901-01",
+        "AC-FR1201-01"
+      ],
+      "interface_ids": [
+        "IF-PROJECT-STATUS-01",
+        "IF-ERROR-01"
+      ],
+      "original_source_digest": "sha256:c0399295072c1d97a180b423e5fdf91f1e35211fed3caf0f0122080fb9e02242",
+      "patch_digest": "sha256:9372f74a7e6aaf37d97f462cb2368a5e38e8f571bd3b6b00656ce4d72c071893",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_app_remove_status_routes_v2_01.py",
+      "production_paths": [
+        "louke/web/app.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0901-01",
+        "AC-FR1201-01"
+      ],
+      "target_node_ids": [
+        "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_unknown_action_id_yields_closed_error_code",
+        "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_stale_expected_run_revision_yields_409_stale_revision",
+        "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_status_and_workbench_route_pair_is_consistent",
+        "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_checkpoint_action_without_csrf_header_is_rejected",
+        "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_idempotency_replay_same_payload_yields_same_operation",
+        "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_idempotency_replay_different_payload_yields_409",
+        "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_unknown_checkpoint_id_yields_404_not_found",
+        "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_missing_expected_run_revision_yields_400"
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_record_impl_extra_kwarg_01",
+      "ac_ids": [
+        "AC-FR0201-01"
+      ],
+      "interface_ids": [
+        "IF-ATDD-CHECKPOINT-01"
+      ],
+      "original_source_digest": "sha256:a94d1484751378ae29e2cdfb39db50cb15e40f0410a949ece4a7c14294d9c7a5",
+      "patch_digest": "sha256:f9f8a10499e0fa6efbb8faf0b218553cfe7ab2ad96a7f4b1059a3141ef8dd997",
+      "patch_path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_record_impl_extra_kwarg_01.py",
+      "production_paths": [
+        "louke/runtime/atdd_checkpoint.py"
+      ],
+      "safe": true,
+      "expected_assertion_tokens": [
+        "AC-FR0201-01"
+      ],
+      "target_node_ids": []
+    }
+  ],
+  "generated_by": "Shield bootstrap (Human-dispatched, no Runtime manifest yet)",
+  "collection_command": ".venv/bin/python -m pytest --collect-only -q tests/integration/v014_atdd_process_improvement tests/e2e/v014_atdd_process_improvement",
+  "node_count": 104
+}

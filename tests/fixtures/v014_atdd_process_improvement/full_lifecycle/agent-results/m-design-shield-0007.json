@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=test_prepared",
+    "kind": "kind",
+    "result_digest": "sha256:7da561a61090f201da93aefc068346a0f4d1bee97fd56c031fc9d329fcbbb900"
+  },
+  "role": "Shield",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-design-shield-0007",
+  "stage": "M-DESIGN",
+  "turn_ordinal": 1
+}

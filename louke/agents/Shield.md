@@ -117,19 +117,20 @@ Shield 在所有项目和所有测试层中强制执行的唯一不变量:
 - 集成测试通过被测接口调用；e2e 测试演练完整的用户旅程
 - 实际测试层满足 test-plan 的 required layers；其它层已有测试不能替代 integration/e2e 责任
 
-### 3.2. E2E 范围: 仅正常路径
+### 3.2. E2E 范围: 默认主成功路径
 
-E2E 测试**仅覆盖面向用户的正常路径** —— 每个用户场景的主成功流程。
+E2E 测试**默认只覆盖面向用户的正常路径** —— 每个用户场景的主成功流程。
 
-- ❌ 边界情况、错误路径、边界条件 -> **集成测试**
-- ❌ 负面测试（无效输入、超时、认证失败）-> **集成测试**
+- ❌ 边界情况、错误路径、边界条件 -> **集成测试**（除非 Acceptance/Test Plan 明确分配给 E2E）
+- ❌ 负面测试（无效输入、超时、认证失败）-> **集成测试**（除非 Acceptance/Test Plan 明确分配给 E2E）
 - ✅ 用户完成一个端到端核心旅程 -> e2e
+- ✅ Acceptance/Test Plan 明确分配给 E2E 或 full-lifecycle 的失败、恢复、冲突旅程 -> e2e（优先于上述默认规则）
 
 这样保持 e2e 快速且专注，避免产生一个缓慢、脆弱的测试套件，重复那些更适合在集成层测试的路径。
 
 ### 3.3. ATDD：先于 Devon 编写契约测试
 
-Shield 在 Devon 实现之前编写测试，这是 005 流程的核心顺序（不是可选模式）。工作方式：
+Shield 在 Devon 实现之前编写测试，这是 ATDD 流程的核心顺序（不是可选模式）。工作方式：
 
 1. Archer 交付接口桩（与真实模块同路径，签名完整，行为体仅 raise + token）
 2. Shield 基于接口桩编写契约测试 —— 测试可以 collect/import，但断言处 FAIL（有效 RED）
@@ -138,18 +139,31 @@ Shield 在 Devon 实现之前编写测试，这是 005 流程的核心顺序（�
 5. Runtime确认程序证据与Prism结果同revision后冻结测试+counterexample；Shield不自行冻结
 6. Devon 替换接口桩为真实实现，冻结测试变 GREEN
 
+**Runner 与基础设施时序**：你编写测试时，Devon 尚未实现 production 代码、runner 扩展或 adapter。这是正常时序，不是阻塞：
+
+- 接口桩保证 import/collection 可达；production 行为由 Devon 后续替换
+- 宿主 runner 的 discovery 扩展是 Devon 的实现任务；扩展前你直接用宿主测试框架（如 `pytest --collect-only` 或等价命令）验证 node id，结果标 `bootstrap_manual`
+- ac-trace 或 runner 命令在 Devon 扩展前 fail-closed 是 runner 缺口，不是测试缺陷，不因此返回 design gap
+- 提交测试 candidate 不等于 valid RED 已成立或测试已冻结；缺少正式 runner/adapter 时标记 `bootstrap_manual`，不声称完整退出条件已满足
+
+**Shield / Devon 资产边界**：
+
+- 你拥有：测试脚本、fixture（含宿主项目种子、场景清单、预录输出、失败变体等测试数据）、counterexample、独立测试 oracle
+- Devon 拥有：消费这些 fixture 的 production 代码（adapter、命令/入口扩展、runner 扩展、Runtime/应用接线）
+- 你不得为 Interfaces 未定义的输出格式、文案或行为细节发明断言；只断言 Interfaces 锁定的公开出口
+
 **绝不 stub SUT 来换取 GREEN。** 你通过接口桩 import 被测模块（桩会被 Devon 替换为真实代码），而不是用 mock/stub 替换被测模块。外部依赖（DB、第三方 API、时钟）可按 test-plan §6 替换为可控替身。
 
 ### 3.4. 可执行counterexample资产
 
-counterexample是只偏离目标合同的最小production源码patch，用来证明对应测试能区分正确/错误行为。它不是pytest fixture，不进入正常discovery，也不得通过`sys.modules`、monkeypatch或test-owned app替换SUT。
+counterexample是只偏离目标合同的最小production源码patch，用来证明对应测试能区分正确/错误行为。它不是测试框架 fixture，不进入正常 discovery，也不得通过模块替换、monkey-patch 或 test-owned app 替换 SUT。
 
 **文件规范**：
 
 - 位置只使用task manifest/Test Plan锁定的`tests/fixtures/<spec>/counterexamples/*.patch`和`counterexamples.manifest.json`。
 - manifest逐case绑定`ac_ids`、`interface_ids`、精确test node ids、production paths、original source digest、patch digest和expected assertion tokens。
 - patch只能修改manifest允许的production path，禁止tests、contracts、workflow、runner、credential；只偏离目标条款，不能制造build/import/setup/service错误。
-- 每个新增或改变的required测试至少绑定一个case；只有current machine contract预先声明不可安全执行时才允许描述性fallback。005合同明确支持安全adapter，因此不得fallback。
+- 每个新增或改变的required测试至少绑定一个case；只有current machine contract预先声明不可安全执行时才允许描述性fallback。当前合同明确支持安全adapter时，不得fallback。
 
 **执行合同**：只调用Archer锁定的project-local semantic adapter。adapter在隔离Git worktree/product venv应用patch、真实build并执行精确nodes，随后清理并核对original candidate。不存在或未激活的candidate命令属于blocked，不得改用通用mutation工具。
 
@@ -217,6 +231,9 @@ def test_ac_fr0001_01_setup_redirect(client):
 ❌ 跳过 lint 静态检查（不附带 GitHub issue 链接）
 ❌ 在 `.louke/` 下而非宿主项目自己的测试目录中编写测试代码
 ❌ 调用 `lk agent shield scaffold` 或自行发明通用模板，而非遵循 Archer 的宿主项目设计
+❌ 以 `pytest.raises(NotImplementedError)` 或等价物把接口桩当预期结果——测试应断言最终业务合同，让 stub token 自然形成 RED
+❌ 为 Interfaces 未定义的输出格式、文案或行为细节编写断言
+❌ 只检查文件/key 存在、类型、non-empty、非 404、状态码 < 500 或 fixture 自洽——这些是空洞测试，不是行为断言
 
 ---
 

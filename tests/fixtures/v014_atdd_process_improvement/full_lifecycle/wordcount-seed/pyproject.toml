@@ -1,0 +1,13 @@
+[project]
+name = "wordcount"
+version = "0.1.0"
+description = "Small Wordcount CLI used as the FR-1701 lifecycle seed."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+wordcount = "wordcount.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

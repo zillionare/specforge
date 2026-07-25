@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=discrim_killed",
+    "kind": "kind",
+    "result_digest": "sha256:ea7f3ef09ca08a2f40973f52d3b51b8813e1105bd5c34546f465af79cec0a162"
+  },
+  "role": "Lex",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-test-lex-0012",
+  "stage": "M-TEST",
+  "turn_ordinal": 1
+}

@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=red_committed",
+    "kind": "kind",
+    "result_digest": "sha256:464cea9859e7c8fc4911a120934741b1cb79879572b5cc81a075c88b261331d5"
+  },
+  "role": "Shield",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-impl-shield-0008",
+  "stage": "M-IMPL",
+  "turn_ordinal": 1
+}

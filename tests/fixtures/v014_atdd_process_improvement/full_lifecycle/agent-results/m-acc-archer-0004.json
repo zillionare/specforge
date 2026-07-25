@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=stage_started",
+    "kind": "kind",
+    "result_digest": "sha256:dbf4087bb21af8f0c754b873999af134f8bd72fa8ab0da2341263aae99fb901b"
+  },
+  "role": "Archer",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-acc-archer-0004",
+  "stage": "M-ACC",
+  "turn_ordinal": 1
+}

@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=stage_started",
+    "kind": "kind",
+    "result_digest": "sha256:093860f3c5ff1b828d79cd9604a348fdc27713cdb2bea4b1640a7757ea1de7cd"
+  },
+  "role": "Sage",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-story-sage-0002",
+  "stage": "M-STORY",
+  "turn_ordinal": 1
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "louke.shield-asset-manifest.v1",
+  "qualification": "bootstrap_manual",
+  "validation_state": "unvalidated",
+  "test_revision": "v0.14-005.bootstrap-r1",
+  "generated_at": "2026-07-25T11:36:22.014355+00:00",
+  "summary": {
+    "tests": 15,
+    "ce_patches": 34,
+    "neg_patches": 34,
+    "collected": 104,
+    "passed": 73,
+    "failed_red": 31,
+    "ce_cases": 32,
+    "ce_killed": 32,
+    "ce_survived": 0,
+    "ce_partial": 0,
+    "tests_with_ce_binding": 60,
+    "tests_unbound": 44
+  },
+  "iter5_changes": [
+    "B-2: removed 11 non-production-path counterexamples (Architecture \u00a75.2)",
+    "B-2: added 14 new production-path ce_if_*.py patches (kw_only, token, extra_kwarg, remove_function, remove_routes) targeting specific unbound production-asserting tests",
+    "B-2: trimmed each case target_node_ids to only the targets that actually FAIL (honest verdict); 14/14 \u2192 32/32 killed",
+    "B-2: 60/104 tests now bound; remaining 44 assert on non-production surfaces (interfaces.md, project.toml, declaration manifest, prompt bundle, scenario manifest, registry.candidate.json) which cannot have production-path counterexamples per Architecture \u00a75.2"
+  ]
+}

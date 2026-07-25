@@ -1,0 +1,11 @@
+{
+  "case_id": "fail-m-acc",
+  "expected_halt_stage": "M-ACC",
+  "expected_owners": [
+    "Shield"
+  ],
+  "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-acc",
+  "fail_before_stage": "M-ACC",
+  "public_injection": "m-acc_public_dependency_failure",
+  "schema": "louke.replay.failure_injection.v1"
+}

@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=interfaces_committed",
+    "kind": "kind",
+    "result_digest": "sha256:b6ba1144c116afeab98af4c623f302863d017c7fe85bb99a9c5b293c35d3e7ae"
+  },
+  "role": "Archer",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-design-archer-0006",
+  "stage": "M-DESIGN",
+  "turn_ordinal": 1
+}

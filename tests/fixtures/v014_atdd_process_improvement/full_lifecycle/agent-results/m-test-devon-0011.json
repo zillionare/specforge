@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=required_green",
+    "kind": "kind",
+    "result_digest": "sha256:75d198a9303a27b682a5f7151787f1a315a07b4a1a625451552fe0d66d40745f"
+  },
+  "role": "Devon",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-test-devon-0011",
+  "stage": "M-TEST",
+  "turn_ordinal": 1
+}

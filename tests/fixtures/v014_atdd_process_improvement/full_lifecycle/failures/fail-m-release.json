@@ -1,0 +1,13 @@
+{
+  "case_id": "fail-m-release",
+  "expected_halt_stage": "M-RELEASE",
+  "expected_owners": [
+    "Shield",
+    "Devon",
+    "Archer"
+  ],
+  "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-release",
+  "fail_before_stage": "M-RELEASE",
+  "public_injection": "m-release_public_dependency_failure",
+  "schema": "louke.replay.failure_injection.v1"
+}

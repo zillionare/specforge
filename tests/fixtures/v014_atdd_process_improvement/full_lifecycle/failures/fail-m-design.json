@@ -1,0 +1,11 @@
+{
+  "case_id": "fail-m-design",
+  "expected_halt_stage": "M-DESIGN",
+  "expected_owners": [
+    "Shield"
+  ],
+  "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-design",
+  "fail_before_stage": "M-DESIGN",
+  "public_injection": "m-design_public_dependency_failure",
+  "schema": "louke.replay.failure_injection.v1"
+}

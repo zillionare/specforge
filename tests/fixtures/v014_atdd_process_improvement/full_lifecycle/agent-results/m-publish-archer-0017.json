@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=published_locally",
+    "kind": "kind",
+    "result_digest": "sha256:5aafb6db230ed4161a3f10974cf0a80f739aab7f48efd4bf5a819d83b14c042c"
+  },
+  "role": "Archer",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-publish-archer-0017",
+  "stage": "M-PUBLISH",
+  "turn_ordinal": 1
+}

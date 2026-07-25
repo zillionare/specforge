@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=human_action_required",
+    "kind": "kind",
+    "result_digest": "sha256:42d42cd972085caaae8172337cf79fd54849fc2d930ee330e8124388fd40f7d4"
+  },
+  "role": "Sage",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-req-approval-sage-0005",
+  "stage": "M-REQ-APPROVAL",
+  "turn_ordinal": 1
+}

@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=implementation_committed",
+    "kind": "kind",
+    "result_digest": "sha256:cb2bb759ad89b8ff0385b6c007ddbe0d36525d1873f06dc0e3c82639eb9cdd63"
+  },
+  "role": "Devon",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-impl-devon-0010",
+  "stage": "M-IMPL",
+  "turn_ordinal": 1
+}

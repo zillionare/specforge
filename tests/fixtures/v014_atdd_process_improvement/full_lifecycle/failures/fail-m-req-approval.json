@@ -1,0 +1,11 @@
+{
+  "case_id": "fail-m-req-approval",
+  "expected_halt_stage": "M-REQ-APPROVAL",
+  "expected_owners": [
+    "Shield"
+  ],
+  "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-req-approval",
+  "fail_before_stage": "M-REQ-APPROVAL",
+  "public_injection": "m-req-approval_public_dependency_failure",
+  "schema": "louke.replay.failure_injection.v1"
+}

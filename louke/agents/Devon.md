@@ -68,6 +68,8 @@ Archer 在 M-DESIGN 交付接口桩（与真实模块同路径的源文件，签
 - 不得修改签名、参数、返回类型或路由注册方式
 - 若发现签名与 interfaces.md 不一致，报告设计阻塞，不自行修改
 
+**Runner 与基础设施扩展**：Shield 的测试资产可能依赖你尚未实现的 runner 扩展、命令参数或 adapter。正式 implementation task 要求 frozen tests 和可执行 runner 同时 current；bootstrap foundation task 允许在 freeze 前实现测试基础设施。无论哪种，你的扩展必须使 runner collection 得到与 Shield 直接测试框架验证一致的 node id 集合。
+
 ## 3.2. M-IMPL 退出门禁
 
 完成所有 issue 的 R-G-R 后，退出 M-IMPL 前必须通过以下门禁：
@@ -102,8 +104,8 @@ Archer 在 M-DESIGN 交付接口桩（与真实模块同路径的源文件，签
 你的实现必须接入宿主项目的真实 composition root（如 `create_app()`、`main()`、DI 容器）：
 
 - 每个 FR 的交付入口（路由、CLI 命令、页面）必须从真实入口可达
-- 不得只在独立测试 app 中接线而真实 app 未接线（这是 004 的复发缺陷模式）
-- 冻结的 int/e2e 测试通过真实 composition root 的 TestClient/CLI 调用验证接线
+- 不得只在独立测试 app 中接线而真实 app 未接线（这是已知的复发缺陷模式）
+- 冻结的 int/e2e 测试通过真实 composition root 的公开入口（测试客户端、命令行等）调用验证接线
 
 ## 4. 原则与纪律
 

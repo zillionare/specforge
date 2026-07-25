@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=stage_disabled",
+    "kind": "kind",
+    "result_digest": "sha256:4fe58ab46520b7551778e6d3895706bb6932fd7ec96d5791bbc22ce10150e68e"
+  },
+  "role": "Judge",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-security-judge-0015",
+  "stage": "M-SECURITY",
+  "turn_ordinal": 1
+}

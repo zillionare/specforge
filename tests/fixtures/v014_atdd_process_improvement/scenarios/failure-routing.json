@@ -1,0 +1,60 @@
+{
+  "identity": "louke.scenario.failure-routing",
+  "description": "IF-FAILURE-ROUTE-01 failure classification matrix — synthetic Project + test + candidate identities.",
+  "data_kind": "synthetic-fixture",
+  "data_source": "tests/fixtures/v014_atdd_process_improvement/scenarios/failure-routing.json",
+  "scenarios": [
+    {
+      "case_id": "routing-test-fails-contract-stale",
+      "contract_anchor": "IF-TEST-BUNDLE-01:tests[].behavior_class",
+      "test_identity": "tst_v14_005_test_bundle",
+      "candidate_identity": "cnd_v14_005_design-r1",
+      "runner_identity": "rnr_v14_005_run_project_venv",
+      "expected_classification": "infrastructure_or_test_asset",
+      "expected_owner": "Shield",
+      "expected_return_target": "M-IMPL:Shield"
+    },
+    {
+      "case_id": "routing-code-fails-contract-bound",
+      "contract_anchor": "IF-ATDD-CHECKPOINT-01:record_implementation_result",
+      "test_identity": "tst_v14_005_atdd_checkpoint",
+      "candidate_identity": "cnd_v14_005_design-r1",
+      "runner_identity": "rnr_v14_005_run_project_venv",
+      "expected_classification": "implementation_or_composition",
+      "expected_owner": "Devon",
+      "expected_return_target": "M-IMPL:Devon"
+    },
+    {
+      "case_id": "routing-architecture-insufficient",
+      "contract_anchor": "IF-PROJECT-STATUS-01:composition_root",
+      "test_identity": "tst_v14_005_project_status",
+      "candidate_identity": null,
+      "runner_identity": "rnr_v14_005_run_project_venv",
+      "expected_classification": "design_gap",
+      "expected_owner": "Archer",
+      "expected_return_target": "M-DESIGN"
+    },
+    {
+      "case_id": "routing-product-requirement-missing",
+      "contract_anchor": "IF-EVIDENCE-01:qualification",
+      "test_identity": null,
+      "candidate_identity": null,
+      "runner_identity": "rnr_v14_005_run_project_venv",
+      "expected_classification": "requirement_gap",
+      "expected_owner": "HumanControlledRequirements",
+      "expected_return_target": "M-SPEC"
+    },
+    {
+      "case_id": "routing-safety-attention",
+      "contract_anchor": "IF-DISCRIM-01:original_artifact_digest",
+      "test_identity": "tst_v14_005_discrim",
+      "candidate_identity": "cnd_v14_005_design-r1",
+      "runner_identity": "rnr_v14_005_run_project_venv",
+      "expected_classification": "safety_attention",
+      "expected_owner": "Runtime",
+      "expected_return_target": "ATTENTION"
+    }
+  ],
+  "credential_canary": "SECRET_V014005_FAILURE_ROUTING_DO_NOT_LEAK",
+  "credential_canary_unique_per_run_suffix": true
+}

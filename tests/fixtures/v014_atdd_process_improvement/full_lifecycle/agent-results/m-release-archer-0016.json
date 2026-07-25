@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=artifact_built",
+    "kind": "kind",
+    "result_digest": "sha256:ec5ed1f523fbcc30cc4cf677fbadc0cbae078744fe26eaba1fea09db73959220"
+  },
+  "role": "Archer",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-release-archer-0016",
+  "stage": "M-RELEASE",
+  "turn_ordinal": 1
+}

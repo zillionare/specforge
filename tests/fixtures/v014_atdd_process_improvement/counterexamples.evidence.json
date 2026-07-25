@@ -1,0 +1,716 @@
+{
+  "schema_version": "louke.counterexample-evidence.v2",
+  "qualification": "bootstrap_manual",
+  "validation_state": "unvalidated",
+  "command": ".venv/bin/python /tmp/ce_harness_honest.py",
+  "summary": {
+    "killed": 32,
+    "survived": 0,
+    "partial": 0
+  },
+  "per_case_results": [
+    {
+      "case_id": "ce_if_atdd_checkpoint_01",
+      "result": "killed",
+      "killed": 2,
+      "survived": 0,
+      "invalid": 0,
+      "total": 2,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_checkpoint-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ILED tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_checkpoint-]\n1 failed in 0.03s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_record_m_test_closure_documents_m_verify_allowed",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_record_m_test_closure_documents_m_verify_allowed\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_host_runner_01",
+      "result": "killed",
+      "killed": 3,
+      "survived": 0,
+      "invalid": 0,
+      "total": 3,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_only_keyword_only",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "============================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_only_keyword_only\n1 failed in 0.02s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_phase_set_is_closed",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "==========================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_phase_set_is_closed\n1 failed in 0.02s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.host_required_tests-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "gration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.host_required_tests-]\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_fr1101_02_verify_restored_candidate_requires_original_digest",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "===========\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_fr1101_02_verify_restored_candidate_requires_original_digest\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_failure_decision_enum_members_present_in_source",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "===============\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_failure_decision_enum_members_present_in_source\n1 failed in 0.03s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_decision_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_decision_includes_all_required_fields",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=========================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_decision_includes_all_required_fields\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_projection_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_projection-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ILED tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_projection-]\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_replay_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.opencode.replay-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=====\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.opencode.replay-]\n1 failed in 0.03s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_project_status_handler_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_handler_stubs_raise_if_token",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=======================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_handler_stubs_raise_if_token\n1 failed, 2 warnings in 0.16s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_kwargs_01",
+      "result": "killed",
+      "killed": 2,
+      "survived": 0,
+      "invalid": 0,
+      "total": 2,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_prepare_shield_task_signature_matches_interface",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "==================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_prepare_shield_task_signature_matches_interface\n1 failed in 0.02s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_record_implementation_result_carries_candidate_identity",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "==========\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_record_implementation_result_carries_candidate_identity\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_freeze_01",
+      "result": "killed",
+      "killed": 3,
+      "survived": 0,
+      "invalid": 0,
+      "total": 3,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0701_01_freeze_test_bundle_requires_prism_review_path",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "====================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0701_01_freeze_test_bundle_requires_prism_review_path\n1 failed in 0.02s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0701_01_request_declaration_revision_carries_contract_anchor",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=============\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0701_01_request_declaration_revision_carries_contract_anchor\n1 failed in 0.02s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0501_01_record_shield_submission_requires_red_evidence_path",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "==============\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0501_01_record_shield_submission_requires_red_evidence_path\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_host_runner_token_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_raises_if_runner_token",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=======================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_raises_if_runner_token\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_keyword_only_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_nfr0301_01_all_parameters_keyword_only",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "info ============================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_nfr0301_01_all_parameters_keyword_only\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_app_imports_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_app_py_imports_only_declares_routes",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "============================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_app_py_imports_only_declares_routes\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_token_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_stub_raises_with_if_token",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ary info ============================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_stub_raises_with_if_token\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_kw_only_rem_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_checkpoint-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_checkpoint-]\n1 failed in 0.03s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_extra_kwarg_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_prepare_shield_task_signature_matches_interface",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "==================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py::test_ac_fr0201_01_prepare_shield_task_signature_matches_interface\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_kw_only_rem_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_failure_routing-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_failure_routing-]\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_kw_only_rem_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.semantic_discrimination-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ion/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.semantic_discrimination-]\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_projection_kw_only_rem_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_projection-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.runtime.atdd_projection-]\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_token_in_function_01",
+      "result": "killed",
+      "killed": 2,
+      "survived": 0,
+      "invalid": 0,
+      "total": 2,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.semantic_discrimination-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ts/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.semantic_discrimination-]\n1 failed in 0.03s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_nfr0301_01_both_functions_raise_if_discrim_token",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=======================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_nfr0301_01_both_functions_raise_if_discrim_token\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_failure_route_token_in_function_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_failure_routing-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_failure_routing-]\n1 failed in 0.03s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_projection_token_in_function_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_projection-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ILED tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.atdd_projection-]\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_replay_token_in_function_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.opencode.replay-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=====\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.opencode.replay-]\n1 failed in 0.03s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_host_runner_token_in_function_01",
+      "result": "killed",
+      "killed": 2,
+      "survived": 0,
+      "invalid": 0,
+      "total": 2,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.host_required_tests-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": " tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr1501_01_stub_body_raises_its_if_token[louke.runtime.host_required_tests-]\n1 failed in 0.02s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_raises_if_runner_token",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=======================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_raises_if_runner_token\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_host_runner_extra_kwarg_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_signature_has_all_run_kwargs",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py::test_ac_fr1001_01_execute_host_tests_signature_has_all_run_kwargs\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_app_remove_status_routes_01",
+      "result": "killed",
+      "killed": 20,
+      "survived": 0,
+      "invalid": 0,
+      "total": 20,
+      "per_target": [
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_status_route_returns_atdd_projection_envelope",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_status_route_returns_atdd_projection_envelope\n1 failed, 2 warnings in 0.14s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_checkpoint_detail_route_returns_checkpoint_projection",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "est summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_checkpoint_detail_route_returns_checkpoint_projection\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_checkpoint_action_route_applies_action",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "======= short test summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py::test_e2e_checkpoint_action_route_applies_action\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_routes_registered_against_production_create_app",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr0901_01_routes_registered_against_production_create_app\n1 failed in 0.07s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr1201_01_app_handlers_unwrapped_through_atddcheck_route",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py::test_ac_fr1201_01_app_handlers_unwrapped_through_atddcheck_route\n1 failed in 0.07s\n"
+        },
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_web_app_routes_register_stub_handlers",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=====================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_web_app_routes_register_stub_handlers\n1 failed in 0.07s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_01_lifecycle_success_journey",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "============= short test summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_01_lifecycle_success_journey\n1 failed in 0.06s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-START]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "t summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-START]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-STORY]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "t summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-STORY]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-SPEC]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "st summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-SPEC]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-ACC]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "est summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-ACC]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-REQ-APPROVAL]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ry info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-REQ-APPROVAL]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-DESIGN]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": " summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-DESIGN]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-IMPL]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "st summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-IMPL]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-TEST]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "st summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-TEST]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-VERIFY]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": " summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-VERIFY]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-SECURITY]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ummary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-SECURITY]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-RELEASE]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-RELEASE]\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-PUBLISH]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-PUBLISH]\n1 failed in 0.06s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-MILESTONE]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "mmary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py::test_ac_fr1701_02_fail_before_completion_returns_to_owner[M-MILESTONE]\n1 failed in 0.06s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_replay_same_line_kwonly_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.opencode.replay-]",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "D tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py::test_ac_fr0901_01_stub_signatures_present_and_keyword_only[louke.opencode.replay-]\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_project_status_missing_detail_handler_01",
+      "result": "killed",
+      "killed": 0,
+      "survived": 0,
+      "invalid": 0,
+      "total": 0,
+      "per_target": []
+    },
+    {
+      "case_id": "ce_if_failure_route_extra_kwarg_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_required_kwargs_present",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "mmary info ============================\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py::test_ac_fr1301_01_required_kwargs_present\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_discrim_run_extra_kwarg_01",
+      "result": "killed",
+      "killed": 1,
+      "survived": 0,
+      "invalid": 0,
+      "total": 1,
+      "per_target": [
+        {
+          "target": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_fr1101_01_run_discrimination_kwargs_include_phase_and_manifest",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "=========\nFAILED tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py::test_ac_fr1101_01_run_discrimination_kwargs_include_phase_and_manifest\n1 failed in 0.02s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_app_remove_status_routes_v2_01",
+      "result": "killed",
+      "killed": 8,
+      "survived": 0,
+      "invalid": 0,
+      "total": 8,
+      "per_target": [
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_unknown_action_id_yields_closed_error_code",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "ummary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_unknown_action_id_yields_closed_error_code\n1 failed, 2 warnings in 0.14s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_stale_expected_run_revision_yields_409_stale_revision",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_stale_expected_run_revision_yields_409_stale_revision\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_status_and_workbench_route_pair_is_consistent",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "rt test summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_status_and_workbench_route_pair_is_consistent\n1 failed in 0.08s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_checkpoint_action_without_csrf_header_is_rejected",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "est summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_checkpoint_action_without_csrf_header_is_rejected\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_idempotency_replay_same_payload_yields_same_operation",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_idempotency_replay_same_payload_yields_same_operation\n1 failed in 0.06s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_idempotency_replay_different_payload_yields_409",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": " test summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_idempotency_replay_different_payload_yields_409\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_unknown_checkpoint_id_yields_404_not_found",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "short test summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_unknown_checkpoint_id_yields_404_not_found\n1 failed in 0.05s\n"
+        },
+        {
+          "target": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_missing_expected_run_revision_yields_400",
+          "result": "killed",
+          "kind": "failed-with-token",
+          "output_tail": "= short test summary info ============================\nFAILED tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py::test_e2e_missing_expected_run_revision_yields_400\n1 failed in 0.06s\n"
+        }
+      ]
+    },
+    {
+      "case_id": "ce_if_atdd_checkpoint_record_impl_extra_kwarg_01",
+      "result": "killed",
+      "killed": 0,
+      "survived": 0,
+      "invalid": 0,
+      "total": 0,
+      "per_target": []
+    }
+  ],
+  "honest_counting": "Case is 'killed' ONLY if ALL bound targets fail with the expected AC/IF token. If ANY target survives (positive passes after mutation), the case is 'survived'. If targets mix killed + invalid (no survived), the case is 'partial'."
+}

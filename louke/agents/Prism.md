@@ -59,7 +59,7 @@ Prism 还可按 task manifest 评审 M-IMPL 代码与 integration/e2e 资产；�
 - 每个 `IF-*` 都有输入、输出、状态、权限、错误、恢复、`modules` 与 `ARC-*` carrier；跨两个及以上模块必须要求 integration。
 - 每个 `ARC-*` 都承载真实接口语义并记录组件、依赖、状态/一致性、故障、安全、迁移和技术取舍。
 - AC → IF → ARC → contract 双向无 orphan；路径、命令、状态和失败语义逐字或规范化一致。
-- 面向人的主旅程使用公开 Workbench/Web/CLI/Chat 出口并要求 e2e；后台 API 或私有状态不能替代可见反馈。
+- 面向人的主旅程使用公开用户界面/Web/CLI/Chat 出口并要求 e2e；后台 API 或私有状态不能替代可见反馈。
 
 ### 4.2 Machine contracts 与 registry
 

@@ -1,0 +1,481 @@
+{
+  "agent_io_schema_ref": {
+    "activation_state": "candidate",
+    "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "identity": "louke.agent-io.v014-005",
+    "version": "v0.14-005.candidate"
+  },
+  "agent_results": [
+    {
+      "dispatch_correlation_id": "corr-M-START-0001",
+      "expected_result_schema": "kind=stage_started",
+      "path": "agent-results/m-start-sage-0001.json",
+      "request_digest": "sha256:9f42cfd23e4e0c72b35bc4ec17ee4dc8f451d466a9bf49691d7fe9d522e0edc0",
+      "result_digest": "sha256:0d2d51f15665cbd0d521057bb0251031d38c648cf55fce80e4a7501e67254e32",
+      "role": "Sage",
+      "session_key": "v14-005-m-start-sage-0001",
+      "task_contract_digest": "sha256:b815bd11c0f1116c250036745d4e9ca25617d7d0d275e076e52413becc51a29d",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-START"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-STORY-0002",
+      "expected_result_schema": "kind=stage_started",
+      "path": "agent-results/m-story-sage-0002.json",
+      "request_digest": "sha256:e5dd8d0dad2d3b5f3efe4c3ce57e5ae24fe9c2d198554e320357c63bce500145",
+      "result_digest": "sha256:093860f3c5ff1b828d79cd9604a348fdc27713cdb2bea4b1640a7757ea1de7cd",
+      "role": "Sage",
+      "session_key": "v14-005-m-story-sage-0002",
+      "task_contract_digest": "sha256:7b6756b749b7852472f0fd369468b8bd1bd8329c68958d1d7622748778ac855a",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-STORY"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-SPEC-0003",
+      "expected_result_schema": "kind=stage_started",
+      "path": "agent-results/m-spec-sage-0003.json",
+      "request_digest": "sha256:54e30da795dec472596c2680db5bf63b5069c63ba37767ba916acf5f0fc67410",
+      "result_digest": "sha256:91ccfe0b9eb0d14482acbe811a11cd5086e4da0c8b3def4cf99c3e050464daee",
+      "role": "Sage",
+      "session_key": "v14-005-m-spec-sage-0003",
+      "task_contract_digest": "sha256:70d05ea61037857f307a6e9fd8e551ebf4475c4b43ce6f19bd281af6609a6a29",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-SPEC"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-ACC-0004",
+      "expected_result_schema": "kind=stage_started",
+      "path": "agent-results/m-acc-archer-0004.json",
+      "request_digest": "sha256:0c9c7b474fdd9be9ebdb251e32ccd4da88132d8ea78c33feb67de8718b356315",
+      "result_digest": "sha256:dbf4087bb21af8f0c754b873999af134f8bd72fa8ab0da2341263aae99fb901b",
+      "role": "Archer",
+      "session_key": "v14-005-m-acc-archer-0004",
+      "task_contract_digest": "sha256:3e788eaf743c0a528aa2f91156de82a04bac90f1340adc8910cb601bf6c8a665",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-ACC"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-REQ-APPROVAL-0005",
+      "expected_result_schema": "kind=human_action_required",
+      "path": "agent-results/m-req-approval-sage-0005.json",
+      "request_digest": "sha256:111e9951389fb9167f14285b33028742bf2b5137a9f01c85e2f749e474af13f1",
+      "result_digest": "sha256:42d42cd972085caaae8172337cf79fd54849fc2d930ee330e8124388fd40f7d4",
+      "role": "Sage",
+      "session_key": "v14-005-m-req-approval-sage-0005",
+      "task_contract_digest": "sha256:a50d3ef7673a2be0afd136292d373830957681ccc71966ec28264a2bcef00e82",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-REQ-APPROVAL"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-DESIGN-0006",
+      "expected_result_schema": "kind=interfaces_committed",
+      "path": "agent-results/m-design-archer-0006.json",
+      "request_digest": "sha256:a17097b60134428cba0590cedac20ebbe5d9569f1c8f9432b015276dc8c4f192",
+      "result_digest": "sha256:b6ba1144c116afeab98af4c623f302863d017c7fe85bb99a9c5b293c35d3e7ae",
+      "role": "Archer",
+      "session_key": "v14-005-m-design-archer-0006",
+      "task_contract_digest": "sha256:4febab4e180addf2e961972bb7e057252a53c1c7c3d708980888d6d64cfb9cf0",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-DESIGN"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-DESIGN-0007",
+      "expected_result_schema": "kind=test_prepared",
+      "path": "agent-results/m-design-shield-0007.json",
+      "request_digest": "sha256:21b5af3f0a681c3693594e5a827528f6895d275c9465fd0fe6513158ffad67a0",
+      "result_digest": "sha256:7da561a61090f201da93aefc068346a0f4d1bee97fd56c031fc9d329fcbbb900",
+      "role": "Shield",
+      "session_key": "v14-005-m-design-shield-0007",
+      "task_contract_digest": "sha256:83b9d7c5d6f842a1c6468145dc50a3faeb48ef7931f2b18e16146820f637699c",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-DESIGN"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-IMPL-0008",
+      "expected_result_schema": "kind=red_committed",
+      "path": "agent-results/m-impl-shield-0008.json",
+      "request_digest": "sha256:c0f9fe9a5db8c47063aca3603762dd8ed27b793e83cb81937d02125b87350dee",
+      "result_digest": "sha256:464cea9859e7c8fc4911a120934741b1cb79879572b5cc81a075c88b261331d5",
+      "role": "Shield",
+      "session_key": "v14-005-m-impl-shield-0008",
+      "task_contract_digest": "sha256:3b370d9d55f43f20b16a92b2af937465cd19c9239e3bd70b456b7a2963e49a9b",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-IMPL"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-IMPL-0009",
+      "expected_result_schema": "kind=prism_approved",
+      "path": "agent-results/m-impl-prism-0009.json",
+      "request_digest": "sha256:99e711075080387e471aa4f4a5ae29cd6204fe0df1d401f7f14a33f78d293b95",
+      "result_digest": "sha256:65c72733228937f943b87b04086c2b8f79791b8ac00c78a0db5c746b6f326720",
+      "role": "Prism",
+      "session_key": "v14-005-m-impl-prism-0009",
+      "task_contract_digest": "sha256:005c7877dccf83cef9440de61584471de69ddc6c856638d8846db079402af7d6",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-IMPL"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-IMPL-0010",
+      "expected_result_schema": "kind=implementation_committed",
+      "path": "agent-results/m-impl-devon-0010.json",
+      "request_digest": "sha256:3d306d0cc66087388dcc7105db0490a642844dec30e08c2d18d572388d768a2d",
+      "result_digest": "sha256:cb2bb759ad89b8ff0385b6c007ddbe0d36525d1873f06dc0e3c82639eb9cdd63",
+      "role": "Devon",
+      "session_key": "v14-005-m-impl-devon-0010",
+      "task_contract_digest": "sha256:4a53b2964ea4210b3b8c639573ab6de98afc5ba52761b692938a53af31c2fd34",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-IMPL"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-TEST-0011",
+      "expected_result_schema": "kind=required_green",
+      "path": "agent-results/m-test-devon-0011.json",
+      "request_digest": "sha256:d38f357fd23c2728367b77badfc33c1aaf637e859c64445776ba9ab02b8d33cb",
+      "result_digest": "sha256:75d198a9303a27b682a5f7151787f1a315a07b4a1a625451552fe0d66d40745f",
+      "role": "Devon",
+      "session_key": "v14-005-m-test-devon-0011",
+      "task_contract_digest": "sha256:6ce4365a8f68b99e360fb07bea1e171b364a788119db032cc9a9c946472e646e",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-TEST"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-TEST-0012",
+      "expected_result_schema": "kind=discrim_killed",
+      "path": "agent-results/m-test-lex-0012.json",
+      "request_digest": "sha256:ddbc39599f73384cc6a6074587bfddfac3470d64e252cb1152ce29fb8ee1404d",
+      "result_digest": "sha256:ea7f3ef09ca08a2f40973f52d3b51b8813e1105bd5c34546f465af79cec0a162",
+      "role": "Lex",
+      "session_key": "v14-005-m-test-lex-0012",
+      "task_contract_digest": "sha256:82ea1297b6a3e4dada73b8d58313f321e5a57131b16872bd05bd90a2eaaa4d57",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-TEST"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-TEST-0013",
+      "expected_result_schema": "kind=restored_green",
+      "path": "agent-results/m-test-devon-0013.json",
+      "request_digest": "sha256:10260a48ccd37326c8a59830d497adb51d686eba3694d1c3f84c1d22af443d23",
+      "result_digest": "sha256:a035cc3f39e6d5d3e15909caa7a97b055fcdb0276981c08656189873732380ad",
+      "role": "Devon",
+      "session_key": "v14-005-m-test-devon-0013",
+      "task_contract_digest": "sha256:b699f6c498effe97d6b3df6a4302b3cb66b548d07c35252a849d037daf94248d",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-TEST"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-VERIFY-0014",
+      "expected_result_schema": "kind=prism_approved",
+      "path": "agent-results/m-verify-prism-0014.json",
+      "request_digest": "sha256:28e5b9621ed2b618721aae0b7e6be06f41132b4f832873633ed7abb3ee7e7e2c",
+      "result_digest": "sha256:0b0bb8fa9cf0e3b6d84994f8be4eb2d96c622d0d5fc50eccd1c0efd92ad13e29",
+      "role": "Prism",
+      "session_key": "v14-005-m-verify-prism-0014",
+      "task_contract_digest": "sha256:ac68f525b667fa52d0c1182435a2b1eb2f0d977f8698e32dce8ded23074e7085",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-VERIFY"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-SECURITY-0015",
+      "expected_result_schema": "kind=stage_disabled",
+      "path": "agent-results/m-security-judge-0015.json",
+      "request_digest": "sha256:41dd31dc2457da9a27d5223c8367aa54077db9c30382eef2acf3e7431342ea79",
+      "result_digest": "sha256:4fe58ab46520b7551778e6d3895706bb6932fd7ec96d5791bbc22ce10150e68e",
+      "role": "Judge",
+      "session_key": "v14-005-m-security-judge-0015",
+      "task_contract_digest": "sha256:9486c5987ac67222a909267d963900c53fbc96d7769ea37a20ff41e9f3bc4b1b",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-SECURITY"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-RELEASE-0016",
+      "expected_result_schema": "kind=artifact_built",
+      "path": "agent-results/m-release-archer-0016.json",
+      "request_digest": "sha256:68d8e511868db436bd03d337f33b8a4beee1ec82bfbf8ce0bb89cedf7156cbdf",
+      "result_digest": "sha256:ec5ed1f523fbcc30cc4cf677fbadc0cbae078744fe26eaba1fea09db73959220",
+      "role": "Archer",
+      "session_key": "v14-005-m-release-archer-0016",
+      "task_contract_digest": "sha256:4ec9e47a72cf14cc502eedde319092414265408d2cfb2d250f6997866c1baf54",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-RELEASE"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-PUBLISH-0017",
+      "expected_result_schema": "kind=published_locally",
+      "path": "agent-results/m-publish-archer-0017.json",
+      "request_digest": "sha256:7af61e6591ec789ce125524f3d9a4b4de6610d047caad62a6ad256710cec6c73",
+      "result_digest": "sha256:5aafb6db230ed4161a3f10974cf0a80f739aab7f48efd4bf5a819d83b14c042c",
+      "role": "Archer",
+      "session_key": "v14-005-m-publish-archer-0017",
+      "task_contract_digest": "sha256:c42685046c9a4534dbaee95099b9d5a858c9ab1adae67a92d6d88e0d7fbd03a0",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-PUBLISH"
+    },
+    {
+      "dispatch_correlation_id": "corr-M-MILESTONE-0018",
+      "expected_result_schema": "kind=milestone_recorded",
+      "path": "agent-results/m-milestone-sage-0018.json",
+      "request_digest": "sha256:dc4da9763bc548009f9e9ba7d7c789aae61810d59d79f6307e472e22e9d5d01b",
+      "result_digest": "sha256:5b151cf59e504f6832d07cfc3a0174f3b7816bbf109eca2daeb61bdaafb44633",
+      "role": "Sage",
+      "session_key": "v14-005-m-milestone-sage-0018",
+      "task_contract_digest": "sha256:515e191cd7090a3554584b3ec53523c7cd3ebe353c898e1e71553f638987d048",
+      "turn_ordinal": 1,
+      "workflow_stage": "M-MILESTONE"
+    }
+  ],
+  "canonical_stages": [
+    "M-START",
+    "M-STORY",
+    "M-SPEC",
+    "M-ACC",
+    "M-REQ-APPROVAL",
+    "M-DESIGN",
+    "M-IMPL",
+    "M-TEST",
+    "M-VERIFY",
+    "M-SECURITY",
+    "M-RELEASE",
+    "M-PUBLISH",
+    "M-MILESTONE"
+  ],
+  "external_standins": {
+    "ci_provider": "loopback",
+    "credential_provider": "synthetic",
+    "git_remote": "loopback-only",
+    "model_provider": "replay-only",
+    "opencode_backend": "replay",
+    "publish_sink": "temp-local-fs"
+  },
+  "failures": [
+    {
+      "case_id": "fail-m-start",
+      "expected_halt_stage": "M-START",
+      "expected_owners": [
+        "Shield"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-start",
+      "fail_before_stage": "M-START",
+      "public_injection": "m-start_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-story",
+      "expected_halt_stage": "M-STORY",
+      "expected_owners": [
+        "Shield"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-story",
+      "fail_before_stage": "M-STORY",
+      "public_injection": "m-story_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-spec",
+      "expected_halt_stage": "M-SPEC",
+      "expected_owners": [
+        "Shield"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-spec",
+      "fail_before_stage": "M-SPEC",
+      "public_injection": "m-spec_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-acc",
+      "expected_halt_stage": "M-ACC",
+      "expected_owners": [
+        "Shield"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-acc",
+      "fail_before_stage": "M-ACC",
+      "public_injection": "m-acc_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-req-approval",
+      "expected_halt_stage": "M-REQ-APPROVAL",
+      "expected_owners": [
+        "Shield"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-req-approval",
+      "fail_before_stage": "M-REQ-APPROVAL",
+      "public_injection": "m-req-approval_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-design",
+      "expected_halt_stage": "M-DESIGN",
+      "expected_owners": [
+        "Shield"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-design",
+      "fail_before_stage": "M-DESIGN",
+      "public_injection": "m-design_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-impl",
+      "expected_halt_stage": "M-IMPL",
+      "expected_owners": [
+        "Shield",
+        "Devon",
+        "Archer"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-impl",
+      "fail_before_stage": "M-IMPL",
+      "public_injection": "m-impl_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-test",
+      "expected_halt_stage": "M-TEST",
+      "expected_owners": [
+        "Shield",
+        "Devon",
+        "Archer"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-test",
+      "fail_before_stage": "M-TEST",
+      "public_injection": "m-test_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-verify",
+      "expected_halt_stage": "M-VERIFY",
+      "expected_owners": [
+        "Shield",
+        "Devon",
+        "Archer"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-verify",
+      "fail_before_stage": "M-VERIFY",
+      "public_injection": "m-verify_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-security",
+      "expected_halt_stage": "M-SECURITY",
+      "expected_owners": [
+        "Shield",
+        "Devon",
+        "Archer"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-security",
+      "fail_before_stage": "M-SECURITY",
+      "public_injection": "m-security_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-release",
+      "expected_halt_stage": "M-RELEASE",
+      "expected_owners": [
+        "Shield",
+        "Devon",
+        "Archer"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-release",
+      "fail_before_stage": "M-RELEASE",
+      "public_injection": "m-release_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-publish",
+      "expected_halt_stage": "M-PUBLISH",
+      "expected_owners": [
+        "Shield",
+        "Devon",
+        "Archer"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-publish",
+      "fail_before_stage": "M-PUBLISH",
+      "public_injection": "m-publish_public_dependency_failure"
+    },
+    {
+      "case_id": "fail-m-milestone",
+      "expected_halt_stage": "M-MILESTONE",
+      "expected_owners": [
+        "Shield",
+        "Devon",
+        "Archer"
+      ],
+      "expected_recovery_url": "/workbench?activity=projects&project=wordcount&failed_stage=m-milestone",
+      "fail_before_stage": "M-MILESTONE",
+      "public_injection": "m-milestone_public_dependency_failure"
+    }
+  ],
+  "host_seed": {
+    "digest": "sha256:daf616f9cca379496cb002e1a615208de11633a4b4cf57e70f5c0e5d254ab87b",
+    "digest_strategy": "snapshot-on-copy; harness recomputes when copying into temp host",
+    "files": {
+      "README.md": "sha256:aee2d6c4ae3656b919c763bba6fb93b4329073c7eec2e25ae8caad34d3616701",
+      "pyproject.toml": "sha256:1bb3d8797ba7c194e5af99940ba47fc936f36e1b030d949e4936f4c8307a2d73",
+      "sample.txt": "sha256:d604e6a972271718534ce1edc66ed9390f7784e9236ff1fe2ab6b4bade8288c2",
+      "wordcount/__init__.py": "sha256:2c735cca64801ffad23f239154393d5731e10a9c1d7b3015f45bb35e944c8e32",
+      "wordcount/cli.py": "sha256:233ace2753fa280a2e5d733141a303d474718c52511cee568738fd9583118331"
+    },
+    "path": "wordcount-seed"
+  },
+  "human_actions": [
+    {
+      "action_id": "confirm_m_start",
+      "stage_id": "M-START",
+      "surface": "Workbench active card"
+    },
+    {
+      "action_id": "approve_requirements",
+      "stage_id": "M-REQ-APPROVAL",
+      "surface": "Workbench active card"
+    },
+    {
+      "action_id": "approve_publish",
+      "stage_id": "M-PUBLISH",
+      "surface": "Workbench active card"
+    },
+    {
+      "action_id": "acknowledge_milestone",
+      "stage_id": "M-MILESTONE",
+      "surface": "Workbench active card"
+    }
+  ],
+  "louke_release_identity": "louke-release-0.14.0",
+  "prompt_bundle_ref": {
+    "activation_state": "candidate",
+    "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "identity": "louke.prompt-bundle.v0.14-005",
+    "version": "v0.14-005.design-r1"
+  },
+  "scenario_identity": "louke.full_lifecycle.scenario.v0.14-005.success",
+  "scenario_kind": "success",
+  "schema_version": "louke.full_lifecycle.scenario.v1",
+  "success_expectations": {
+    "all_evidences_resolved": true,
+    "m_verify_allowed": true,
+    "provider_zero_calls": true,
+    "publish_artifact_local_only": true,
+    "stage_ids_ordered": [
+      "M-START",
+      "M-STORY",
+      "M-SPEC",
+      "M-ACC",
+      "M-REQ-APPROVAL",
+      "M-DESIGN",
+      "M-IMPL",
+      "M-TEST",
+      "M-VERIFY",
+      "M-SECURITY",
+      "M-RELEASE",
+      "M-PUBLISH",
+      "M-MILESTONE"
+    ],
+    "stages_completed": 13
+  },
+  "task_contract_refs": [
+    {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "identity": "louke.task.shield-test-preparation",
+      "version": "v0.14-005.candidate"
+    },
+    {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "identity": "louke.task.devon-implementation",
+      "version": "v0.14-005.candidate"
+    }
+  ],
+  "teardown": {
+    "louke_checkout_expectation": "before-equals-after (bytes + git refs)",
+    "publish_sink": "rm -rf {temp_publish_sink}",
+    "real_home_expectation": "before-equals-after",
+    "real_provider_calls": 0,
+    "temp_control": "rm -rf {temp_scenario_control}",
+    "temp_host": "rm -rf {temp_wordcount_host}"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "provider_result": {
+    "expected": "kind=prism_approved",
+    "kind": "kind",
+    "result_digest": "sha256:65c72733228937f943b87b04086c2b8f79791b8ac00c78a0db5c746b6f326720"
+  },
+  "role": "Prism",
+  "schema": "louke.replay.agent_result.v1",
+  "session_key": "v14-005-m-impl-prism-0009",
+  "stage": "M-IMPL",
+  "turn_ordinal": 1
+}
