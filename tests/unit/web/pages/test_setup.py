@@ -1,487 +1,261 @@
-"""TestClient tests for the /setup page sub-app (FR-0101 Setup Wizard).
+"""TestClient contract tests for the ``/setup`` page sub-app (FR-0101 / IF-SETUP-01).
 
-The Wizard has step-by-step routes:
-  GET  /setup/                        -> redirects to current step page
-  GET  /setup/identity/               -> identity step (first-user form)
-  POST /setup/identity/complete        -> advance to repository
-  GET  /setup/repository/             -> repository step
-  POST /setup/repository/complete     -> record init/clone and advance
-  GET  /setup/dependencies/           -> readiness report
-  POST /setup/dependencies/complete   -> advance to review
-  GET  /setup/review/                 -> review summary
-  POST /setup/review/complete         -> advance to applying
-  GET  /setup/applying/               -> apply step (stub)
-  GET  /setup/complete/               -> completion page
-  POST /setup/first-user              -> legacy first-user submission
-  POST /setup/return/<step>           -> rewind to prior step
-  POST /setup/reset                   -> clear wizard state
+The locked v0.14-004 baseline replaces the retired six-step Setup Wizard
+(``identity -> repository -> dependencies -> review -> applying ->
+complete``) with a two-context Setup page:
+
+  1. ``pending_user``  -> the first-user creation form.
+  2. ``pending_model`` -> the OpenCode model-check view with a Retry entry.
+
+On ``complete`` the page navigates to ``/workbench?activity=projects``.
+The retired per-step routes ``/setup/repository/``, ``/setup/dependencies/``,
+``/setup/review/`` and ``/setup/applying/`` no longer exist (404).
+
+How these tests drive the SUT (no SUT stub):
+
+* The real ``louke.web.pages.setup`` sub-app is exercised through its
+  public HTTP surface (``TestClient``); its routing/rendering is never
+  replaced.
+* The Setup state is established by writing a **real v2 manifest** into a
+  **real, isolated workspace** bound to the sub-app state — the page must
+  reflect the on-disk Setup projection (IF-SETUP-01), exactly as the
+  integration suite drives ``setup_projection`` against ``synthetic_host``.
+* The page's backend status seam (``_fetch_setup_status``, the client for
+  ``GET /api/setup/status``) is fed the **real projection** derived from
+  that manifest via ``setup_projection.read``. This substitutes the page's
+  *external backend dependency* (which a bare ``TestClient`` cannot serve
+  over a socket); it does not replace the page. If a future implementation
+  reads the projection directly from the bound workspace and drops the
+  seam, the patch degrades to a no-op and the workspace binding still
+  drives the page.
+
+These are ATDD contract tests: they are RED against the still-shipped
+six-step page and turn GREEN when the page migration to the two-context
+contract lands.
 """
 
 from __future__ import annotations
 
+import contextlib
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from starlette.testclient import TestClient
 
+from louke.web import setup_projection
 from louke.web.pages import setup as setup_page
+from louke.web.setup_state import (
+    ModelCheck,
+    SetupManifest,
+    SetupStatus,
+    write_manifest,
+)
+
+
+WORKSPACE_ID = "ws_setup_page"
+
+#: Markers of the retired six-step wizard that must not appear on the
+#: two-context Setup page. The route paths anchor the IF-SETUP-01 contract;
+#: ``Runtime dependencies`` is the distinctive retired stepper label that the
+#: current wizard still renders, so its absence discriminates RED -> GREEN.
+RETIRED_STEP_MARKERS: tuple[str, ...] = (
+    "Runtime dependencies",
+    "/setup/repository/",
+    "/setup/dependencies/",
+    "/setup/review/",
+    "/setup/applying/",
+)
+
+
+# ---------------------------------------------------------------------------
+# Real workspace + real v2 manifest fixtures (external fixture, no SUT stub)
+# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def client() -> TestClient:
-    """Return a TestClient backed by a fresh setup page sub-app."""
-    return TestClient(setup_page.create_app())
+def workspace(tmp_path: Path) -> Path:
+    """An isolated workspace with a ``.louke/project`` layout bound to the page."""
+    ws = tmp_path / "workspace"
+    (ws / ".louke" / "project").mkdir(parents=True)
+    (ws / ".louke" / "project" / "project.toml").write_text(
+        '[project]\nname = "ws_setup_page"\n',
+        encoding="utf-8",
+    )
+    return ws
 
 
-def _ready_payload() -> list[dict[str, str]]:
-    """Return a readiness payload where every check is READY."""
-    return [
-        {"name": "Git", "status": "READY", "diagnosis": "ok", "remediation": "none"},
-        {"name": "Store", "status": "READY", "diagnosis": "ok", "remediation": "none"},
-        {
-            "name": "Catalog",
-            "status": "READY",
-            "diagnosis": "ok",
-            "remediation": "none",
-        },
-        {
-            "name": "OpenCode",
-            "status": "READY",
-            "diagnosis": "ok",
-            "remediation": "none",
-        },
-        {
-            "name": "Models",
-            "status": "READY",
-            "diagnosis": "default-model",
-            "remediation": "none",
-        },
-    ]
+def _client(workspace: Path) -> TestClient:
+    """Return a TestClient for the real setup page sub-app bound to ``workspace``."""
+    app = setup_page.create_app()
+    app.state.workspace_root = workspace
+    return TestClient(app)
 
 
-def _blocked_payload() -> list[dict[str, str]]:
-    """Return a readiness payload where at least one check is BLOCKED."""
-    return [
-        {"name": "Git", "status": "READY", "diagnosis": "ok", "remediation": "none"},
-        {"name": "Store", "status": "READY", "diagnosis": "ok", "remediation": "none"},
-        {
-            "name": "Catalog",
-            "status": "BLOCKED",
-            "diagnosis": "missing",
-            "remediation": "run X",
-        },
-        {
-            "name": "OpenCode",
-            "status": "BLOCKED",
-            "diagnosis": "no adapter",
-            "remediation": "wait B4",
-        },
-        {
-            "name": "Models",
-            "status": "READY",
-            "diagnosis": "default-model",
-            "remediation": "none",
-        },
-    ]
+@contextlib.contextmanager
+def _feed_projection(workspace: Path):
+    """Feed the page's backend status seam the real Setup projection.
 
-
-# -- Root redirect ----------------------------------------------------------
-
-
-def test_root_redirects_to_identity_when_no_first_user(client: TestClient) -> None:
-    """GET /setup/ with no first user renders the identity form."""
-    with patch.object(
-        setup_page,
-        "_fetch_setup_status",
-        new=AsyncMock(return_value={"initialized": False, "first_principal_id": None}),
-    ):
-        resp = client.get("/", follow_redirects=False)
-    assert resp.status_code == 200
-    assert "First user" in resp.text
-    assert 'name="name"' in resp.text
-    assert 'name="credential"' in resp.text
-
-
-def test_root_redirects_to_current_step_when_initialized(client: TestClient) -> None:
-    """GET /setup/ with first user present redirects to the current step."""
-    with (
-        patch.object(
+    Substitutes the page's external backend dependency (the
+    ``GET /api/setup/status`` client) with the real projection derived from
+    the on-disk v2 manifest. The page itself is never replaced. Degrades to
+    a no-op if the seam is removed in favour of a direct workspace read.
+    """
+    projection = setup_projection.read(workspace, workspace_id=WORKSPACE_ID)
+    if hasattr(setup_page, "_fetch_setup_status"):
+        with patch.object(
             setup_page,
             "_fetch_setup_status",
-            new=AsyncMock(
-                return_value={
-                    "initialized": True,
-                    "first_principal_id": "prin_abc",
-                }
-            ),
+            new=AsyncMock(return_value=projection),
+        ):
+            yield projection
+    else:
+        yield projection
+
+
+def _write_pending_user(ws: Path) -> None:
+    """Persist a ``pending_user`` manifest (no first user yet)."""
+    write_manifest(
+        ws,
+        SetupManifest(
+            workspace_id=WORKSPACE_ID,
+            revision=0,
+            status=SetupStatus.PENDING_USER,
         ),
-        patch.object(setup_page, "_read_persisted_state", return_value={}),
-    ):
-        resp = client.get("/", follow_redirects=False)
-    assert resp.status_code in (303, 302, 307)
-    assert resp.headers["location"].endswith("/setup/identity/")
+    )
 
 
-# -- Identity step ----------------------------------------------------------
-
-
-def test_identity_step_renders_first_user_form(client: TestClient) -> None:
-    """GET /setup/identity/ shows the first-user form when not initialized."""
-    with patch.object(
-        setup_page,
-        "_fetch_setup_status",
-        new=AsyncMock(return_value={"initialized": False, "first_principal_id": None}),
-    ):
-        resp = client.get("/identity/", follow_redirects=False)
-    assert resp.status_code == 200
-    assert "First user" in resp.text
-    assert 'name="name"' in resp.text
-    assert 'name="credential"' in resp.text
-
-
-def test_identity_step_shows_completion_when_initialized(client: TestClient) -> None:
-    """GET /setup/identity/ with first user shows the identity-done panel."""
-    with (
-        patch.object(
-            setup_page,
-            "_fetch_setup_status",
-            new=AsyncMock(
-                return_value={
-                    "initialized": True,
-                    "first_principal_id": "prin_abc",
-                }
-            ),
-        ),
-        patch.object(setup_page, "_read_persisted_state", return_value={}),
-    ):
-        resp = client.get("/identity/", follow_redirects=False)
-    assert resp.status_code == 200
-    assert "Identity established" in resp.text or "first principal" in resp.text.lower()
-
-
-# -- Repository step --------------------------------------------------------
-
-
-def test_repository_step_renders_init_clone_form(client: TestClient) -> None:
-    """GET /setup/repository/ renders the init/clone choice form."""
-    with patch.object(setup_page, "_read_persisted_state", return_value={}):
-        resp = client.get("/repository/")
-    assert resp.status_code == 200
-    body = resp.text
-    assert 'name="mode"' in body
-    assert 'value="init"' in body
-    assert 'value="clone"' in body
-    assert 'name="remote_url"' in body
-
-
-def test_repository_complete_advances_to_dependencies(client: TestClient) -> None:
-    """POST /setup/repository/complete with mode=init advances the wizard."""
-    with (
-        patch.object(
-            setup_page,
-            "_read_persisted_state",
-            return_value={
-                "current_step": "repository",
-                "completed_steps": ["identity"],
-                "blocking_items": [],
-                "selections": {},
-            },
-        ),
-        patch.object(setup_page, "_persist_state", return_value=True),
-    ):
-        resp = client.post(
-            "/repository/complete",
-            data={"mode": "init", "remote_url": ""},
-            follow_redirects=False,
-        )
-    assert resp.status_code in (303, 302, 307)
-    assert resp.headers["location"].endswith("/setup/dependencies/")
-
-
-def test_repository_complete_rejects_clone_without_url(client: TestClient) -> None:
-    """POST /setup/repository/complete with clone but no URL returns 400."""
-    with patch.object(
-        setup_page,
-        "_read_persisted_state",
-        return_value={
-            "current_step": "repository",
-            "completed_steps": ["identity"],
-            "blocking_items": [],
-            "selections": {},
+def _write_pending_model_failed(ws: Path) -> None:
+    """Persist a ``pending_model`` manifest carrying a failed model probe."""
+    check = ModelCheck(
+        check_id="chk_1",
+        revision=1,
+        state="failed",
+        model_id=None,
+        diagnosis={
+            "object": "opencode model check",
+            "known_facts": "opencode run exited 1",
+            "impact": "cannot verify a working model",
+            "recovery_url": "/setup",
         },
-    ):
-        resp = client.post(
-            "/repository/complete",
-            data={"mode": "clone", "remote_url": ""},
-        )
-    assert resp.status_code == 400
-
-
-def test_repository_complete_rejects_invalid_mode(client: TestClient) -> None:
-    """POST /setup/repository/complete with bogus mode returns 400."""
-    with patch.object(
-        setup_page,
-        "_read_persisted_state",
-        return_value={
-            "current_step": "repository",
-            "completed_steps": ["identity"],
-            "blocking_items": [],
-            "selections": {},
-        },
-    ):
-        resp = client.post(
-            "/repository/complete",
-            data={"mode": "bogus", "remote_url": ""},
-        )
-    assert resp.status_code == 400
-
-
-# -- Dependencies step ------------------------------------------------------
-
-
-def test_dependencies_step_renders_readiness(client: TestClient) -> None:
-    """GET /setup/dependencies/ shows the readiness report."""
-    with (
-        patch.object(
-            setup_page,
-            "_read_persisted_state",
-            return_value={
-                "current_step": "dependencies",
-                "completed_steps": ["identity", "repository"],
-                "blocking_items": [],
-                "selections": {"repository:mode": "init"},
-            },
+        observed_at="2026-07-24T00:00:00Z",
+    )
+    write_manifest(
+        ws,
+        SetupManifest(
+            workspace_id=WORKSPACE_ID,
+            revision=1,
+            status=SetupStatus.PENDING_MODEL,
+            first_principal_id="prin_alpha",
+            model_check=check,
         ),
-        patch.object(
-            setup_page,
-            "_fetch_readiness",
-            new=AsyncMock(return_value=_blocked_payload()),
-        ),
-    ):
-        resp = client.get("/dependencies/", follow_redirects=False)
-    assert resp.status_code == 200
-    body = resp.text
-    assert "BLOCKED" in body
-    assert "OpenCode" in body
+    )
 
 
-def test_dependencies_complete_advances_to_review(client: TestClient) -> None:
-    """POST /setup/dependencies/complete advances to review."""
-    with patch.object(
-        setup_page,
-        "_read_persisted_state",
-        return_value={
-            "current_step": "dependencies",
-            "completed_steps": ["identity", "repository"],
-            "blocking_items": [],
-            "selections": {},
-        },
-    ):
-        resp = client.post("/dependencies/complete", follow_redirects=False)
-    assert resp.status_code in (303, 302, 307)
-    assert resp.headers["location"].endswith("/setup/review/")
+def _write_complete(ws: Path) -> None:
+    """Persist a ``complete`` manifest (first user + passed model probe)."""
+    manifest = SetupManifest(
+        workspace_id=WORKSPACE_ID,
+        revision=0,
+        status=SetupStatus.PENDING_USER,
+    )
+    manifest = manifest.advance_to_pending_model(
+        first_principal_id="prin_alpha", expected_revision=0
+    )
+    manifest = manifest.complete(
+        model_check_state="passed",
+        model_check_id="chk_1",
+        model_check_revision=1,
+        model_id="minimax/m2",
+        diagnosis=None,
+        observed_at="2026-07-24T00:00:00Z",
+        expected_revision=1,
+    )
+    write_manifest(ws, manifest)
 
 
-# -- Review step ------------------------------------------------------------
-
-
-def test_review_step_shows_provenance(client: TestClient) -> None:
-    """GET /setup/review/ shows the apply summary with provenance labels."""
-    with patch.object(
-        setup_page,
-        "_read_persisted_state",
-        return_value={
-            "current_step": "review",
-            "completed_steps": ["identity", "repository", "dependencies"],
-            "blocking_items": [],
-            "selections": {"repository:mode": "init"},
-        },
-    ):
-        resp = client.get("/review/")
-    assert resp.status_code == 200
-    body = resp.text
-    assert "Review" in body
-    assert "provenance" in body.lower()
-    assert "Confirm" in body
-
-
-def test_review_complete_advances_to_applying(client: TestClient) -> None:
-    """POST /setup/review/complete advances to applying."""
-    with patch.object(
-        setup_page,
-        "_read_persisted_state",
-        return_value={
-            "current_step": "review",
-            "completed_steps": ["identity", "repository", "dependencies"],
-            "blocking_items": [],
-            "selections": {},
-        },
-    ):
-        resp = client.post("/review/complete", follow_redirects=False)
-    assert resp.status_code in (303, 302, 307)
-    assert resp.headers["location"].endswith("/setup/applying/")
-
-
-# -- Applying step ----------------------------------------------------------
-
-
-def test_applying_step_renders_apply_body(client: TestClient) -> None:
-    """GET /setup/applying/ shows the apply body."""
-    with patch.object(setup_page, "_read_persisted_state", return_value={}):
-        resp = client.get("/applying/")
-    assert resp.status_code == 200
-    body = resp.text
-    assert "Apply" in body
-
-
-# -- Complete step ----------------------------------------------------------
-
-
-def test_complete_step_renders_confirmation(client: TestClient) -> None:
-    """GET /setup/complete/ shows the setup-complete confirmation."""
-    with patch.object(setup_page, "_read_persisted_state", return_value={}):
-        resp = client.get("/complete/")
-    assert resp.status_code == 200
-    body = resp.text
-    assert "Setup Complete" in body
-    assert "Start Story" in body
-
-
-# -- First-user submission (legacy entry) ----------------------------------
-
-
-def test_first_user_post_calls_api_and_advances(client: TestClient) -> None:
-    """POST /setup/first-user forwards to upstream and redirects to repository."""
-    mock = AsyncMock(return_value={"principal_id": "prin_123", "name": "alice"})
-    with (
-        patch.object(setup_page, "_post_first_user", new=mock),
-        patch.object(setup_page, "_persist_state", return_value=True),
-    ):
-        resp = client.post(
-            "/first-user",
-            data={"name": "alice", "credential": "secret"},
-            follow_redirects=False,
+def _assert_retired_wizard_absent(body: str) -> None:
+    """Assert none of the retired six-step wizard markers are rendered."""
+    for marker in RETIRED_STEP_MARKERS:
+        assert marker not in body, (
+            "AC-FR0101-01: retired wizard step "
+            f"{marker!r} must not appear on the two-context Setup page"
         )
-    mock.assert_awaited_once()
-    # Regression (maestro end-to-end at /tmp/louke, 2026-07-24): the handler
-    # must forward the *typed-in* username and credential.  An earlier bug
-    # destructured the parsed-form dict as ``name, credential = ...`` which
-    # in Python 3.7+ iterates over keys rather than values, sending the
-    # literal strings ``"name"`` / ``"credential"`` to the API every time
-    # and clobbering any real first user.
-    kwargs = mock.await_args.kwargs
-    assert kwargs.get("name") == "alice"
-    assert kwargs.get("credential") == "secret"
-    assert resp.status_code in (303, 302, 307)
-    assert resp.headers["location"].endswith("/setup/repository/")
 
 
-def test_first_user_post_forwards_real_form_values(client: TestClient) -> None:
-    """Regression: form values must reach the API verbatim, not the keys."""
-    captured: dict[str, str] = {}
-
-    async def _capture(api_base, *, name, credential):
-        captured["name"] = name
-        captured["credential"] = credential
-        return {"principal_id": "prin_999", "name": name}
-
-    with (
-        patch.object(setup_page, "_post_first_user", new=_capture),
-        patch.object(setup_page, "_persist_state", return_value=True),
-    ):
-        resp = client.post(
-            "/first-user",
-            content=b"name=zoe&credential=hunter2",
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            follow_redirects=False,
-        )
-    assert resp.status_code in (303, 302, 307)
-    assert captured == {"name": "zoe", "credential": "hunter2"}
+# ---------------------------------------------------------------------------
+# Two-context visible states (IF-SETUP-01)
+# ---------------------------------------------------------------------------
 
 
-def test_first_user_post_shows_error_on_failure(client: TestClient) -> None:
-    """POST /setup/first-user on upstream failure returns 400 with error message."""
-    mock = AsyncMock(side_effect=RuntimeError("upstream 500"))
-    with patch.object(setup_page, "_post_first_user", new=mock):
-        resp = client.post(
-            "/first-user",
-            data={"name": "alice", "credential": "secret"},
-        )
-    assert resp.status_code == 400
-    assert "upstream 500" in resp.text or "error" in resp.text.lower()
-
-
-# -- Stepper & blocking items -----------------------------------------------
-
-
-def test_stepper_shows_current_and_remaining_steps(client: TestClient) -> None:
-    """The wizard stepper shows the current step, completed steps, and remaining steps."""
-    with patch.object(setup_page, "_read_persisted_state", return_value={}):
-        resp = client.get("/repository/")
+def test_setup_pending_user_shows_first_user_form_only(workspace: Path) -> None:
+    """AC-FR0101-01: ``pending_user`` renders the first-user form, not the wizard."""
+    # AC-FR0101-01
+    _write_pending_user(workspace)
+    with _feed_projection(workspace):
+        resp = _client(workspace).get("/", follow_redirects=False)
+    assert resp.status_code == 200, (
+        f"AC-FR0101-01: pending_user /setup must render 200, got {resp.status_code}"
+    )
     body = resp.text
-    # The stepper is rendered as an ordered list
-    assert "stepper" in body
-    # The current step class is present
-    assert "current" in body
-    # Remaining steps are listed
-    assert "Dependencies" in body or "dependencies" in body
-    # Completed steps are also indicated
-    assert "Identity" in body or "identity" in body
+    assert 'name="name"' in body, (
+        "AC-FR0101-01: pending_user must show the first-user name field"
+    )
+    assert 'name="credential"' in body, (
+        "AC-FR0101-01: pending_user must show the first-user credential field"
+    )
+    _assert_retired_wizard_absent(body)
 
 
-def test_blocking_items_visible_at_top(client: TestClient) -> None:
-    """Blocking items (e.g. Git BLOCKED) are visible prominently at the top."""
-    with (
-        patch.object(setup_page, "_read_persisted_state", return_value={}),
-        patch.object(
-            setup_page,
-            "_fetch_readiness",
-            new=AsyncMock(return_value=_blocked_payload()),
-        ),
-    ):
-        resp = client.get("/dependencies/", follow_redirects=False)
+def test_setup_pending_model_shows_model_check_and_retry(workspace: Path) -> None:
+    """AC-FR0101-01 / AC-FR0201-02: ``pending_model`` shows the model-check + Retry."""
+    # AC-FR0101-01 / AC-FR0201-02
+    _write_pending_model_failed(workspace)
+    with _feed_projection(workspace):
+        resp = _client(workspace).get("/", follow_redirects=False)
+    assert resp.status_code == 200, (
+        f"AC-FR0201-02: pending_model /setup must render 200, got {resp.status_code}"
+    )
     body = resp.text
-    assert "Blocking" in body or "blocking" in body
+    assert "retry" in body.lower(), (
+        "AC-FR0201-02: a failed model check must expose a Retry entry on /setup"
+    )
+    assert "model" in body.lower(), (
+        "AC-FR0101-01: pending_model must surface the model-check context"
+    )
+    _assert_retired_wizard_absent(body)
 
 
-# -- Return / reset ---------------------------------------------------------
+def test_setup_complete_navigates_to_projects(workspace: Path) -> None:
+    """AC-FR0301-01: ``complete`` Setup navigates to the Workbench Projects activity."""
+    # AC-FR0301-01
+    _write_complete(workspace)
+    with _feed_projection(workspace):
+        resp = _client(workspace).get("/", follow_redirects=False)
+    assert resp.status_code in (302, 303, 307), (
+        f"AC-FR0301-01: complete /setup must redirect, got {resp.status_code}"
+    )
+    location = resp.headers.get("location", "")
+    assert location.endswith("/workbench?activity=projects"), (
+        f"AC-FR0301-01: complete Setup must navigate to Projects, got {location!r}"
+    )
 
 
-def test_return_endpoint_rewinds_journey(client: TestClient) -> None:
-    """POST /setup/return/<step> re-anchors the journey to that step."""
-    with (
-        patch.object(setup_page, "_read_persisted_state", return_value={}),
-        patch.object(setup_page, "_persist_state", return_value=True) as persist,
-    ):
-        resp = client.post("/return/repository", follow_redirects=False)
-    assert resp.status_code in (303, 302, 307)
-    assert resp.headers["location"].endswith("/setup/repository/")
-    persist.assert_called_once()
+# ---------------------------------------------------------------------------
+# Retired six-step routes are gone (IF-SETUP-01)
+# ---------------------------------------------------------------------------
 
 
-def test_reset_endpoint_clears_state(client: TestClient) -> None:
-    """POST /setup/reset clears the wizard state and returns to identity."""
-    with (
-        patch.object(setup_page, "_read_persisted_state", return_value={}),
-        patch.object(setup_page, "_persist_state", return_value=True) as persist,
-    ):
-        resp = client.post("/reset", follow_redirects=False)
-    assert resp.status_code in (303, 302, 307)
-    assert resp.headers["location"].endswith("/setup/identity/")
-    persist.assert_called_once()
-
-
-# -- Wizard reuses the readiness seam --------------------------------------
-
-
-def test_dependencies_step_calls_readiness_seam(client: TestClient) -> None:
-    """The dependencies step awaits the readiness seam with the api_base."""
-    mock = AsyncMock(return_value=_ready_payload())
-    with (
-        patch.object(setup_page, "_read_persisted_state", return_value={}),
-        patch.object(setup_page, "_fetch_readiness", new=mock),
-    ):
-        client.get("/dependencies/")
-    mock.assert_awaited_once()
-    api_base = mock.await_args.args[0]
-    assert api_base == "http://testserver"
+@pytest.mark.parametrize(
+    "retired_route",
+    ["/repository/", "/dependencies/", "/review/", "/applying/"],
+)
+def test_setup_retired_step_routes_removed(workspace: Path, retired_route: str) -> None:
+    """AC-FR0101-01: the retired six-step wizard routes no longer exist (404)."""
+    # AC-FR0101-01
+    _write_pending_model_failed(workspace)
+    resp = _client(workspace).get(retired_route, follow_redirects=False)
+    assert resp.status_code == 404, (
+        "AC-FR0101-01: retired route /setup"
+        f"{retired_route} must be 404, got {resp.status_code}"
+    )
