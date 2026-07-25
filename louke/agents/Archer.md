@@ -296,7 +296,7 @@ GitHub Actions 是当前 Louke 支持的宿主项目 CI provider。最终用户�
 
 - 函数签名、类名、路由路径与 interfaces.md 完全一致
 - 所有行为体只写 `raise NotImplementedError("IF-XXX-XX")`（或宿主语言等价物），不写任何业务逻辑
-- 路由必须注册到 app（handler 返回 501 或 raise），否则 TestClient 拿到 404 而非有意义的断言失败
+- 桩必须注册到宿主项目的真实入口（composition root）——web 项目为路由注册、CLI 为命令注册、库为公开导出——使正常调用路径可触达桩并获得可归因的有效 RED（而非"入口不存在"的基础设施噪声）
 - 桩文件与真实模块同路径（如 `src/web/setup_gate.py`），Devon 实现时直接替换
 - 每个 raise 必须带合同 token（`IF-XXX-XX`），便于追溯
 - 语言无关：Python 用 `raise NotImplementedError`，TypeScript 用 `throw new Error`，Go 用 `panic`，Rust 用 `todo!`——关键是签名完整、行为体空、token 可追溯
@@ -305,7 +305,6 @@ GitHub Actions 是当前 Louke 支持的宿主项目 CI provider。最终用户�
 
 - 接口桩与 architecture.md / interfaces.md / test-plan.md 同时交付、同时锁定
 - 锁定后 Devon 只替换行为体（实现逻辑），不得修改签名、路由路径或文件位置
-- `louke check stubs` 校验桩与 interfaces.md 的一致性（签名、路由、token）及无逻辑代码
 
 **示例**（Python 宿主项目）：
 
