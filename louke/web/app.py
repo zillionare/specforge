@@ -91,7 +91,7 @@ from .pages.runs import (
     run_detail as runs_page_detail,
 )
 from .pages.migration import create_app as _create_migration_page_app
-from .pages.workbench import workbench
+from .pages.workbench import workbench, projects_compat, project_detail_compat
 from .pages.release import release_new_page
 from .api.files import files as end_user_files
 from .runs.badges import status_badge
@@ -330,6 +330,14 @@ def create_app(
                 endpoint=story_page,
             ),
             Route("/projects/new", endpoint=release_new_page, methods=["GET"]),
+            # IF-COMPAT-01: legacy /projects and /projects/{id} redirect to
+            # the canonical Workbench Projects activity.
+            Route("/projects", endpoint=projects_compat, methods=["GET"]),
+            Route(
+                "/projects/{project_id}",
+                endpoint=project_detail_compat,
+                methods=["GET"],
+            ),
             Route("/runs/{run_id}", endpoint=runs_page_detail),
             Route(
                 "/runs/{run_id}/command",
