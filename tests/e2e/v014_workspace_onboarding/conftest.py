@@ -57,9 +57,16 @@ def _chromium_available() -> bool:
 
 @pytest.fixture
 def live_server(tmp_path: Path):
-    """Start ``lk serve`` from the product interpreter and OpenCode stand-in."""
+    """Start ``lk serve`` from the product interpreter and OpenCode stand-in.
+
+    The workspace is seeded ``pending_user`` so the v0.14-004 two-context
+    Setup journeys (``test_journey_setup_wizard`` / ``test_journey_minimal_setup``)
+    can drive the first-user form. Journeys that need another Setup state seed
+    it themselves (e.g. ``test_journey_diagnostic_quality`` writes a
+    ``pending_model`` manifest over this seed).
+    """
     product_python = os.environ.get("LOUKE_E2E_SERVER_PYTHON", sys.executable)
-    workspace = build_isolated_workspace(tmp_path)
+    workspace = build_isolated_workspace(tmp_path, setup_status="pending_user")
     opencode = start_opencode_standin(tmp_path)
 
     orig_path = os.environ.get("PATH", "")
