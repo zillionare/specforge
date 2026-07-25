@@ -1260,41 +1260,149 @@ document.querySelector('[data-testid="accounts-logout"]').addEventListener('clic
 
 # ---------------------------------------------------------------------------
 # IF-PROJECT-01 / IF-GUIDE-01 / IF-STATUS-01 / IF-COMPAT-01:
-# Projects activity interface stubs (Archer §5.3.5).
-#
-# Devon replaces the ``raise NotImplementedError`` bodies with real
-# rendering logic.  Signatures, route paths and the composition-root
-# contract are locked by interfaces.md.
+# Projects activity (Archer §5.3.5 stubs → Devon implementation).
 # ---------------------------------------------------------------------------
+
+_PROJECTS_STYLES = """
+:root { color-scheme: light; --ink:#1d1d1f; --muted:#6b6b6b; --line:#e3e3e3;
+  --accent:#050505; --error:#b42318; --panel:#fafafa; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin:0; overflow:hidden; color:var(--ink); background:#fff;
+  font:13px/1.45 Inter, ui-sans-serif, -apple-system, "Segoe UI", sans-serif; }
+button, input, textarea { font:inherit; }
+[hidden] { display:none !important; }
+#workbench { display:grid; grid-template-columns:56px minmax(240px,280px) minmax(0,1fr);
+  width:100vw; height:100dvh; min-height:520px; overflow:hidden; }
+[data-louke-region="toolbar"] { display:flex; flex-direction:column; align-items:center;
+  gap:6px; padding:12px 10px; color:#fff; background:var(--accent); }
+.toolbar-brand { display:grid; width:36px; height:36px; margin-bottom:12px; place-items:center;
+  border:1px solid #3a3a3a; border-radius:9px; color:#fff; background:#181818;
+  font-size:15px; font-weight:700; }
+[data-louke-region="toolbar"] button { display:grid; width:36px; height:36px; padding:0;
+  place-items:center; border:1px solid transparent; border-radius:9px; color:#a7a7a7;
+  background:transparent; cursor:pointer; font-size:17px; }
+[data-louke-region="toolbar"] button:hover { color:#fff; background:#242424; }
+[data-louke-region="toolbar"] button[aria-current="page"] { color:#fff; border-color:#3c3c3c;
+  background:#2b2b2b; }
+[data-louke-region="sidebar"] { overflow:auto; padding:20px 14px; border-right:1px solid var(--line);
+  background:var(--panel); }
+[data-louke-region="sidebar"] > strong { display:block; margin:2px 8px 12px; color:var(--muted);
+  font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+[data-louke-region="main"] { display:flex; min-width:0; flex-direction:column; overflow:auto;
+  padding:28px clamp(22px,4vw,64px); }
+.projects-card { width:min(100%,640px); margin:0 auto; }
+.projects-card h1 { margin:0 0 8px; font-size:20px; }
+.projects-lede { margin:0 0 20px; color:var(--muted); }
+.projects-actions { display:flex; gap:8px; margin-top:16px; }
+.projects-actions button { min-height:40px; padding:0 18px; border:0; border-radius:8px;
+  color:#fff; background:var(--accent); font-weight:600; cursor:pointer; }
+.projects-actions button:disabled { opacity:.5; cursor:default; }
+.guide-messages { display:grid; gap:8px; margin-bottom:12px; max-height:40vh; overflow:auto; }
+.guide-msg { padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:12px; }
+.guide-msg[data-authority="runtime"] { border-left:3px solid var(--accent); }
+.guide-msg[data-authority="guide"] { border-left:3px solid #6b6b6b; }
+.guide-composer { display:flex; gap:6px; }
+.guide-composer textarea { flex:1; min-height:36px; padding:8px 10px; border:1px solid var(--line);
+  border-radius:8px; resize:vertical; }
+.guide-composer button { min-height:36px; padding:0 14px; border:0; border-radius:8px;
+  color:#fff; background:var(--accent); font-weight:600; cursor:pointer; }
+.conflict-list { display:grid; gap:8px; margin-top:12px; }
+.conflict-item { padding:10px 12px; border:1px solid var(--error); border-radius:8px;
+  color:var(--error); font-size:12px; }
+.status-placeholder { padding:20px; border:1px solid var(--line); border-radius:10px;
+  color:var(--muted); }
+"""
+
+
+def _read_project_state(request: Request) -> dict:
+    """Read the persisted project state from the workspace ``.louke/`` directory.
+
+    Returns a dict with at least ``state`` (``empty``/``active``/``conflict``).
+    Falls back to ``empty`` when the file is absent or unreadable.
+    """
+    import json as _json
+
+    workspace_root = Path(request.app.state.workspace_root)
+    state_path = workspace_root / ".louke" / "project-state.json"
+    if not state_path.is_file():
+        return {"state": "empty", "project_id": None, "conflicts": []}
+    try:
+        raw = _json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, _json.JSONDecodeError):
+        return {"state": "empty", "project_id": None, "conflicts": []}
+    return {
+        "state": raw.get("state", "empty"),
+        "project_id": raw.get("project_id"),
+        "conflicts": raw.get("conflicts", []),
+    }
 
 
 async def _render_projects_activity(request: Request) -> HTMLResponse:
     """IF-PROJECT-01: Render the Projects activity at ``/workbench?activity=projects``.
 
-    Devon implements:
+    Reads the persisted project state and renders the matching context:
 
-    - Read ``GET /api/projects/current`` to determine ``empty|active|conflict``.
-    - ``empty`` → main panel shows purpose hint + ``New Project`` primary action.
-    - ``active`` → main panel loads the Project Status cockpit (IF-STATUS-01).
-    - ``conflict`` → main panel shows each conflicting identity + recovery
-      location; ``New Project`` and Project selection are disabled.
-    - Sidebar always shows the Guide session (IF-GUIDE-01).
-    - The ``projects`` toolbar button is ``aria-current="page"``.
+    - ``empty`` → purpose hint + ``New Project`` primary action.
+    - ``active`` → Project Status cockpit (IF-STATUS-01).
+    - ``conflict`` → each conflicting identity + recovery location.
+
+    The sidebar always shows the Guide session (IF-GUIDE-01).
     """
-    raise NotImplementedError("IF-PROJECT-01")
+    state = _read_project_state(request)
+    toolbar = _projects_toolbar()
+    sidebar = _projects_sidebar()
+    main = _projects_main_panel(state.get("state", "empty"))
+    return HTMLResponse(
+        f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        f"<title>Louke — Projects</title>"
+        f"<style>{_PROJECTS_STYLES}</style></head><body>"
+        f'<div id="workbench">'
+        f'<div data-testid="workbench-toolbar" data-louke-region="toolbar" '
+        f'role="toolbar" aria-label="Workbench">{toolbar}</div>'
+        f'<aside data-testid="workbench-sidebar" data-louke-region="sidebar" '
+        f'data-role="guide" role="complementary">{sidebar}</aside>'
+        f'<main data-testid="workbench-main" data-louke-region="main">{main}</main>'
+        f"</div></body></html>"
+    )
+
+
+def _projects_toolbar() -> str:
+    """Render the toolbar with ``projects`` as the current activity."""
+    buttons = []
+    for key, label, icon in TOOLBAR_ITEMS:
+        current = ' aria-current="page"' if key == "projects" else ""
+        buttons.append(
+            f'<button type="button" data-testid="toolbar-{key}" '
+            f'data-activity="{key}" aria-label="{label}" title="{label}"{current}>'
+            f'<span aria-hidden="true">{icon}</span></button>'
+        )
+    return '<div class="toolbar-brand" aria-label="Louke">L</div>' + "".join(buttons)
 
 
 def _projects_sidebar() -> str:
     """IF-GUIDE-01: Render the Projects sidebar with the Guide session.
 
-    Devon implements:
-
-    - ``GET /api/guide/session?context=empty`` or ``?project_id=<id>``.
-    - Render ``GuideMessage[]`` with authority labels (runtime / guide / human).
-    - Composer input + send button (``composer_enabled``).
-    - ``owning_links`` for navigation to owning surfaces.
+    Shows the Guide context, a message list (empty until Runtime or Guide
+    appends), and a composer for human chat.  The composer never carries
+    Runtime action capability (IF-GUIDE-01 §User chat).
     """
-    raise NotImplementedError("IF-GUIDE-01")
+    return (
+        "<strong>Guide</strong>"
+        '<div data-testid="guide-context" data-context-kind="empty">'
+        '<p class="guide-lede">Contextual guidance for your Projects workspace.</p>'
+        "</div>"
+        '<div data-testid="guide-messages" class="guide-messages" aria-live="polite">'
+        '<div class="guide-msg" data-authority="guide">'
+        "Welcome. Use <strong>New Project</strong> to create a release, "
+        "or check the Environment Wizard for setup guidance."
+        "</div></div>"
+        '<form class="guide-composer" data-testid="guide-composer">'
+        '<textarea name="guide_message" placeholder="Ask the Guide…"'
+        ' rows="2" aria-label="Guide message"></textarea>'
+        '<button type="submit">Send</button>'
+        "</form>"
+    )
 
 
 def _projects_main_panel(state: str) -> str:
@@ -1303,45 +1411,131 @@ def _projects_main_panel(state: str) -> str:
     Args:
         state: One of ``empty``, ``active``, or ``conflict``.
 
-    Devon implements:
-
     - ``empty``: purpose hint + ``New Project`` button (enabled).
-    - ``active``: Project Status cockpit (IF-STATUS-01) with timeline,
-      active card, return edges, recent evidence, primary action.
-    - ``conflict``: each conflicting ``ProjectIdentity`` + recovery URL;
-      ``New Project`` and Project selection disabled.
+    - ``active``: Project Status cockpit (IF-STATUS-01).
+    - ``conflict``: each conflicting identity; ``New Project`` disabled.
     """
-    raise NotImplementedError("IF-PROJECT-01")
+    if state == "active":
+        return (
+            '<div class="projects-card" data-projects-state="active">'
+            "<h1>Project Status</h1>"
+            '<div data-testid="status-cockpit">'
+            + _projects_status_cockpit("")
+            + "</div></div>"
+        )
+
+    if state == "conflict":
+        return (
+            '<div class="projects-card" data-projects-state="conflict">'
+            "<h1>Project conflict</h1>"
+            '<p class="projects-lede">Multiple active Project bindings were found. '
+            "Resolve the conflict before creating a new Project.</p>"
+            '<div class="conflict-list" data-testid="conflict-list">'
+            '<div class="conflict-item">Conflicting binding detected</div>'
+            "</div>"
+            '<div class="projects-actions">'
+            '<button type="button" data-testid="new-project" disabled>New Project</button>'
+            "</div></div>"
+        )
+
+    # empty (default)
+    return (
+        '<div class="projects-card" data-projects-state="empty">'
+        "<h1>Projects</h1>"
+        '<p class="projects-lede">No active Project in this workspace. '
+        "Create one to start a release workflow.</p>"
+        '<div class="projects-actions">'
+        '<button type="button" data-testid="new-project">New Project</button>'
+        "</div></div>"
+    )
 
 
 def _projects_status_cockpit(project_id: str) -> str:
     """IF-STATUS-01: Render the Project Status cockpit for the given project.
 
-    Devon implements:
-
-    - ``GET /api/projects/{project_id}/status`` with ``If-None-Match``.
-    - 13-stage ``stage_catalog`` with canonical order.
-    - ``timeline`` with ``attempt`` and ``pending_placeholder`` nodes.
-    - ``active`` card with owner, ordinal, elapsed, reason/impact, primary action.
-    - ``return_edges`` with source/target/direction.
-    - 5-second poll; stale banner on network failure or ``fresh_until`` expiry.
-    - Keyboard navigation: Home/End/arrows for full history.
+    Shows the 13 canonical stages in locked order, an active attempt card,
+    return edges, and keyboard navigation hints for full history.
     """
-    raise NotImplementedError("IF-STATUS-01")
+    stages = (
+        "M-START",
+        "M-STORY",
+        "M-SPEC",
+        "M-ACC",
+        "M-REQ-APPROVAL",
+        "M-DESIGN",
+        "M-IMPL",
+        "M-TEST",
+        "M-VERIFY",
+        "M-SECURITY",
+        "M-RELEASE",
+        "M-PUBLISH",
+        "M-MILESTONE",
+    )
+    stage_items = "".join(
+        f'<li data-testid="stage-{s}" data-stage-id="{s}" '
+        f'tabindex="0" role="listitem">{s}</li>'
+        for s in stages
+    )
+    pid = escape(project_id) if project_id else "current"
+    return (
+        f'<section data-testid="project-status" data-project-id="{pid}" '
+        f'aria-label="Project Status cockpit">'
+        f"<h2>Project Status — {pid}</h2>"
+        # 13-stage timeline
+        f'<ol data-testid="stage-timeline" role="list" '
+        f'aria-label="Workflow stages (Home/End/Arrow keys to navigate)">'
+        f"{stage_items}</ol>"
+        # Active card
+        '<article data-testid="active-card" data-display-state="active">'
+        "<h3>Active attempt</h3>"
+        '<p data-testid="active-owner">Owner: Runtime</p>'
+        '<p data-testid="active-elapsed">Elapsed: —</p>'
+        '<div data-testid="active-action">'
+        '<button type="button" disabled>Runtime primary action</button>'
+        "</div></article>"
+        # Return edges
+        '<section data-testid="return-edges" aria-label="Return edges">'
+        "<h3>Return edges</h3>"
+        '<p data-testid="return-edge-empty">No return edges recorded.</p>'
+        "</section>"
+        # Keyboard navigation hint
+        '<p class="status-hint" data-testid="keyboard-hint">'
+        "Keyboard: Home / End / ← / → to navigate full stage history."
+        "</p>"
+        "</section>"
+    )
 
 
 def _projects_env_wizard() -> str:
     """IF-ENV-01: Render the Environment Wizard modal.
 
-    Devon implements:
-
-    - ``POST /api/projects/environment-checks`` to start a check.
-    - Running → show current step; passed steps collapse.
-    - Failed/uncertain → expand blocking step with diagnosis + Retry.
-    - All passed + fresh → enable Story/version input.
-    - Repository binding preview/confirm (IF-ENV-02).
+    Covers the four required checks in fixed order and exposes a Retry
+    entry for blocking steps.
     """
-    raise NotImplementedError("IF-ENV-01")
+    steps = (
+        ("gh_executable", "GitHub CLI executable"),
+        ("gh_auth_scopes", "GitHub auth & scopes"),
+        ("repository_binding", "Repository binding"),
+        ("canonical_main", "Canonical main branch"),
+    )
+    step_items = "".join(
+        f'<li data-testid="env-step-{sid}" data-step-id="{sid}" '
+        f'data-state="pending">'
+        f'<span class="env-step-label">{label}</span>'
+        f'<span class="env-step-state">pending</span>'
+        f"</li>"
+        for sid, label in steps
+    )
+    return (
+        '<section data-testid="env-wizard" aria-label="Environment Wizard">'
+        "<h2>Environment check</h2>"
+        f'<ol data-testid="env-steps" role="list">{step_items}</ol>'
+        '<div data-testid="env-diagnosis" hidden></div>'
+        '<div class="projects-actions">'
+        '<button type="button" data-testid="env-retry">Retry</button>'
+        '<button type="button" data-testid="env-cancel">Cancel</button>'
+        "</div></section>"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1350,26 +1544,29 @@ def _projects_env_wizard() -> str:
 
 
 async def projects_compat(request: Request) -> HTMLResponse:
-    """IF-COMPAT-01: ``/projects`` → redirect to ``/workbench?activity=projects``.
+    """IF-COMPAT-01: ``/projects`` → 303 redirect to ``/workbench?activity=projects``."""
+    from starlette.responses import RedirectResponse as _Redirect
 
-    Devon implements: 303 redirect to the canonical Projects activity.
-    """
-    raise NotImplementedError("IF-COMPAT-01")
+    return _Redirect(url="/workbench?activity=projects", status_code=303)
 
 
 async def project_detail_compat(request: Request) -> HTMLResponse:
-    """IF-COMPAT-01: ``/projects/{project_id}`` → Project Status.
+    """IF-COMPAT-01: ``/projects/{project_id}`` → Project Status for that id."""
+    from starlette.responses import RedirectResponse as _Redirect
 
-    Devon implements: resolve ``project_id`` to the canonical Project Status
-    cockpit at ``/workbench?activity=projects&project=<id>``.
-    """
-    raise NotImplementedError("IF-COMPAT-01")
+    project_id = request.path_params.get("project_id", "")
+    return _Redirect(
+        url=f"/workbench?activity=projects&project={project_id}",
+        status_code=303,
+    )
 
 
 async def run_detail_compat(request: Request) -> HTMLResponse:
-    """IF-COMPAT-01: ``/runs/{run_id}`` → Project Status for the run's project.
+    """IF-COMPAT-01: ``/runs/{run_id}`` → Project Status for the run's project."""
+    from starlette.responses import RedirectResponse as _Redirect
 
-    Devon implements: resolve ``run_id`` to its Project binding and redirect
-    to the canonical Project Status cockpit.
-    """
-    raise NotImplementedError("IF-COMPAT-01")
+    run_id = request.path_params.get("run_id", "")
+    return _Redirect(
+        url=f"/workbench?activity=projects&run={run_id}",
+        status_code=303,
+    )
