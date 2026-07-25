@@ -51,6 +51,7 @@ from .api.runtime import create_app as _create_runtime_app
 from .api.gates import create_app as _create_gates_app
 from .api.bindings import create_app as _create_bindings_app
 from .api.opencode import create_app as _create_opencode_app
+from .api.project_status import checkpoint_action, checkpoint_detail, project_status
 from .api.readiness import create_app as _create_readiness_app
 from .api.setup import create_app as _create_setup_app
 from .api.migration import create_app as _create_migration_app
@@ -277,6 +278,21 @@ def create_app(
                 methods=["POST"],
             ),
             Route("/api/events", endpoint=api_events, methods=["GET"]),
+            Route(
+                "/api/projects/{project_id}/status",
+                endpoint=project_status,
+                methods=["GET"],
+            ),
+            Route(
+                "/api/projects/{project_id}/status/checkpoints/{checkpoint_id}",
+                endpoint=checkpoint_detail,
+                methods=["GET"],
+            ),
+            Route(
+                "/api/projects/{project_id}/status/checkpoints/{checkpoint_id}/actions/{action_id}",
+                endpoint=checkpoint_action,
+                methods=["POST"],
+            ),
             # === v0.12 mounts ===
             # Mount order matters: Starlette matches Mounts in declaration order
             # and a wider prefix shadows any longer prefix declared after it.

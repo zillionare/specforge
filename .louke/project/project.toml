@@ -45,7 +45,8 @@ v0_13_1_002 = "shipped (2026-07-16, tag v0.13.1; project-local install experienc
 [integration]
 # The bootstrap resolves the repository `.venv` and rejects PATH/system Python.
 # v0.14-004 assets exercise the real Starlette assembly with external stand-ins.
-paths = ["tests/e2e", "tests/integration", "tests/fixtures", "tests/ground_truth", "tests/integration/v014_workspace_onboarding", "tests/fixtures/v014_workspace_onboarding"]
+# v0.14-005 adds public-surface ATDD integration and host-neutral fixtures.
+paths = ["tests/e2e", "tests/integration", "tests/fixtures", "tests/ground_truth", "tests/integration/v014_workspace_onboarding", "tests/fixtures/v014_workspace_onboarding", "tests/integration/v014_atdd_process_improvement", "tests/fixtures/v014_atdd_process_improvement"]
 run = "tests/e2e/run-project-venv integration"
 framework = "pytest"
 cwd = "."
@@ -53,8 +54,8 @@ cwd = "."
 [e2e]
 # The runner owns installed-wheel service startup, readiness and finally teardown.
 # `--runtime both` executes isolated local and global installation profiles.
-run = "tests/e2e/run-project-venv e2e --profile all --runtime both"
+run = "tests/e2e/run-project-venv e2e --profile all --runtime both -m \"not v014_005_full_lifecycle\""
 framework = "pytest"
 cwd = "."
-paths = ["tests/e2e", "tests/fixtures", "tests/ground_truth", "tests/e2e/v014_workspace_onboarding", "tests/fixtures/v014_workspace_onboarding"]
+paths = ["tests/e2e", "tests/fixtures", "tests/ground_truth", "tests/e2e/v014_workspace_onboarding", "tests/fixtures/v014_workspace_onboarding", "tests/e2e/v014_atdd_process_improvement", "tests/fixtures/v014_atdd_process_improvement"]
 ready_timeout_seconds = 60

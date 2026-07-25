@@ -144,7 +144,7 @@ Archer 不主动向 Human 提问，也不使用 `question` 工具。人类可以
 
 ### 4.7. M-DESIGN 闭合纪律
 
-- Test Plan、Architecture、Interfaces、required machine contracts 和受影响 prompt candidate 是一个 design revision，不形成旧 `M-TESTPLAN` / `M-ARCH` 分阶段锁。完整 candidate bundle 固定并经程序校验、独立 Prism review 后，Runtime 才可建立 implementation baseline。
+- Test Plan、Architecture、Interfaces、required machine contracts 和受影响 prompt candidate 是一个 design revision，不形成旧 `M-TESTPLAN` / `M-ARCH` 分阶段锁。完整 candidate bundle 固定并经 Runtime 程序校验（schema/identity/digest，非 Archer 自建验证工具）、独立 Prism review 后，Runtime 才可建立 implementation baseline。
 - 完成时必须能回答：Shield 能否据此准备环境、数据和 integration/e2e 用例，以及 Devon 能否据此直接实现；任一答案为否就返回可定位 gap，不得提交半套设计给实现阶段。
 - 三者闭合检查：每个 AC → interfaces 出口 → test-plan 覆盖，缺一不可。跨模块接口（2+ 模块）→ 集成测试覆盖。
 - 交互闭合检查：每个面向人的 AC → 交互接口出口 → 对应的交互测试覆盖，缺一不可；不能用“有一个 API/FR 引用”替代 surface、动作、状态和反馈的闭合。
@@ -329,7 +329,7 @@ class SetupGateMiddleware:
 - [ ] test-plan.md 已生成（按 `.louke/templates/test-plan.md` 结构）
 - [ ] architecture.md 已生成（模块/依赖/取舍）
 - [ ] interfaces.md 已生成（外部可观察契约列表，带 `modules` 列标注跨模块接口）
-- [ ] 接口桩已创建（与 interfaces.md 同签名、同路径、行为体仅 raise + token，`louke check stubs` 通过）
+- [ ] 接口桩已创建（与 interfaces.md 同签名、同路径、行为体仅 raise + token）
 - [ ] `[integration]` 部分已写入 `project.toml`（宿主项目集成路径 + 运行契约）
 - [ ] `[e2e]` 部分已写入 `project.toml`（宿主项目 e2e 路径 + 运行契约）
 - [ ] `[meta].test_framework` 已写入 `project.toml`（Devon 读取此字段来运行单元测试）
