@@ -177,7 +177,9 @@ def _probe_result(state: str, model_id: str | None = "minimax/m2"):
         revision=1,
         state=state,
         current_model_id=model_id if state == "passed" else None,
-        attempted=[ProbeResult(model_id="minimax/m2", state=state, diagnosis=diagnosis)],
+        attempted=[
+            ProbeResult(model_id="minimax/m2", state=state, diagnosis=diagnosis)
+        ],
         diagnosis=diagnosis,
         observed_at="2026-07-25T00:00:00Z",
     )
@@ -253,6 +255,7 @@ def test_model_checks_post_failed_keeps_pending_model(
         assert field_name in body["diagnosis"]
     manifest = try_read_manifest(tmp_path)
     assert manifest.status.value == "pending_model"
+    # AC-FR0201-02: the failed probe diagnosis is persisted in the manifest.
     assert manifest.model_check is not None
     assert manifest.model_check.check_id == "chk_unit"
 
@@ -285,3 +288,73 @@ def test_model_checks_get_unknown_returns_404(
     _seed_pending_model(tmp_path)
     resp = client.get("/model-checks/chk_does_not_exist")
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# A-002 / A-003: CAS + Idempotency-Key contract (IF-SETUP-02)
+# ---------------------------------------------------------------------------
+
+
+def test_first_user_stale_revision_is_rejected(client: TestClient) -> None:
+    """AC-NFR0001-02: a stale expected_revision returns 409 STALE_REVISION."""
+    # AC-NFR0001-02
+    token = _csrf_token(client)
+    resp = client.post(
+        "/first-user",
+        json={"name": "alice", "credential": "secret-token", "expected_revision": 999},
+        headers={"X-Louke-CSRF": token},
+    )
+    assert resp.status_code == 409, (
+        f"AC-NFR0001-02: stale revision must be 409, got {resp.status_code}"
+    )
+
+
+def test_first_user_idempotent_retry_returns_200_same_identity(
+    client: TestClient,
+) -> None:
+    """AC-NFR0001-02: same Idempotency-Key + same payload → 200 same identity."""
+    # AC-NFR0001-02
+    token = _csrf_token(client)
+    body = {"name": "alice", "credential": "secret-token", "expected_revision": 0}
+    headers = {"X-Louke-CSRF": token, "Idempotency-Key": "idem-key-001"}
+
+    first = client.post("/first-user", json=body, headers=headers)
+    assert first.status_code == 201
+
+    # Exact retry: same key, same payload → 200 with the same identity.
+    token2 = _csrf_token(client)
+    retry = client.post(
+        "/first-user",
+        json=body,
+        headers={"X-Louke-CSRF": token2, "Idempotency-Key": "idem-key-001"},
+    )
+    assert retry.status_code == 200, (
+        f"AC-NFR0001-02: idempotent retry must be 200, got {retry.status_code}"
+    )
+    assert retry.json()["principal_id"] == first.json()["principal_id"]
+    assert retry.json()["name"] == first.json()["name"]
+
+
+def test_first_user_idempotency_conflict_returns_409(client: TestClient) -> None:
+    """AC-NFR0001-02: same Idempotency-Key + different payload → 409."""
+    # AC-NFR0001-02
+    token = _csrf_token(client)
+    headers = {"X-Louke-CSRF": token, "Idempotency-Key": "idem-key-002"}
+
+    first = client.post(
+        "/first-user",
+        json={"name": "alice", "credential": "secret-token", "expected_revision": 0},
+        headers=headers,
+    )
+    assert first.status_code == 201
+
+    # Same key, different payload → 409 IDEMPOTENCY_CONFLICT.
+    token2 = _csrf_token(client)
+    conflict = client.post(
+        "/first-user",
+        json={"name": "bob", "credential": "other-token", "expected_revision": 0},
+        headers={"X-Louke-CSRF": token2, "Idempotency-Key": "idem-key-002"},
+    )
+    assert conflict.status_code == 409, (
+        f"AC-NFR0001-02: idempotency conflict must be 409, got {conflict.status_code}"
+    )

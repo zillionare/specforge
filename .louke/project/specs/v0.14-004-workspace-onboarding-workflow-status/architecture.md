@@ -296,13 +296,29 @@ Timeout：quality/ac-trace 15分钟；build/artifact/unit 20分钟；integration
 | 桩文件 | 合同 token | 替换目标 | composition root 接线 |
 |---|---|---|---|
 | `louke/web/pages/setup.py` | `IF-SETUP-01`、`IF-SETUP-02` | 旧 982 行六步 Wizard 页面 | `louke/web/app.py:82` `from .pages.setup import create_app as _create_setup_page_app`；`app.py:341` `Mount("/setup", app=setup_page_app)` |
+| `louke/web/pages/workbench.py` | `IF-PROJECT-01`、`IF-GUIDE-01`、`IF-STATUS-01`、`IF-ENV-01`、`IF-COMPAT-01` | v0.13 Workbench 无 Projects activity | `louke/web/app.py:94` `from .pages.workbench import workbench`；`app.py:158` `Route("/workbench", endpoint=workbench)`；`?activity=projects` 分发到桩 |
 
 桩签名锁定如下：
 
-- `create_app() -> Starlette`：只注册 `/` 路由（`setup_root` handler）；旧六步路由 `/identity/`、`/repository/`、`/dependencies/`、`/review/`、`/applying/`、`/complete/` 不注册，自然 404。
-- `async setup_root(request: Request) -> Response`：行为体 `raise NotImplementedError("IF-SETUP-01")`。Devon 实现时根据 `request.app.state.workspace_root` 读取 v2 manifest projection，按 `pending_user`/`pending_model`/`complete` 渲染对应上下文。
-- `async _fetch_setup_status(api_base: str, *, request: Request | None = None) -> dict`：测试 seam，行为体 `raise NotImplementedError("IF-SETUP-01")`。生产实现调用 `GET /api/setup/status`；测试通过 `patch.object(setup_page, "_fetch_setup_status", ...)` 注入真实 projection。
-- `async _post_first_user(api_base: str, *, name: str, credential: str) -> dict`：测试 seam，行为体 `raise NotImplementedError("IF-SETUP-02")`。生产实现调用 `POST /api/setup/first-user`。
+**`pages/setup.py`**（已由 Devon 实现，签名不变）：
+
+- `create_app() -> Starlette`：只注册 `/` 路由（`setup_root` handler）；旧六步路由 `/identity/`、`/repository/`、`/review/`、`/applying/` 不注册，自然 404。
+- `async setup_root(request: Request) -> Response`：按 `pending_user`/`pending_model`/`complete` 渲染两上下文。
+- `async _fetch_setup_status(api_base: str, *, request: Request | None = None) -> dict`：测试 seam。
+- `async _post_first_user(api_base: str, *, name: str, credential: str) -> dict`：测试 seam。
+
+**`pages/workbench.py`**（新增桩，Devon 替换行为体）：
+
+- `async _render_projects_activity(request: Request) -> HTMLResponse`：`raise NotImplementedError("IF-PROJECT-01")`。Devon 实现时读取 `GET /api/projects/current`，按 `empty|active|conflict` 渲染 Projects 主面板 + Guide sidebar。
+- `_projects_sidebar() -> str`：`raise NotImplementedError("IF-GUIDE-01")`。渲染 Guide session（authority 标签、composer、owning links）。
+- `_projects_main_panel(state: str) -> str`：`raise NotImplementedError("IF-PROJECT-01")`。`empty` → New Project；`active` → Status cockpit；`conflict` → 冲突列表。
+- `_projects_status_cockpit(project_id: str) -> str`：`raise NotImplementedError("IF-STATUS-01")`。13 阶段 timeline、active card、return edges、5 秒 poll、键盘导航。
+- `_projects_env_wizard() -> str`：`raise NotImplementedError("IF-ENV-01")`。Environment check 模态 Wizard。
+- `async projects_compat(request: Request) -> HTMLResponse`：`raise NotImplementedError("IF-COMPAT-01")`。`/projects` → 303 到 `/workbench?activity=projects`。
+- `async project_detail_compat(request: Request) -> HTMLResponse`：`raise NotImplementedError("IF-COMPAT-01")`。`/projects/{project_id}` → Project Status。
+- `async run_detail_compat(request: Request) -> HTMLResponse`：`raise NotImplementedError("IF-COMPAT-01")`。`/runs/{run_id}` → Project Status。
+
+`TOOLBAR_ITEMS` 已追加 `("projects", "Projects", "◫")` 为首项；`workbench` handler 已追加 `?activity=projects` 分发。现有 Chat/Dev Docs/Wiki/Runs/Settings 行为不变。
 
 ### 14.2 不需要桩的模块
 
@@ -320,14 +336,28 @@ Timeout：quality/ac-trace 15分钟；build/artifact/unit 20分钟；integration
 
 ### 14.3 Devon 实现交接清单
 
-1. **替换 `louke/web/pages/setup.py` 桩行为体**：实现 `setup_root` 根据 manifest status 渲染两上下文页面；实现 `_fetch_setup_status`/`_post_first_user` seam 调用真实 API。不得修改 `create_app()` 签名或路由注册。
-2. **修复 `louke/web/opencode_probe.py` 诊断**：`run_minimal` 的 timeout 和 nonzero-exit diagnosis 必须改为 `{object, known_facts, impact, recovery_url}` 四字段结构，并 redact `stderr_snippet` 中的 provider secret。函数签名不变。
-3. **删除 `louke/web/setup_journey.py`**：页面桩已移除对该模块的 import；Devon 实现页面后确认无其它引用，删除该模块及 `tests/unit/web/test_setup_journey.py`。
-4. **删除旧六步测试**：按 Shield 的 `deprecated-tests-removal-list.md` 删除 14 个 integration + 4 个 e2e 旧六步 Wizard 测试文件，并清理 conftest skip 规则。
+1. ~~**替换 `louke/web/pages/setup.py` 桩行为体**~~：✅ 已完成（两上下文渲染 + CSRF + 诊断 4 字段）。
+2. ~~**修复 `louke/web/opencode_probe.py` 诊断**~~：✅ 已完成（4 字段 + stderr redaction）。
+3. ~~**删除 `louke/web/setup_journey.py`~~：✅ 已完成。
+4. ~~**删除旧六步测试**~~：✅ 已完成（19 个文件 + conftest 清理）。
+5. **替换 `louke/web/pages/workbench.py` Projects activity 桩行为体**（大型 UI 任务，建议分 4 步）：
+   - 步骤 1：`_render_projects_activity` + `_projects_main_panel("empty")` + `_projects_sidebar` → Projects empty 落点 + Guide sidebar（解锁 `projects_landing` 6 个 e2e）
+   - 步骤 2：`_projects_env_wizard` + `_projects_main_panel("active")` 的 New Project 入口 → Environment Wizard（解锁 `new_project_wizard` 2 个 e2e）
+   - 步骤 3：`_projects_status_cockpit` → Project Status timeline/active card/return edges（解锁 `status_cockpit` 5 个 e2e）
+   - 步骤 4：`projects_compat` / `project_detail_compat` / `run_detail_compat` + 修改 `app.py` 路由注册 → compat 路由（解锁 `compat_routes` 4 + `compat_deep_link` 5 个 e2e）
+   - 不得修改 `TOOLBAR_ITEMS` 中 `projects` 条目或 `workbench` handler 的 `?activity=projects` 分发逻辑。
+6. **修复 `create_first_user` Advisory A-002/A-003**：✅ 已完成（CAS + Idempotency-Key）。
 
 ### 14.4 ATDD 闭合
 
-- Shield 的 `tests/unit/web/pages/test_setup.py`（已在 commit `121dcfc` 改写为两上下文合同）可直接 collect：`setup_page.create_app()` 返回 Starlette app，`GET /` 触发 `NotImplementedError("IF-SETUP-01")` 产生可归因 RED。
-- `tests/e2e/v014_workspace_onboarding/test_journey_setup_wizard.py`（已在 `121dcfc` 改写）同理：浏览器访问 `/setup` 得到 500（NotImplementedError），测试在首步断言失败，RED 可归因到 `IF-SETUP-01`。
-- 旧六步路由 `/repository/`、`/dependencies/`、`/review/`、`/applying/` 在桩中不注册，返回 404；`test_setup_retired_step_routes_removed` 直接 GREEN。
-- Devon 实现页面后，上述测试从 RED 转 GREEN，无需修改测试签名或断言。
+**Setup 页面**（已 GREEN）：
+
+- `tests/unit/web/pages/test_setup.py`：7 个测试全部 GREEN（两上下文渲染 + 旧路由 404）。
+- `tests/e2e/v014_workspace_onboarding/test_journey_diagnostic_quality.py`：2 个测试 GREEN（诊断 4 字段 + Runtime authority）。
+
+**Workbench Projects activity**（桩 RED，待 Devon 实现）：
+
+- 浏览器访问 `/workbench?activity=projects` 得到 500（`NotImplementedError("IF-PROJECT-01")`），RED 可归因。
+- 现有 Chat/Dev Docs/Wiki/Runs/Settings 行为不变（11 个 workbench unit 测试 GREEN）。
+- Shield 可基于桩签名编写 Projects activity 契约测试（`_render_projects_activity`、`_projects_main_panel`、`_projects_status_cockpit` 等）。
+- Devon 按 §14.3 步骤 1→4 分步实现后，25 个 e2e 从 skip/RED 转 GREEN。

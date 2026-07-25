@@ -16,6 +16,7 @@ from ..render import render_markdown_view
 
 
 TOOLBAR_ITEMS = (
+    ("projects", "Projects", "◫"),
     ("chat", "Chat", "💬"),
     ("dev-docs", "Dev Docs", "▤"),
     ("end-user-docs", "End User Docs", "▥"),
@@ -27,7 +28,17 @@ TOOLBAR_ITEMS = (
 
 
 async def workbench(request: Request) -> HTMLResponse:
-    """Render the workbench with filesystem-backed read-only navigation."""
+    """Render the workbench with filesystem-backed read-only navigation.
+
+    The ``?activity=`` query parameter selects the active panel:
+
+    - ``projects`` (default after Setup) → Projects activity (IF-PROJECT-01).
+    - ``chat`` / ``dev-docs`` / ``runs`` / … → legacy v0.13 panels.
+    """
+    activity = request.query_params.get("activity", "chat")
+    if activity == "projects":
+        return await _render_projects_activity(request)
+
     store = request.app.state.store
     specs = _spec_tree(store.specs_dir, store.root)
     wiki_pages = [item["page"] for item in store.list_wiki_pages()]
@@ -1245,3 +1256,120 @@ document.querySelector('[data-testid="accounts-logout"]').addEventListener('clic
  document.addEventListener('input',event=>{{if(event.target.matches('[data-testid="enduserdocs-editor"]'))setDocDirty();}});
  document.addEventListener('click',event=>{{if(event.target.matches('[data-testid="enduserdocs-save"]'))saveDoc(false);if(event.target.matches('[data-enduserdocs-reload]'))loadDoc(currentDoc);if(event.target.matches('[data-enduserdocs-force]')&&confirm('确认覆盖外部修改？'))saveDoc(true);}});
 </script></body></html>"""
+
+
+# ---------------------------------------------------------------------------
+# IF-PROJECT-01 / IF-GUIDE-01 / IF-STATUS-01 / IF-COMPAT-01:
+# Projects activity interface stubs (Archer §5.3.5).
+#
+# Devon replaces the ``raise NotImplementedError`` bodies with real
+# rendering logic.  Signatures, route paths and the composition-root
+# contract are locked by interfaces.md.
+# ---------------------------------------------------------------------------
+
+
+async def _render_projects_activity(request: Request) -> HTMLResponse:
+    """IF-PROJECT-01: Render the Projects activity at ``/workbench?activity=projects``.
+
+    Devon implements:
+
+    - Read ``GET /api/projects/current`` to determine ``empty|active|conflict``.
+    - ``empty`` → main panel shows purpose hint + ``New Project`` primary action.
+    - ``active`` → main panel loads the Project Status cockpit (IF-STATUS-01).
+    - ``conflict`` → main panel shows each conflicting identity + recovery
+      location; ``New Project`` and Project selection are disabled.
+    - Sidebar always shows the Guide session (IF-GUIDE-01).
+    - The ``projects`` toolbar button is ``aria-current="page"``.
+    """
+    raise NotImplementedError("IF-PROJECT-01")
+
+
+def _projects_sidebar() -> str:
+    """IF-GUIDE-01: Render the Projects sidebar with the Guide session.
+
+    Devon implements:
+
+    - ``GET /api/guide/session?context=empty`` or ``?project_id=<id>``.
+    - Render ``GuideMessage[]`` with authority labels (runtime / guide / human).
+    - Composer input + send button (``composer_enabled``).
+    - ``owning_links`` for navigation to owning surfaces.
+    """
+    raise NotImplementedError("IF-GUIDE-01")
+
+
+def _projects_main_panel(state: str) -> str:
+    """IF-PROJECT-01: Render the Projects main panel for the given state.
+
+    Args:
+        state: One of ``empty``, ``active``, or ``conflict``.
+
+    Devon implements:
+
+    - ``empty``: purpose hint + ``New Project`` button (enabled).
+    - ``active``: Project Status cockpit (IF-STATUS-01) with timeline,
+      active card, return edges, recent evidence, primary action.
+    - ``conflict``: each conflicting ``ProjectIdentity`` + recovery URL;
+      ``New Project`` and Project selection disabled.
+    """
+    raise NotImplementedError("IF-PROJECT-01")
+
+
+def _projects_status_cockpit(project_id: str) -> str:
+    """IF-STATUS-01: Render the Project Status cockpit for the given project.
+
+    Devon implements:
+
+    - ``GET /api/projects/{project_id}/status`` with ``If-None-Match``.
+    - 13-stage ``stage_catalog`` with canonical order.
+    - ``timeline`` with ``attempt`` and ``pending_placeholder`` nodes.
+    - ``active`` card with owner, ordinal, elapsed, reason/impact, primary action.
+    - ``return_edges`` with source/target/direction.
+    - 5-second poll; stale banner on network failure or ``fresh_until`` expiry.
+    - Keyboard navigation: Home/End/arrows for full history.
+    """
+    raise NotImplementedError("IF-STATUS-01")
+
+
+def _projects_env_wizard() -> str:
+    """IF-ENV-01: Render the Environment Wizard modal.
+
+    Devon implements:
+
+    - ``POST /api/projects/environment-checks`` to start a check.
+    - Running → show current step; passed steps collapse.
+    - Failed/uncertain → expand blocking step with diagnosis + Retry.
+    - All passed + fresh → enable Story/version input.
+    - Repository binding preview/confirm (IF-ENV-02).
+    """
+    raise NotImplementedError("IF-ENV-01")
+
+
+# ---------------------------------------------------------------------------
+# IF-COMPAT-01: compatibility route stubs
+# ---------------------------------------------------------------------------
+
+
+async def projects_compat(request: Request) -> HTMLResponse:
+    """IF-COMPAT-01: ``/projects`` → redirect to ``/workbench?activity=projects``.
+
+    Devon implements: 303 redirect to the canonical Projects activity.
+    """
+    raise NotImplementedError("IF-COMPAT-01")
+
+
+async def project_detail_compat(request: Request) -> HTMLResponse:
+    """IF-COMPAT-01: ``/projects/{project_id}`` → Project Status.
+
+    Devon implements: resolve ``project_id`` to the canonical Project Status
+    cockpit at ``/workbench?activity=projects&project=<id>``.
+    """
+    raise NotImplementedError("IF-COMPAT-01")
+
+
+async def run_detail_compat(request: Request) -> HTMLResponse:
+    """IF-COMPAT-01: ``/runs/{run_id}`` → Project Status for the run's project.
+
+    Devon implements: resolve ``run_id`` to its Project binding and redirect
+    to the canonical Project Status cockpit.
+    """
+    raise NotImplementedError("IF-COMPAT-01")

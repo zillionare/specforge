@@ -16,6 +16,7 @@ Endpoints:
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -27,10 +28,16 @@ from starlette.routing import Route
 
 from louke.web.csrf_middleware import issue_for_session, verify_token
 from louke.web.setup_projection import read as read_projection
-from louke.web.setup_state import SetupStatus, try_read_manifest
+from louke.web.setup_state import try_read_manifest
 from louke.web.store import ProjectStore, ValidationError
 
 from ._common import install_error_handlers, json_body, require_str
+
+#: In-memory idempotency ledger for first-user creation (IF-SETUP-02).
+#: Keyed by ``Idempotency-Key`` header value; stores the payload hash and
+#: the successful response so an exact retry returns 200 with the same
+#: identity.  A same-key / different-payload request yields 409.
+_first_user_idempotency: dict[str, dict[str, object]] = {}
 
 
 def create_app(workspace_root: str | Path | None = None) -> Starlette:
@@ -132,7 +139,8 @@ async def create_first_user(request: Request) -> JSONResponse:
 
     Raises:
         HTTPException 403: If the CSRF token is missing or invalid.
-        HTTPException 409: If a first user already exists.
+        HTTPException 409: If a first user already exists, the revision
+            is stale, or the Idempotency-Key conflicts.
     """
     csrf_token = request.headers.get("X-Louke-CSRF", "")
     if not csrf_token or not verify_token(
@@ -145,41 +153,88 @@ async def create_first_user(request: Request) -> JSONResponse:
     name = require_str(payload, "name")
     credential = require_str(payload, "credential")
     expected_revision = payload.get("expected_revision", 0)
-    store = _store(request)
+
+    # -- Idempotency (IF-SETUP-02: same key + same payload → 200 same
+    #    identity; same key + different payload → 409).
+    idempotency_key = request.headers.get("Idempotency-Key", "")
+    if idempotency_key:
+        payload_hash = hashlib.sha256(
+            json.dumps(
+                {
+                    "name": name,
+                    "credential": credential,
+                    "expected_revision": expected_revision,
+                },
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        stored = _first_user_idempotency.get(idempotency_key)
+        if stored is not None:
+            if stored["payload_hash"] != payload_hash:
+                raise HTTPException(
+                    status_code=409,
+                    detail="IDEMPOTENCY_CONFLICT: same Idempotency-Key with different payload",
+                )
+            return JSONResponse(dict(stored["response"]), status_code=200)
+
     workspace_root = _workspace_root(request)
+    store = _store(request)
+
+    # -- CAS: read the CURRENT manifest, not a fresh one (A-003).
+    from louke.web.first_user import principal_id_for
+    from louke.web.setup_state import (
+        SetupStateError,
+        SetupStateMismatch,
+        try_read_manifest,
+        write_manifest,
+    )
+
+    manifest = try_read_manifest(workspace_root)
+    if manifest is None:
+        raise HTTPException(
+            status_code=409, detail="corrupt or unreadable Setup manifest"
+        )
+
+    # Zero-user guard: if a first user already exists, reject.
     if store.list_users():
         raise HTTPException(status_code=409, detail="first user already exists")
+
     try:
         store.create_user(name, credential)
     except ValidationError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    from louke.web.first_user import principal_id_for
-    from louke.web.setup_state import (
-        SetupManifest,
-        write_manifest,
-    )
+    try:
+        advanced = manifest.advance_to_pending_model(
+            first_principal_id=principal_id_for(name),
+            expected_revision=expected_revision,
+        )
+    except SetupStateMismatch as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"STALE_REVISION: {exc}",
+        ) from exc
+    except SetupStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    manifest = SetupManifest(
-        workspace_id="",
-        revision=expected_revision,
-        status=SetupStatus.PENDING_USER,
-    )
-    advanced = manifest.advance_to_pending_model(
-        first_principal_id=principal_id_for(name),
-        expected_revision=expected_revision,
-    )
     write_manifest(workspace_root, advanced)
-    return JSONResponse(
-        {
-            "principal_id": _principal_id(name),
-            "name": name,
-            "setup_revision": advanced.revision,
-            "status": advanced.status.value,
-            "continue_url": "/setup",
-        },
-        status_code=201,
-    )
+
+    response_body = {
+        "principal_id": _principal_id(name),
+        "name": name,
+        "setup_revision": advanced.revision,
+        "status": advanced.status.value,
+        "continue_url": "/setup",
+    }
+
+    # Record the idempotency entry so an exact retry returns 200.
+    if idempotency_key:
+        _first_user_idempotency[idempotency_key] = {
+            "payload_hash": payload_hash,
+            "response": dict(response_body),
+        }
+
+    return JSONResponse(response_body, status_code=201)
 
 
 # ---------------------------------------------------------------------------
