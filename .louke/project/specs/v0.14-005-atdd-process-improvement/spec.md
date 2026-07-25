@@ -2,14 +2,20 @@
 
 - **规格 ID**：`v0.14-005-atdd-process-improvement`
 - **关联 Story**：`STR-1406`
+- **Story SHA-256**：`2bf35f6117ddeb6f6f608bba5ac0ddae7a2daa01cb9203bab867e94c233959d5`
+- **Spec SHA-256**：`0bd727b8e379d4dccb2a39b0227053f9ad2661fb39077a7b4a6b6d663c1c662a`
+- **Acceptance SHA-256**：`5d8c6a9e3050233398ea330aa4a48f767c3431319861b9a78425140b0b7716c1`
 - **创建日期**：2026-07-25
-- **状态**：草稿
+- **锁定时间**：`2026-07-25T11:25:00+09:00`
+- **状态**：已锁定（v0.14 bootstrap 的人工/Sage 锁定；未伪造 Runtime digest、PASS、commit、gate 或阶段推进）
 
 > **职责边界**：本文只描述需求本身。用户目标、完整主路径与推导依据见`story.md`；可观察断言由后续`acceptance.md`定义。
 >
 > **产品集成位置**：本能力接入既有`M-DESIGN → M-IMPL → M-TEST → M-VERIFY`旅程和Project Status上下文，不新增平行工作流或孤立结果页。为保持v0.14 canonical stage identity，Shield的契约测试准备成为`M-IMPL`内、Devon实现前的受控checkpoint；`M-TEST`负责真实实现上的最终integration/e2e、判别与覆盖闭包。
 >
 > **v0.14 bootstrap说明**：当前Agent提示词可能已部分采用v0.14职责，但完整Runtime尚未激活。本草稿先锁定语义合同，不把尚未部署的schema、命令、程序校验或阶段状态写成现有事实。Human明确委托Agent临时代行的文档工作可以继续；缺少Runtime machine contract的程序结果只能标记为bootstrap/manual、未程序校验或未激活，不得伪造PASS、commit、gate或阶段推进。
+>
+> **锁定说明**：本轮锁定的spec.body 与lex r3评审结果一致，未修改行为种子或非常规要求；Story/Acceptance的SHA-256在locked frontmatter登记，可被Project Status和M-DESIGN readback引用。Runtime启用后，digest、activation、review verdict与阶段推进由Runtime自有程序合同重新接管。
 
 ## 功能需求
 

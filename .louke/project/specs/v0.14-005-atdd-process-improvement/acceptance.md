@@ -2,12 +2,16 @@
 
 - **Spec ID**：`v0.14-005-atdd-process-improvement`
 - **关联 Story**：`STR-1406`
+- **Story SHA-256**：`2bf35f6117ddeb6f6f608bba5ac0ddae7a2daa01cb9203bab867e94c233959d5`
+- **Spec SHA-256**：`0bd727b8e379d4dccb2a39b0227053f9ad2661fb39077a7b4a6b6d663c1c662a`
+- **Acceptance SHA-256**：`5d8c6a9e3050233398ea330aa4a48f767c3431319861b9a78425140b0b7716c1`
 - **创建日期**：2026-07-25
-- **状态**：草稿
+- **锁定时间**：`2026-07-25T11:25:00+09:00`
+- **状态**：已锁定（v0.14 bootstrap 的人工/Sage 锁定；Runtime启用后由Runtime重新接管digest与review verdict）
 
 > 本文是当前`spec.md`中17项FR与4项NFR的验收注册表。每项验收通过Project Status、artifact/readback、Runtime持久状态、宿主runner结果或可核对的外部事实断言，不约束未被Spec决定的组件、精确文案、内部API schema或实现算法。
 >
-> 当前调用未提供Runtime计算的Story/Spec revision digest；本文不伪造digest、流程PASS、gate或阶段推进。完整Runtime启用前的结果仍受Spec中的bootstrap边界约束。
+> 当前调用未提供Runtime计算的Story/Spec revision digest；本锁定以本地SHA-256作为可核验快照登记frontmatter，不据此伪造PASS、gate或阶段推进。完整Runtime启用前的结果仍受Spec中的bootstrap边界约束。
 
 ## FR-0001 接入现有实施与验证旅程
 

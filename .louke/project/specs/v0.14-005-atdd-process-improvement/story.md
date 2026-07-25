@@ -188,5 +188,10 @@
 
 - **Story ID**：`STR-1406`
 - **创建时间**：`2026-07-25T09:49:47+09:00`
+- **锁定时间**：`2026-07-25T11:25:00+09:00`
 - **关联 Spec/Issue**：`v0.14-005-atdd-process-improvement`；来源备忘录`process-improvement-005.md`；Issue待后续流程建立
+- **Story SHA-256**：`2bf35f6117ddeb6f6f608bba5ac0ddae7a2daa01cb9203bab867e94c233959d5`
+- **Spec SHA-256**：`0bd727b8e379d4dccb2a39b0227053f9ad2661fb39077a7b4a6b6d663c1c662a`
+- **Acceptance SHA-256**：`5d8c6a9e3050233398ea330aa4a48f767c3431319861b9a78425140b0b7716c1`
+- **Spec/Acceptance 状态**：已锁定（v0.14 bootstrap：由 Sage 在缺乏 runtime 字段时依据 story/SHA 与 review findings 完成；未伪造 PASS、gate 或阶段推进）
 - **Sage peer review**：`Pending`（Scribe 不得填写通过结果）

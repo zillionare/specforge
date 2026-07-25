@@ -72,3 +72,4 @@ louke.egg-info/
 .tmp_bundle
 **/*.lock
 .louke/web-setup-state.json
+.louke/project/contracts/*.json
