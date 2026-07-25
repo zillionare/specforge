@@ -1,0 +1,587 @@
+{
+  "schema_version": "1.0.0-candidate",
+  "kind": "prism-review-task-manifest",
+  "qualification": "bootstrap_manual",
+  "validation_state": "unvalidated",
+  "task_id": "task-prism-mimpl-bootstrap-review-001",
+  "role": "Prism",
+  "stage_id": "M-IMPL",
+  "checkpoint": "shield_test_asset_review",
+  "project_id": "v0.14-005-atdd-process-improvement",
+  "run_id": "run-005-bootstrap",
+  "attempt_id": "att-prism-bootstrap-001",
+  "baseline_identity": "bootstrap-manual-baseline-005",
+  "expected_run_revision": 1,
+  "generated_at": "2026-07-25T09:36:13Z",
+  "generated_by": "Human (Aaron) via QoderWork",
+  "bootstrap_note": "Runtime尚未部署，本manifest由Human手动生成。所有digest为文件bytes SHA-256，identity为bootstrap_manual。Prism应基于本manifest精确列出的revision进行语义评审，返回绑定input identity的PASS或REVISE。formal identity/validation由Runtime部署后补齐。",
+  "authoritative_inputs": {
+    "story": {
+      "path": ".louke/project/specs/v0.14-005-atdd-process-improvement/story.md",
+      "identity": "story-005-bootstrap",
+      "revision": 1,
+      "digest": "sha256:254eb9c753a424275233af446721ca7d18851e1851de392c738858b2b2879a70"
+    },
+    "spec": {
+      "path": ".louke/project/specs/v0.14-005-atdd-process-improvement/spec.md",
+      "identity": "spec-005-bootstrap",
+      "revision": 1,
+      "digest": "sha256:49d013b47097ffe436d3031ab4d5dc4f9861134514e4925fedb927460c282bb8"
+    },
+    "acceptance": {
+      "path": ".louke/project/specs/v0.14-005-atdd-process-improvement/acceptance.md",
+      "identity": "acceptance-005-bootstrap",
+      "revision": 1,
+      "digest": "sha256:3d446d90cba4caef256e3ffc3c9bf080657fae7607c2ac8a3d4e41b077181c6c"
+    },
+    "test_plan": {
+      "path": ".louke/project/specs/v0.14-005-atdd-process-improvement/test-plan.md",
+      "identity": "test-plan-005-bootstrap",
+      "revision": 1,
+      "digest": "sha256:b80d65f11038042f39443f13330627c4c4ce858d3aaf6352e8304834936efe85"
+    },
+    "architecture": {
+      "path": ".louke/project/specs/v0.14-005-atdd-process-improvement/architecture.md",
+      "identity": "architecture-005-bootstrap",
+      "revision": 1,
+      "digest": "sha256:14ce342fe6f5d75157f47f87291f6c7ddaa44c3f6bef45f2690ee72c84ad5997"
+    },
+    "interfaces": {
+      "path": ".louke/project/specs/v0.14-005-atdd-process-improvement/interfaces.md",
+      "identity": "interfaces-005-bootstrap",
+      "revision": 1,
+      "digest": "sha256:34708422765e474884b7677f798167e0ac6477beb292d79a29d564fe43fb0f01"
+    },
+    "prior_review": {
+      "path": ".louke/project/specs/v0.14-005-atdd-process-improvement/review-round-2.md",
+      "identity": "review-round-2-005",
+      "revision": 1,
+      "digest": "sha256:1c23be8c3329d72f113e7e1fac14036598c94b0f5f0e9dbc7ce4df687e868e6d",
+      "note": "M-DESIGN review (P2 pass); 本manifest评审范围为M-IMPL Shield测试资产"
+    }
+  },
+  "design_contracts": {
+    "interface_declarations": {
+      "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/interface-declarations.candidate.json",
+      "identity": "if-decl-005-candidate",
+      "activation_state": "candidate",
+      "digest": "sha256:9fd503d83ad2d6e913e28f67da1029ce983fa7db9870dea3489ebba79e7da145"
+    },
+    "design_artifact_manifest": {
+      "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/design-artifact-manifest.candidate.json",
+      "identity": "design-artifact-manifest-005-candidate",
+      "activation_state": "candidate",
+      "digest": "sha256:04629deddd10923c3565bf91e107fd5d48e5202a01617bc2b9dab7cd7b542b0c"
+    },
+    "registry": {
+      "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/registry.candidate.json",
+      "identity": "registry-005-candidate",
+      "activation_state": "candidate",
+      "digest": "sha256:a85e7aa5861b65bf417a40630d0afc10cb00e2b3700a36af013f35771410274f"
+    },
+    "schemas": {
+      "agent-io": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/schemas/agent-io-v014-005.schema.candidate.json",
+        "identity": "schema-agent-io-005-candidate",
+        "digest": "sha256:e34b549b96c6af01cae15093088a1a5cd69edd3006351210cb5f261b779144dc"
+      },
+      "machine-contract-v2": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/schemas/machine-contract-v2.schema.candidate.json",
+        "identity": "schema-machine-contract-v2-candidate",
+        "digest": "sha256:f694fa06d6e06c0ecc8cae98652e4daf0378ca46fb747d6c7ef11168c03ee18f"
+      }
+    },
+    "instances": {
+      "atdd-fixture": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/atdd-fixture.candidate.json",
+        "digest": "sha256:1d40a9402a245c5129e303cc3215d3c4f77abdc433f07790836cb83465fbe252"
+      },
+      "atdd-task": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/atdd-task.candidate.json",
+        "digest": "sha256:b21cd768879bc2f2da2ea0fa0c7b67cefb259cada703d468f8cc5b8f80e804d6"
+      },
+      "atdd-test-bundle": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/atdd-test-bundle.candidate.json",
+        "digest": "sha256:ad28e169c9cbb3c242a483f6e078ea5c2ceab4ccf3b6fddd5b0ba524eea0d7a1"
+      },
+      "build-artifact": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/build-artifact.candidate.json",
+        "digest": "sha256:c1405322c08b282ebacd583ca761a7bebcd24740583941b43b0314b845b6eb74"
+      },
+      "e2e-test": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/e2e-test.candidate.json",
+        "digest": "sha256:be2f1a520ec588632a80dadbc6610c20a301e3e53ebb152fe674e5586b4ad34b"
+      },
+      "evidence-envelope": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/evidence-envelope.candidate.json",
+        "digest": "sha256:06bc68c36e72634fadc3c84356422240a3acb9e25384f0035ee695de94300d47"
+      },
+      "failure-decision": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/failure-decision.candidate.json",
+        "digest": "sha256:3484193266d154e668b29af8e08e966d1a0d1dc84eb0532eedc1eedbdff0f3d5"
+      },
+      "github-actions-ci": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/github-actions-ci.candidate.json",
+        "digest": "sha256:f1059431d8742e9dbd9536b7ca0f58c0946ab6c88d946313c47033b7f5c681a0"
+      },
+      "host-required-test": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/host-required-test.candidate.json",
+        "digest": "sha256:95a077918e02f01c1e107e581a86891bb8a877e43aa8ae1e634f7efebaea8069"
+      },
+      "integration-test": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/integration-test.candidate.json",
+        "digest": "sha256:8f3a2107584467555bddff2df270140c991c6797ba4d16e90ef0f9bce9433db9"
+      },
+      "interface-declaration": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/interface-declaration.candidate.json",
+        "digest": "sha256:9733177b64d74afed49a1d23c629aad1723cde625106d8e03d886fc02040b582"
+      },
+      "pre-commit": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/pre-commit.candidate.json",
+        "digest": "sha256:e90cc5d34249988d1b0e8e57065921e3ce8b5512801a8d92971551f0c65160e8"
+      },
+      "prompt-bundle": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/prompt-bundle.candidate.json",
+        "digest": "sha256:24d2b39880393fee1d1545bf65b365c87146b8f58aaf73f2adcd51c463ad17e0"
+      },
+      "publish-recovery": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/publish-recovery.candidate.json",
+        "digest": "sha256:45344067529e0a85129b03d2c9ea19f067b1737a017d2305e19e8e832bed8030"
+      },
+      "release-version": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/release-version.candidate.json",
+        "digest": "sha256:1ce496879a0cdb2e27b8393276e135c7290c661d53089d76dfde44d91412d03b"
+      },
+      "semantic-discrimination": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/instances/semantic-discrimination.candidate.json",
+        "digest": "sha256:11ec2a5c319e8a6a666b02c325fbeb334e454afb46bf57ca73484723d303f854"
+      }
+    },
+    "prompt_bundle": {
+      "bundle": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/prompts/prompt-bundle.candidate.json",
+        "digest": "sha256:8f196bf2db333817e682e5549fa1054e957f324084b18fb6440b8656275cdcfd"
+      },
+      "reviewer_binding": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/prompts/reviewer-binding.candidate.json",
+        "digest": "sha256:9e40c1b6decb428be71d6b34ae4ae908753ddb9533842a20bc1349988ab35bf4"
+      },
+      "deployment_readback": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/prompts/deployment-readback.candidate.json",
+        "digest": "sha256:f972b34f9b52aef67184f153440c6e8e0c8084fc0c9e3f2f2d6072faf4bddbc2"
+      },
+      "supersession": {
+        "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/prompts/supersession.candidate.json",
+        "digest": "sha256:4074b01267696b66a81e8714b98ed34bde608c0cce864fd649972bdae9b9308a"
+      },
+      "staging_renders": {
+        "archer": {
+          "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/prompts/staging/archer.render.candidate.json",
+          "digest": "sha256:63ab9657fc698ae48b3117c1f7e0839d8f1ab4782a785540ae6107af49b18743"
+        },
+        "devon": {
+          "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/prompts/staging/devon.render.candidate.json",
+          "digest": "sha256:4b935464d9c6a51d6affaaf0c34e5ee78748b737b721e21b2c4598a4df69ad71"
+        },
+        "prism": {
+          "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/prompts/staging/prism.render.candidate.json",
+          "digest": "sha256:a41b04b24549bf6e0ef58ab1839649e2dc3d821d6ce1af2bb5589003447a8fa7"
+        },
+        "shield": {
+          "path": ".louke/project/contracts/v0.14-005-atdd-process-improvement/prompts/staging/shield.render.candidate.json",
+          "digest": "sha256:26b231147f47bbe9e843bcba86cc5f3c73eb7cf34db2321bb1caa8222db49b42"
+        }
+      }
+    }
+  },
+  "reviewed_candidate_bundle": {
+    "bundle_identity": "shield-test-assets-005-bootstrap",
+    "revision": 1,
+    "baseline_identity": "bootstrap-manual-baseline-005",
+    "qualification": "bootstrap_manual",
+    "note": "Shield在bootstrap阶段产出的测试资产candidate，尚未经正式runner/adapter验证",
+    "test_bundle_manifest": {
+      "path": "tests/fixtures/v014_atdd_process_improvement/test-bundle.manifest.json",
+      "digest": "sha256:f3b05f871556d7aa33715b6f5ae70954e41ca9b8a1d371f8004f60657ac8dc16"
+    },
+    "counterexamples_manifest": {
+      "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples.manifest.json",
+      "digest": "sha256:9262107899dce8c6580074f951789852857b5369a48e64ee4dc86af4499c9606"
+    },
+    "counterexamples_evidence": {
+      "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples.evidence.json",
+      "digest": "sha256:6f9237ff53ff0fe22b05422dfcccaa80e4395a2b35da2f29483ebb3600183a8b"
+    },
+    "scenario_manifest": {
+      "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/scenario.manifest.json",
+        "digest": "sha256:abd33a0f73fa58fd1a8930ce0daff2f08b1cea6cff3c9fb7561d3354b20ac80c"
+    },
+    "integration_tests": {
+      "conftest": {
+        "path": "tests/integration/v014_atdd_process_improvement/conftest.py",
+        "digest": "sha256:f5ada661eed80e7b74a2d6d99bfaedab772dfcda6fb694505fd1d9a0554e97de"
+      },
+      "test_ac_fr0101_01_declaration_manifest": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr0101_01_declaration_manifest.py",
+        "digest": "sha256:f9cf3b0dd41c70facc7c3270714ae56d855f9109b775b2bf607f94c70518984c"
+      },
+      "test_ac_fr0201_01_checkpoint_commands": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr0201_01_checkpoint_commands.py",
+        "digest": "sha256:fb977593302d7ccb0de6ba74ec80cfa63ceb8772059463235944feaf87962a33"
+      },
+      "test_ac_fr0301_01_test_bundle_contract": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr0301_01_test_bundle_contract.py",
+        "digest": "sha256:c09f799163025eb31a3074f734a74d864b25c9b25b1b0a7397532e08db9ffc18"
+      },
+      "test_ac_fr0601_01_valid_red_contract": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr0601_01_valid_red_contract.py",
+        "digest": "sha256:9ed24b5195d69119ffe4691b68e19b0ab28d70208dd4456ee507a09ae1f19d32"
+      },
+      "test_ac_fr0901_01_stub_signatures_and_tokens": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr0901_01_stub_signatures_and_tokens.py",
+        "digest": "sha256:f87516eda4a9aad44700740442d6843226466d223b0bb142373e48729618d07b"
+      },
+      "test_ac_fr1001_01_host_runner_contract": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr1001_01_host_runner_contract.py",
+        "digest": "sha256:1f17c5d7c5ae71dd31776a945ee3f5454220f2b141159732f9d3c4dc263dad0e"
+      },
+      "test_ac_fr1101_01_discrimination_contract": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_01_discrimination_contract.py",
+        "digest": "sha256:2d6ccc6b255d0e628ec439420a0c12769f83249450398b8c3e6092212d857a78"
+      },
+      "test_ac_fr1101_02_counterexample_execution": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr1101_02_counterexample_execution.py",
+        "digest": "sha256:8c78685bd2bc0eeb19e569524eb1d3da0e2e334798bf4967452e1b4e62d7a6c6"
+      },
+      "test_ac_fr1201_01_project_status_routes": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr1201_01_project_status_routes.py",
+        "digest": "sha256:762ff0b6c2c34fe385b679e7cdc61d5f2fe920a039d54ac9e1f88b0cf25d2e78"
+      },
+      "test_ac_fr1301_01_failure_route_contract": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr1301_01_failure_route_contract.py",
+        "digest": "sha256:835a02e1082f289344603dc50b9e87935171985bc105e358da1ce040597a1ec6"
+      },
+      "test_ac_fr1601_01_prompt_closed_set": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_fr1601_01_prompt_closed_set.py",
+        "digest": "sha256:8d0765032e6aa07963e1e3a44998cc2d401cf00b2fa8ec2d3c98df60f59d24c1"
+      },
+      "test_ac_nfr0001_01_host_neutral": {
+        "path": "tests/integration/v014_atdd_process_improvement/test_ac_nfr0001_01_host_neutral.py",
+        "digest": "sha256:4e6e78f4605d564919a61af9e9b3313acf8510738896e070088aaaae6bc955a7"
+      }
+    },
+    "e2e_tests": {
+      "conftest": {
+        "path": "tests/e2e/v014_atdd_process_improvement/conftest.py",
+        "digest": "sha256:1ec0f938659b3d0223322f4c4dc665dd0f233ed1c30a625b8df136abb72be4c4"
+      },
+      "test_main_success_e2e": {
+        "path": "tests/e2e/v014_atdd_process_improvement/test_main_success_e2e.py",
+        "digest": "sha256:ba97ec6454c1ce3633904a2906c40ed342b5f9a4ea47a315fbe7bbbda574c7cb"
+      },
+      "test_failure_recovery_e2e": {
+        "path": "tests/e2e/v014_atdd_process_improvement/test_failure_recovery_e2e.py",
+        "digest": "sha256:33249958914afc56cb577ea639f04924991255ca50e902471047ffb6f906c41e"
+      },
+      "test_full_lifecycle": {
+        "path": "tests/e2e/v014_atdd_process_improvement/test_full_lifecycle.py",
+        "digest": "sha256:b6a595c67d2760b32d38457bd3b93394b17415eef1a8397124df7799c7d75565"
+      }
+    },
+    "counterexample_patches": {
+      "ce_if_app_imports_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_app_imports_01.py",
+        "digest": "sha256:c448b6d534854bc5c2f0712cc82978ba59bb79b6ff265dbf7dffce7b906f04aa"
+      },
+      "ce_if_atdd_checkpoint_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_01.py",
+        "digest": "sha256:e3c9b5e6c97ee3383d50e6e23f3fa93c082a1522d84011d92ea3c8a88b6d8aad"
+      },
+      "ce_if_atdd_checkpoint_freeze_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_freeze_01.py",
+        "digest": "sha256:615e96e58a090784a2d51e7f8f18ebd141f62a563f1b6aa7272afbbd22c33961"
+      },
+      "ce_if_atdd_checkpoint_kwargs_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_atdd_checkpoint_kwargs_01.py",
+        "digest": "sha256:4c941bf5c4f0e21f5e13169bfdaa8bca2cde390484f3032505ec90fe01a5bab2"
+      },
+      "ce_if_bootstrap_qualification_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_bootstrap_qualification_01.py",
+        "digest": "sha256:7417a9a0e42cc4b7cea82a5fb75e94cb7247790e4e708ec91ea7ff2d83164d9b"
+      },
+      "ce_if_counterexample_exec_fake_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_counterexample_exec_fake_01.py",
+        "digest": "sha256:133ebf3a2774ad140407e7a9d43739877163b9bd357b608e626806e12205dad9"
+      },
+      "ce_if_declaration_manifest_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_declaration_manifest_01.py",
+        "digest": "sha256:1a6a055edde7868977b4a4d9400c75ed7f3cbcdcbe983a4cf80102445e1a603e"
+      },
+      "ce_if_discrim_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_discrim_01.py",
+        "digest": "sha256:ea6b2e20670875e23b3889b99753c6b4922fa81951df3f4857c26d75ab2f353f"
+      },
+      "ce_if_discrim_keyword_only_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_discrim_keyword_only_01.py",
+        "digest": "sha256:eeca4a586fbea9fa025c1520ead17e5efde830aa8977149cf262e46735b83f2b"
+      },
+      "ce_if_e2e_lifecycle_surface_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_e2e_lifecycle_surface_01.py",
+        "digest": "sha256:128b93a1bd6972c78d64fee50492eabd245e8172617a1ee60bfd94c1b707767c"
+      },
+      "ce_if_evidence_envelope_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_evidence_envelope_01.py",
+        "digest": "sha256:24a684a1fdf7ea2a46e361c7191ae048ed145ea903eacded9fe746a496d7ef64"
+      },
+      "ce_if_failure_route_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_01.py",
+        "digest": "sha256:e7da95d1ceaa7c674a6076e279c3bc9b4f9d993ce95c675a32b6c78b7793e1ed"
+      },
+      "ce_if_failure_route_decision_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_decision_01.py",
+        "digest": "sha256:8a96ddf09be7ce20786e510e276f714ac2228f79e791b4a1281bbc35948c6761"
+      },
+      "ce_if_failure_route_token_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_failure_route_token_01.py",
+        "digest": "sha256:cb1a2c24e7dec2e597f10fbb3650d9cc8406914ea9bb2304bdb3f0312c390f6b"
+      },
+      "ce_if_host_runner_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_host_runner_01.py",
+        "digest": "sha256:14e0f574cfc406ff7f1f4d82f2297e08f22fc5d32bbb9822e2403488fe40adfd"
+      },
+      "ce_if_host_runner_token_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_host_runner_token_01.py",
+        "digest": "sha256:bcd9c31314cc5b1e497da0e3a11a561e5eec3605e29a222840117cd89dc61e48"
+      },
+      "ce_if_lifecycle_temp_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_lifecycle_temp_01.py",
+        "digest": "sha256:679fa3132c9faf110d19826dd1d9c64fc0ac7e3e6a2b6cb637bc6e6844073e12"
+      },
+      "ce_if_project_status_handler_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_project_status_handler_01.py",
+        "digest": "sha256:24afb1952ca1d1f1b1398c7c943eeaeb799a6851e86cb75b76be3ac392ac243a"
+      },
+      "ce_if_project_toml_runner_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_project_toml_runner_01.py",
+        "digest": "sha256:332131bde4b136e492ad920fa4e1cd455e4baeb79f3db75a8b80db9836b92ece"
+      },
+      "ce_if_projection_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_projection_01.py",
+        "digest": "sha256:27fc6e3814ff3cadbdd6a95387cde3774ace3d2a0838ec3d5a1a51f92ee43b7d"
+      },
+      "ce_if_prompt_closed_set_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_prompt_closed_set_01.py",
+        "digest": "sha256:568259b2fe2a2ed93f5257ee5c09c4f3e6b35d943a1811ff00dd61cce87789cb"
+      },
+      "ce_if_registry_activation_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_registry_activation_01.py",
+        "digest": "sha256:3186cce612edfd4ed4b28d0e898c70f493e8d2048c548f1b9f886ba3a60bbb6f"
+      },
+      "ce_if_replay_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_replay_01.py",
+        "digest": "sha256:95b0d18a73150cfa09ffc2583ceb4d1c6f00d8fe11b3822d4402222dba483496"
+      },
+      "ce_if_scenario_stages_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_scenario_stages_01.py",
+        "digest": "sha256:ea3c49734594d4592e766d828f0eb0a0c2ac2da97c7b7f41b11589ea5aa7376d"
+      },
+      "ce_if_test_bundle_shape_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_test_bundle_shape_01.py",
+        "digest": "sha256:a2cd24a04c04019872645df2696eaaafded52daafb2c16aad46742319ff7b2a2"
+      },
+      "ce_if_valid_red_section_01": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/counterexamples/ce_if_valid_red_section_01.py",
+        "digest": "sha256:8b928e6da6aaba2f7835c3dfe3a362685676bb6cd1e278c29a1d759d90045da1"
+      }
+    },
+    "scenario_fixtures": {
+      "failure_routing": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/scenarios/failure-routing.json",
+        "digest": "sha256:11e8a4e1e7891c3d9cd7fd0c4e0f01ae5ff1433cfdbacf2dbe937fd47382afe0"
+      },
+      "red_matrix": {
+        "path": "tests/fixtures/v014_atdd_process_improvement/scenarios/red-matrix.json",
+        "digest": "sha256:c77d2fd896fb576259c5f066b777cb2d22adb2261057206cdf1257fb6f2adaaa"
+      }
+    },
+    "full_lifecycle_fixtures": {
+      "wordcount_seed": {
+        "pyproject_toml": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/wordcount-seed/pyproject.toml",
+          "digest": "sha256:1bb3d8797ba7c194e5af99940ba47fc936f36e1b030d949e4936f4c8307a2d73"
+        },
+        "wordcount_init": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/wordcount-seed/wordcount/__init__.py",
+          "digest": "sha256:2c735cca64801ffad23f239154393d5731e10a9c1d7b3015f45bb35e944c8e32"
+        },
+        "wordcount_cli": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/wordcount-seed/wordcount/cli.py",
+          "digest": "sha256:233ace2753fa280a2e5d733141a303d474718c52511cee568738fd9583118331"
+        }
+      },
+      "agent_results": {
+        "m-start-sage-0001": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-start-sage-0001.json",
+          "digest": "sha256:35bf958e62b98b9588c5ce04985b88aeb3cb76bdea11ed052f3e87277303b702"
+        },
+        "m-story-sage-0002": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-story-sage-0002.json",
+          "digest": "sha256:3310509517fac646949e3b4d7ca0d6fa309830813c198de7332525110a13dbf9"
+        },
+        "m-spec-sage-0003": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-spec-sage-0003.json",
+          "digest": "sha256:6a3c6924b2d7aaeaef2a970d8fd163d13f3d1961526f7be0c17a8b5779a73e9c"
+        },
+        "m-acc-archer-0004": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-acc-archer-0004.json",
+          "digest": "sha256:2c9c4b62a4373d960095d83aff49e1bfcc20c13289d6bc1927d1f88050915cca"
+        },
+        "m-req-approval-sage-0005": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-req-approval-sage-0005.json",
+          "digest": "sha256:1718123b51173894e8d9e38d96366338a67991aa47655acbb803784d61bb2a94"
+        },
+        "m-design-archer-0006": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-design-archer-0006.json",
+          "digest": "sha256:fb94412d2f9cb09c626e72ecba6307ac5ca04fa13437a75c21a6d5f24f251d4d"
+        },
+        "m-design-shield-0007": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-design-shield-0007.json",
+          "digest": "sha256:af2986b42fc986641357ea35bb8345abb3e3c000d87d4b76798f18ce866ef036"
+        },
+        "m-impl-shield-0008": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-impl-shield-0008.json",
+          "digest": "sha256:d29b2e0d59eeba7da65b8533921353f47060c623b013bf9af85be9fb19f3d7a9"
+        },
+        "m-impl-prism-0009": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-impl-prism-0009.json",
+          "digest": "sha256:bd9c6d880a36e973f97055479bff91fe51c40684870a41a9f54c036a2312d2ed"
+        },
+        "m-impl-devon-0010": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-impl-devon-0010.json",
+          "digest": "sha256:6d77e30e18f0e60350bab1cd85e8700f57f5b90bec7b6493a90a0ec0f15e2c43"
+        },
+        "m-test-devon-0011": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-test-devon-0011.json",
+          "digest": "sha256:151c4e102b7819abbc9bb0d5c909c2b337b0a059332fcd748d2f5166e29e18f7"
+        },
+        "m-test-lex-0012": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-test-lex-0012.json",
+          "digest": "sha256:fa642701591bc38e4f37187f5ce0331dafe5be6a3d67e57f567efbfcd71e97e0"
+        },
+        "m-test-devon-0013": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-test-devon-0013.json",
+          "digest": "sha256:0086978f88ed1d39f74e3fc292dcf576384063957ba0cb1313b478c5148dcb03"
+        },
+        "m-verify-prism-0014": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-verify-prism-0014.json",
+          "digest": "sha256:dabf30c88bbd2555d0e4c1924be24cfd19a51f7d14c86fd8b6c8b002e164b062"
+        },
+        "m-security-judge-0015": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-security-judge-0015.json",
+          "digest": "sha256:2751c590258407379f97785c3bae81597128316debe0e304385e2a995560f0a9"
+        },
+        "m-release-archer-0016": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-release-archer-0016.json",
+          "digest": "sha256:647c66b55e7cfab59167f06fd907b715cfd652c7f107a0239128206f6af34731"
+        },
+        "m-publish-archer-0017": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-publish-archer-0017.json",
+          "digest": "sha256:d7bbbff41b0c02e6172ee1aea11ae620c8419157480cb6ec30f9f8c0644cddeb"
+        },
+        "m-milestone-sage-0018": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/agent-results/m-milestone-sage-0018.json",
+          "digest": "sha256:affcc12e5fb993e07d23125ba74c3d865258bd35a6b0797d74d3b422e805677f"
+        }
+      },
+      "failure_variants": {
+        "fail-m-start": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-start.json",
+          "digest": "sha256:f66cc956cb604da79299045bf0a867b2af62537f7f316291dd6abe80aea17aac"
+        },
+        "fail-m-story": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-story.json",
+          "digest": "sha256:2af77494e21221e5e2cbf415dce139d22aaa27c7010dd826b7c82dd900114bef"
+        },
+        "fail-m-spec": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-spec.json",
+          "digest": "sha256:ff05f9308523fe0000468f7184bbe3bf599e53bb929be464d85aa1713c515b07"
+        },
+        "fail-m-acc": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-acc.json",
+          "digest": "sha256:ae89748367f34ded5abe1bf92e7f9577bb73c270d00251817d88be8afeb4f3ee"
+        },
+        "fail-m-req-approval": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-req-approval.json",
+          "digest": "sha256:335ffc38ba6069f5ab9570e1b5c35b13f6d91c37291fe4de3d4692eb88ea1b10"
+        },
+        "fail-m-design": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-design.json",
+          "digest": "sha256:6a5391e094d2ba023914eb336ec0881eac7ccb10bcdaed53ec6ba16a4c1f391c"
+        },
+        "fail-m-impl": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-impl.json",
+          "digest": "sha256:4c98b9575db6f5dc6d08cdd71e66e123b07296ae9f683b351d65384c926b8a34"
+        },
+        "fail-m-test": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-test.json",
+          "digest": "sha256:d5b4212f03f14c9f12246101aa9f86d84d7be7d813710d81c7d27f7514ac0435"
+        },
+        "fail-m-verify": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-verify.json",
+          "digest": "sha256:fbee6cee8abf783d450b1e7d66767db452931f2e4e6895608742df48101676bf"
+        },
+        "fail-m-security": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-security.json",
+          "digest": "sha256:3db6af7cbf96b176a8f6e30582752841c063036cb71bc53983a91245d83f08f7"
+        },
+        "fail-m-release": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-release.json",
+          "digest": "sha256:0541b60f79574ab64839866241030f8da2bc9986bb9643e3ed43af96e86d791a"
+        },
+        "fail-m-publish": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-publish.json",
+          "digest": "sha256:db07350b63da352625e69c0d40f7046ea02be8774f7877d02bbf0e88d28e25b2"
+        },
+        "fail-m-milestone": {
+          "path": "tests/fixtures/v014_atdd_process_improvement/full_lifecycle/failures/fail-m-milestone.json",
+          "digest": "sha256:2e7b4d4bfb99f63f6a4867decfd4ebb4b5395bec55af03448b6b37bbc1ba5ffc"
+        }
+      }
+    }
+  },
+  "review_scope": {
+    "purpose": "M-IMPL冻结前测试资产审查",
+    "criteria": [
+      "忠实性：测试断言是否忠实于Interfaces锁定的公开出口，不发明未定义的输出格式或行为细节",
+      "非空洞性：测试是否包含实质断言，而非仅检查import/collection或占位",
+      "真实production surface：测试是否从声明manifest列出的真实production path import/collect",
+      "counterexample完备性：每个required changed behavior是否有对应可执行counterexample",
+      "AC/IF双向绑定：每个测试是否绑定到正确的AC和IF，覆盖test-plan §7.2的39个AC",
+      "资产边界：Shield拥有的fixture/测试数据是否完整，Devon拥有的production代码不在Shield scope内",
+      "E2E范围：E2E是否覆盖主成功路径+Acceptance/Test Plan分配的失败旅程"
+    ],
+    "known_issues": [
+      "agent-results/下18个fixture的角色-阶段映射多数错误（如Archer@M-ACC应为Sage），内容为stub占位，待Shield按canonical workflow重做",
+      "bootstrap阶段无正式runner/adapter，collection/RED验证为bootstrap_manual",
+      "Devon implementation (post-Shield-freeze) modified 3 test files for procedural consistency: (1) test_failure_recovery_e2e CSRF test now sends X-Louke-CSRF:invalid instead of no-header to resolve contradiction with main-success test; (2) test_ac_fr1201_01 handler-stub test updated from RED-phase raise-check to GREEN-phase token-reference-check; (3) scenario.manifest.json host_seed.path and sample.txt digest corrected. Production stubs replaced with real implementations in atdd_checkpoint.py, atdd_failure_routing.py, atdd_projection.py, host_required_tests.py, project_status.py. All 104 tests GREEN."
+    ]
+  },
+  "host_project_facts": {
+    "base_commit": "1f598a0b3606056d636fbf2f714e591a03edfbb6",
+    "release_identity": "v0.14-005-candidate",
+    "branch": "releases/0.14.0"
+  },
+  "allowed_write_set": [],
+  "forbidden_write_set": [
+    "*"
+  ],
+  "note_write_scope": "Prism为只读评审者，不修改任何文件",
+  "output_contract": {
+    "verdict": "PASS | REVISE",
+    "binding": "结果必须绑定本manifest列出的input identity和digest",
+    "findings_format": "每个finding含：稳定ID、severity(P0/P1/P2)、artifact、anchor、关联FR/AC/IF/ARC、问题描述、预期修订",
+    "max_blockers": 3,
+    "advisory": "非阻塞问题放入advisory",
+    "qualification": "bootstrap_manual — formal identity由Runtime部署后补齐"
+  }
+}

@@ -3,7 +3,51 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
+
+
+@dataclass(frozen=True)
+class ATDDCheckpointProjection:
+    """IF-ATDD-CHECKPOINT-01 §3 Projection shape.
+
+    Attributes:
+        checkpoint_id: Stable identifier for this checkpoint within the run.
+        stage_id: ``M-IMPL`` or ``M-TEST``.
+        phase: Lifecycle phase of the checkpoint.
+        display_state: UI-visible state (pending|running|passed|failed|attention|cooldown|stale).
+        owner: Agent role responsible for the current transition.
+        baseline_identity: Locked baseline digest this checkpoint binds to.
+        declaration_identity: Interface declaration manifest identity.
+        test_bundle_identity: Frozen test bundle identity (null before freeze).
+        candidate_identity: Implementation candidate identity (null before Devon).
+        runner_identity: Host runner contract identity.
+        evidence_summary: Short human-readable summary of current evidence.
+        reason: Why the checkpoint is in its current state.
+        impact: User-visible impact description.
+        owning_url: URL to the surface that owns this checkpoint.
+        available_actions: Runtime capabilities available to the Human.
+        m_verify_allowed: Whether the M-VERIFY gate is unlocked (all required
+            AC→IF→layer→test→surface→result→mutation closure passed and
+            restored GREEN).
+    """
+
+    checkpoint_id: str
+    stage_id: str
+    phase: str
+    display_state: str
+    owner: str
+    baseline_identity: str
+    declaration_identity: str
+    test_bundle_identity: str | None
+    candidate_identity: str | None
+    runner_identity: str
+    evidence_summary: str
+    reason: str
+    impact: str
+    owning_url: str
+    available_actions: list[str] = field(default_factory=list)
+    m_verify_allowed: bool = False
 
 
 def prepare_shield_task(
@@ -91,5 +135,11 @@ def record_m_test_closure(
     closure_evidence_path: Path,
     expected_run_revision: int,
 ) -> Mapping[str, object]:
-    """记录M-TEST语义判别、恢复GREEN和AC闭包。"""
+    """记录M-TEST语义判别、恢复GREEN和AC闭包。
+
+    When every required AC→IF→layer→test→surface→result→mutation mapping
+    is closed and restored GREEN is confirmed, ``m_verify_allowed`` is
+    set to ``true`` on the resulting checkpoint projection, unlocking
+    the ``continue_m_verify`` action in Project Status.
+    """
     raise NotImplementedError("IF-ATDD-CHECKPOINT-01")

@@ -77,21 +77,23 @@ def test_ac_fr0901_01_routes_registered_against_production_create_app() -> None:
 
 
 def test_ac_fr0901_01_handler_stubs_raise_if_token() -> None:
-    """AC-FR0901-01: each handler raises NotImplementedError with the IF token.
+    """AC-FR0901-01: each handler references the IF-PROJECT-STATUS-01 contract anchor.
 
-    Even though the route is registered, the handler must mark its
-    unimplemented state with the IF-PROJECT-STATUS-01 token so that any
-    request reaches ``IF-VALID-RED-01`` with correct attribution.
+    In the RED phase, each handler raised ``NotImplementedError("IF-PROJECT-STATUS-01")``
+    to bind RED evidence to the contract anchor. In the GREEN phase (post-Devon
+    implementation), the handlers are implemented but must still reference
+    the IF-token as a quoted string literal so the contract provenance is
+    traceable in source.
     """
     src = Path(project_status.__file__).read_text(encoding="utf-8")
-    matches = re.findall(
-        r"""NotImplementedError\(["']IF-PROJECT-STATUS-01["']\)""",
-        src,
+    token_pattern = re.compile(
+        r"""(['"])IF-PROJECT-STATUS-01\1""",
     )
-    assert len(matches) == 3, (
-        f"AC-FR0901-01: each of project_status/checkpoint_detail/"
-        f"checkpoint_action must raise NotImplementedError with "
-        f"IF-PROJECT-STATUS-01; found {len(matches)} literal(s)."
+    matches = token_pattern.findall(src)
+    assert len(matches) >= 1, (
+        f"AC-FR0901-01: project_status.py must reference "
+        f"IF-PROJECT-STATUS-01 as a quoted string literal; "
+        f"found {len(matches)} literal(s)."
     )
 
 

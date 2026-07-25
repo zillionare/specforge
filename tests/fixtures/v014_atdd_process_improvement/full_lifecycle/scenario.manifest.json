@@ -393,16 +393,16 @@
     }
   ],
   "host_seed": {
-    "digest": "sha256:daf616f9cca379496cb002e1a615208de11633a4b4cf57e70f5c0e5d254ab87b",
+    "digest": "sha256:a1baae907cae80ab218b3190ea84d4ba6cb546dedf0132c5ccd69b4a99eddd1d",
     "digest_strategy": "snapshot-on-copy; harness recomputes when copying into temp host",
     "files": {
       "README.md": "sha256:aee2d6c4ae3656b919c763bba6fb93b4329073c7eec2e25ae8caad34d3616701",
       "pyproject.toml": "sha256:1bb3d8797ba7c194e5af99940ba47fc936f36e1b030d949e4936f4c8307a2d73",
-      "sample.txt": "sha256:d604e6a972271718534ce1edc66ed9390f7784e9236ff1fe2ab6b4bade8288c2",
+      "sample.txt": "sha256:ceebe4223e9505bb7b8f25cc9e98d5b09467bc0650a2393c118545f1335af605",
       "wordcount/__init__.py": "sha256:2c735cca64801ffad23f239154393d5731e10a9c1d7b3015f45bb35e944c8e32",
       "wordcount/cli.py": "sha256:233ace2753fa280a2e5d733141a303d474718c52511cee568738fd9583118331"
     },
-    "path": "wordcount-seed"
+    "path": "fixtures/v014_atdd_process_improvement/full_lifecycle/wordcount-seed"
   },
   "human_actions": [
     {

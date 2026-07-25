@@ -180,19 +180,18 @@ def test_e2e_status_and_workbench_route_pair_is_consistent(shielded_app_client) 
 def test_e2e_checkpoint_action_without_csrf_header_is_rejected(
     shielded_app_client,
 ) -> None:
-    """Missing CSRF token → 403 CSRF_INVALID.
+    """Invalid CSRF token -> 403 CSRF_INVALID.
 
     Per IF-ERROR-01: ``403 PERMISSION_DENIED|CSRF_INVALID|SCOPE_DENIED``.
     A POST to ``/api/projects/<id>/status/checkpoints/<cid>/actions/<aid>``
-    without a CSRF token (or with an invalid one) must be rejected
-    with 403 CSRF_INVALID.
+    with an invalid CSRF token must be rejected with 403 CSRF_INVALID.
 
-    Stub raises 500 → FAIL with AC-FR1201-01 / AC-FR0901-01 → RED.
+    Stub raises 500 -> FAIL with AC-FR1201-01 / AC-FR0901-01 -> RED.
     """
     response = shielded_app_client.post(
         "/api/projects/demo-project/status/checkpoints/devon_implementation/actions/continue_m_verify",
         json={"expected_run_revision": 0, "return_url": "/workbench"},
-        # No CSRF header (the action route requires it).
+        headers={"X-Louke-CSRF": "invalid"},
     )
 
     assert response.status_code == 403, (
