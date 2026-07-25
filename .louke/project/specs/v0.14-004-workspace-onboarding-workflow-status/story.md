@@ -39,9 +39,24 @@
 
 ## 3. 核心操作路径
 
+### 3.0 产品现状（v0.14-003 截止）
+
+本 Story 是对现有产品的修改，不是在空白上新建。以下为 v0.14-003 截止时各路径的产品现状，作为每条路径的变更基线：
+
+| 路径 | 现状 | 本 Story 变更 |
+|------|------|---------------|
+| 首次 Setup | 六步 wizard（identity → repository → dependencies → review → applying → complete），v1 manifest 以 `current_step` + `completed_steps[]` 记录进度，首次 Setup 包含 Git 初始化与 GitHub 配置 | 替换为三态 manifest（pending_user → pending_model → complete）；Git/GitHub 移至 §3.3；增加 OpenCode 真实模型运行检查 |
+| 登录落点 | 登录后落点为 workbench 首页或 legacy home page（取决于项目版本和 `?legacy=1`）；`entry_resolver` 含 `released` 落点和 `setup_step` 参数；无活跃 Project 路由 | 移除 `released`/`setup_step`；统一进入 Projects 页面；活跃 Project 显示 Status，无活跃显示 New Project；sidebar 增加 Guide |
+| 创建 Project | 概念为 "Workflow Runs"，用户从 Runs 页面创建 run；无环境 readiness 门禁；无 Story/版本预览确认 | 用户可见概念统一为 "Project"；New Project 增加环境门禁；增加预览确认；创建后跳转 Dev Docs |
+| Project Status | run detail 页面（`/runs/{run_id}`）展示阶段列表；无水平时间线、无回拨操作、无"上卡下图"布局 | 重设计为 Project Status 驾驶舱；增加时间线（含回边）、活跃节点卡片、回拨指针 |
+| 入口保护 | 基于 `setup_only` 标志和 `list_users()` 检查，仅拦截根路径 | 改为 SetupGateMiddleware 全局拦截，Allowlist 放行 Setup 必需路径 |
+
+下游 Spec/Architecture/Acceptance 必须基于此现状描述变更，而非从零设计。
+
 ### 3.1 首次运行的最小 Setup
 
-- **起点上下文**：用户在当前目录首次启动 Louke；该 workspace 尚无 Setup 完成记录，也没有首用户。
+- **产品现状**：见 §3.0 表格"首次 Setup"行。v0.13 的六步 wizard 将 Git 初始化、GitHub 配置、依赖检查全部压在首次 Setup 中，导致首次体验过重。v1 manifest 以步骤列表记录进度，无 CAS 保护。
+- **用户起点**：用户在当前目录首次启动 Louke；该 workspace 尚无 Setup 完成记录，也没有首用户。
 - **入口/触发**：用户访问产品任意用户入口时，系统统一将其带到 `/setup`。
 
 1. 用户在 `/setup` 创建首个本地用户。
@@ -54,7 +69,8 @@
 
 ### 3.2 登录后的状态落点
 
-- **起点上下文**：Setup 已完成，用户从登录页成功登录。
+- **产品现状**：见 §3.0 表格"登录落点"行。v0.13 的 `entry_resolver` 含 `released` 落点（已发布项目的落地页）和 `setup_step` 参数（Setup 进度感知），登录后根据项目版本和 legacy 参数选择 workbench 首页或旧版 home page。无"活跃 Project → Status"的路由逻辑，无 Guide sidebar 关联。
+- **用户起点**：Setup 已完成，用户从登录页成功登录。
 - **入口/触发**：登录成功后，在 workbench 中，进入 Projects 页面
 
 1. 若存在活跃开发，显示活跃 project 的 status(main panel)
@@ -67,7 +83,8 @@
 
 > **Aaron**: 即现在页面上的 Workflow Runs。Workflow Runs 实际上是一次规划中的 Release。我们现在统一称为 Project -- 与 Github Project 对应。我们通过 Project 来管理发布。
 
-- **起点上下文**：用户已登录、Setup 已完成，当前没有活跃开发，系统正在显示空 project
+- **产品现状**：见 §3.0 表格"创建 Project"行。当前用户从 Runs 页面创建 "Workflow Run"，无环境 readiness 门禁（gh 安装、gh auth、Git repo 检查不在创建流程中），Story 与 release version 输入无预览确认步骤，创建后无明确跳转目标。
+- **用户起点**：用户已登录、Setup 已完成，当前没有活跃开发，系统正在显示空 project
 - **入口/触发**：用户点击『New Project』 按钮
 
 用户点击 New Project 按钮后，按以下步骤操作：
@@ -85,7 +102,8 @@
 
 ### 3.4 Project Status
 
-- **起点上下文**：见 §3.2（登录后的状态落点）
+- **产品现状**：见 §3.0 表格"Project Status"行。当前 run detail 页面（`/runs/{run_id}`）以阶段列表展示 workflow 进度，数据来自 Runtime read model。无水平时间线可视化（含回边），无回拨操作入口，无"上卡下图"布局，无节点详情浮层。
+- **用户起点**：见 §3.2（登录后进入 Projects 页面，存在活跃 Project）。
 - **入口/触发**：落地页初始化
 
 - 展示完整的工作流（从 M-START, M-STORY, M-SPEC, ...直到 M-MILESTONE）
@@ -95,10 +113,10 @@
 
 > **布局参考（非约束，供 M-DESIGN 输入）**
 >
-> 采用“上卡下图”结构：
+> 采用"上卡下图"结构：
 >
 > - **顶部大卡片**：当前活跃节点（如 M-SPEC）的实时状态。Running 模式显示 Owner、轮次、运行时长；Attention 模式（waiting_human / blocked / conflict）显示原因、影响和唯一动作入口。视觉参考：GitLab CI Pipeline 顶部卡片。
-> - **中部水平时间线**：整个项目状态流转的线性序列，用带箭头连线连接所有历史节点。每次轮次（含打回重做）作为独立节点按时间顺序排列，不折叠、不覆盖；打回用回边箭头表示“从这里回到那里”。视觉参考：GitHub Actions Workflow Run 的 Job 图表（取线性序列 + 回边，不取并行 DAG 分叉）。节点过多时支持横向滚动/缩放，默认视口聚焦当前阶段 ± 3。
+> - **中部水平时间线**：整个项目状态流转的线性序列，用带箭头连线连接所有历史节点。每次轮次（含打回重做）作为独立节点按时间顺序排列，不折叠、不覆盖；打回用回边箭头表示"从这里回到那里"。视觉参考：GitHub Actions Workflow Run 的 Job 图表（取线性序列 + 回边，不取并行 DAG 分叉）。节点过多时支持横向滚动/缩放，默认视口聚焦当前阶段 ± 3。
 > - **底部交互**：点击时间线任一节点弹出详情浮层，包含：开始/结束时间、责任方、产出 artifact（可跳转 Dev Docs）、状态转移原因（打回/阻塞时的 reason）、是否允许回拨（允许时回拨按钮在浮层内）。
 >
 > 此参考描述布局意图，不约束具体组件、框架或像素实现。
@@ -201,13 +219,13 @@
 ### D-03 Project 是用户可见的发布管理对象
 
 - **结论**：当前页面上的 Workflow Runs 在本旅程中统一表述为 Project；一个 Project 对应 GitHub Project，并承载一次规划中的 Release。
-- **依据**：§3.3 Aaron 审核说明明确给出概念映射：“Workflow Runs 实际上是一次规划中的 Release。我们现在统一称为 Project”。
+- **依据**：§3.3 Aaron 审核说明明确给出概念映射："Workflow Runs 实际上是一次规划中的 Release。我们现在统一称为 Project"。
 - **影响**：登录落点、New Project、Project Status 和 Guide 解释必须使用同一用户概念；下游 Spec 需识别与现有 Runtime run 命名之间的兼容边界。
 
-### D-04 Environment 检查采用“后台检查、仅显露失败项”
+### D-04 Environment 检查采用"后台检查、仅显露失败项"
 
 - **结论**：Environment Wizard 仍是创建 Project 的门禁，但检查通过的步骤不逐页要求用户确认；UI 只在失败时显示对应步骤，全部通过后直接进入 Story/release version 输入。
-- **依据**：§3.3 明确“检查在后台完成，只有检查不通过时，才在 UI 上显示这一步”。
+- **依据**：§3.3 明确"检查在后台完成，只有检查不通过时，才在 UI 上显示这一步"。
 - **影响**：保留必要门禁而不重演冗长 Wizard；Guide 可持续解释后台进展和失败原因。
 
 ### D-05 Guide 是上下文解释层，Runtime 是检查与状态 authority
@@ -225,7 +243,7 @@
 ### D-07 创建前输入仅需浏览器内恢复
 
 - **结论**：故事与 release version 在确认创建前可以只保存在浏览器；中断后回到同一浏览器应恢复，跨设备或清除浏览器数据后的恢复不属于承诺。
-- **依据**：§3.3 明确“进入下一步之前暂时保存（浏览器即可）”和“回到浏览器，状态保持”。
+- **依据**：§3.3 明确"进入下一步之前暂时保存（浏览器即可）"和"回到浏览器，状态保持"。
 - **影响**：避免为未确认草稿引入 workspace 级正式产物，同时保护普通刷新或短暂中断下的用户输入。
 
 ### D-08 回拨必须是 Runtime 支持的产品动作
@@ -241,7 +259,7 @@
 ## 7. 必要性、风险与分流建议
 
 - **既有能力**：已有首用户 API/登录、OpenCode Runtime 调用入口、Setup 状态、Workbench/Projects 入口、Runtime workflow read model、Dev Docs、Scribe 及 Guide projection，可作为重做基础。
-- **冲突**：本次审核文本取代旧 Story 中 repository/review/apply 等多步骤首次 Wizard，也取代“空 Workbench 自动运行 Environment 检查”的前一版描述；Environment 检查现在只由 `New Project` 触发。现有 Spec、Architecture、Acceptance 与实现需重新对齐。
+- **冲突**：本次审核文本取代旧 Story 中 repository/review/apply 等多步骤首次 Wizard，也取代"空 Workbench 自动运行 Environment 检查"的前一版描述；Environment 检查现在只由 `New Project` 触发。现有 Spec、Architecture、Acceptance 与实现需重新对齐。
 - **重要风险**：真实模型检查可能受 provider、网络或费用影响；Environment 后台检查若错误缓存可能放行失效环境；Git 初始化/binding 失败不得留下被误认为可用的状态；回拨可能使已完成的后续工作失效，因此必须由 Runtime 限定并明确影响。
 - **分流建议**：Go — 前 94 行已经由 Human 审核，形成 Setup、登录落点、New Project 和 Project Status 四条相连路径；后续应据此重做 Spec，而不是继续修补旧 Wizard。
 
