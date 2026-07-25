@@ -2,9 +2,9 @@
 
 - **Spec ID**：`v0.14-005-atdd-process-improvement`
 - **关联 Story**：`STR-1406`
-- **Story SHA-256**：`2bf35f6117ddeb6f6f608bba5ac0ddae7a2daa01cb9203bab867e94c233959d5`
-- **Spec SHA-256**：`0bd727b8e379d4dccb2a39b0227053f9ad2661fb39077a7b4a6b6d663c1c662a`
-- **Acceptance SHA-256**：`5d8c6a9e3050233398ea330aa4a48f767c3431319861b9a78425140b0b7716c1`
+- **Story SHA-256**：`254eb9c753a424275233af446721ca7d18851e1851de392c738858b2b2879a70`
+- **Spec SHA-256**：`f1e29c404775240b820b767df1a450962a291d2c9a0ee2644e067663baccd05d`
+- **Acceptance SHA-256**：`cff523caa12f2d587adabe8a9b2afda260fb8b62ab58c81beb59b6b95ddf9a4d`
 - **创建日期**：2026-07-25
 - **锁定时间**：`2026-07-25T11:25:00+09:00`
 - **状态**：已锁定（v0.14 bootstrap 的人工/Sage 锁定；Runtime启用后由Runtime重新接管digest与review verdict）
@@ -30,8 +30,8 @@
 - 检查声明patch时，既有无关宿主代码保持不变，声明区域不含业务逻辑、成功罐头值、绕过真实依赖的替身行为或足以使行为验收GREEN的实现。
 
 ### AC-FR0101-02
-- Runtime在声明进入implementation baseline并派发Shield前，对适用signature/type、公开route或等价交付入口、合同锚点及无业务实现约束生成绑定当前设计identity的程序检查结果；检查成功时结果可从M-DESIGN readback核对。
-- 分别注入签名/入口与Interfaces不符、合同锚点缺失、声明含成功实现、validator缺失或结果不确定时，Shield均不会被派发，正式implementation baseline不会建立；bootstrap语义评审可以继续，但结果明确显示未程序校验。
+- 接口声明进入 baseline 后，Shield 测试 collection 可核对桩位于宿主目标真实模块路径、签名/路径/token 与 Interfaces 一致；签名不符、路径错误或 token 缺失时 collection 失败或 RED 不可归因，Shield 不会产出有效测试资产。
+- Devon 实现时若签名不可达或与宿主 production composition 冲突，当前实施不能完成，必须通过绑定合同锚点的 declaration revision 返回；bootstrap 语义评审可以继续，但结果明确显示未程序校验。
 
 ## FR-0201 声明合同冻结与实现区域可写
 
@@ -170,6 +170,17 @@
 ### AC-FR1601-02
 - 完整Runtime启用前，Human明确委托的bootstrap代行只产生当前Agent权限允许的人类可读artifact或操作结果，并明确显示为bootstrap/manual、未程序校验或未激活；这些结果不能把machine contract、gate或阶段显示为通过。
 - 缺少schema或validator时仍可进行Story/Spec/Acceptance语义工作；需要正式implementation baseline、Shield派发或阶段推进时保持阻塞，直到对应Runtime程序合同可用并产生current evidence。
+
+
+## FR-1701 全阶段生命周期端到端验证
+
+### AC-FR1701-01
+- 在临时目录中创建的 wordcount 宿主项目可从 M-START 连续推进到 M-MILESTONE，13 个 canonical stage 全部按序经过，无跳跃、无重复、无平行 WorkflowRun。
+- 每个阶段转移的前置条件、artifact 绑定和证据传递可核对；任一阶段失败时，工作流停留在该阶段并显示责任方和合法恢复位置，不跳到后续阶段。
+
+### AC-FR1701-02
+- Agent 输出使用预录 fixture，测试不调用真实 LLM provider；Human 交互通过脚本驱动（浏览器或 API）。
+- wordcount 宿主项目位于系统临时目录，测试结束后清理；Louke 生产代码和测试代码不混入 wordcount 项目，wordcount 的生成代码也不混入 Louke 仓库。
 
 ## NFR-0001 宿主技术栈中立
 

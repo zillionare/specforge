@@ -2,9 +2,9 @@
 
 - **规格 ID**：`v0.14-005-atdd-process-improvement`
 - **关联 Story**：`STR-1406`
-- **Story SHA-256**：`2bf35f6117ddeb6f6f608bba5ac0ddae7a2daa01cb9203bab867e94c233959d5`
-- **Spec SHA-256**：`0bd727b8e379d4dccb2a39b0227053f9ad2661fb39077a7b4a6b6d663c1c662a`
-- **Acceptance SHA-256**：`5d8c6a9e3050233398ea330aa4a48f767c3431319861b9a78425140b0b7716c1`
+- **Story SHA-256**：`254eb9c753a424275233af446721ca7d18851e1851de392c738858b2b2879a70`
+- **Spec SHA-256**：`f1e29c404775240b820b767df1a450962a291d2c9a0ee2644e067663baccd05d`
+- **Acceptance SHA-256**：`cff523caa12f2d587adabe8a9b2afda260fb8b62ab58c81beb59b6b95ddf9a4d`
 - **创建日期**：2026-07-25
 - **锁定时间**：`2026-07-25T11:25:00+09:00`
 - **状态**：已锁定（v0.14 bootstrap 的人工/Sage 锁定；未伪造 Runtime digest、PASS、commit、gate 或阶段推进）
@@ -43,7 +43,7 @@ Runtime必须在当前M-DESIGN baseline建立后，先完成接口声明、Shiel
 
 Archer必须针对当前需求新增或改变、且integration需要导入或编译的宿主生产接口，在目标真实模块同路径产出符合宿主语言惯例的声明骨架。骨架只可包含当前Architecture/Interfaces所必需的signature、type、protocol、trait、公开入口声明或等价结构，不得包含业务逻辑、成功罐头值、绕过真实依赖的替身行为或足以把验收变为GREEN的实现。既有模块只增加必要声明，不得以重建文件覆盖无关宿主代码。
 
-在接口声明进入M-DESIGN baseline并派发Shield前，Runtime必须按当前宿主设计声明的校验能力执行程序化一致性检查：核对适用的signature/type、公开route或其它交付入口声明、合同token/锚点与Interfaces一致，并证明声明区域不含业务逻辑或成功实现。检查缺失、失败或结果不确定时不得派发Shield；bootstrap阶段尚无validator时可以继续语义评审，但必须明确标记为未程序校验，不能据此建立正式implementation baseline。
+接口声明进入 M-DESIGN baseline 后，桩质量由下游流程验证：Shield 的契约测试必须 import 桩并经过真实 production 入口 collection，签名/路径/token 错误在 collection 或 RED 阶段即暴露；Devon 替换行为体时若签名不可达或与宿主 composition 冲突，必须通过 FR-0201 的 declaration revision 返回；争议由 Prism 对同一合同、桩和测试 revision 独立裁决。bootstrap 阶段可继续语义评审，但结果标记为未程序校验，不据此建立正式 implementation baseline。
 
 ---
 
@@ -255,6 +255,24 @@ Louke不得要求尚处于合法RED的新增integration/e2e在普通pre-commit�
 005必须同步更新并对齐未来Runtime编排和受影响Agent职责：Archer可在精确授权下写宿主同路径声明骨架但不得实现业务；Shield在Devon前写并审查required integration/e2e且不得用SUT替身换GREEN；Devon补全实现和production接线但不得改冻结测试；Prism只返回绑定identity的独立语义审查；Runtime负责程序检查、冻结、执行、状态和路由。激活前，Runtime必须记录受影响canonical prompt/Agent contract的source identity、revision/digest、已经接受的v0.14语义及被取代规则，并通过对应supersession/readback明确取代Mode B stub/activation skip及Shield-after-implementation旧顺序；兼容修改必须保留，不得盲目覆盖为旧模板。
 
 在完整Runtime启用前，Human明确要求的bootstrap代行只允许完成人类可读artifact或当前Agent权限明确允许的操作；结果必须与未来Runtime正式evidence区分。bootstrap期间缺少schema或validator不能阻止本Spec的语义评审，但不能据此宣告machine contract、gate或阶段已经通过。
+
+---
+
+
+### FR-1701 全阶段生命周期端到端验证
+
+| 有效需求 | 可测性 | 是否已决定 |
+|---|---|---|
+| ✅ | ✅ | ✅ |
+
+- **来源**：v0.14 覆盖缺口分析 / Human 明确要求
+- **交付入口**：临时目录中独立 wordcount 宿主项目上的完整 M-START → M-MILESTONE 工作流执行记录及 Project Status 投影
+
+Louke 必须提供一个确定性端到端测试，在临时目录中创建一个与 Louke 自身功能无关的 wordcount 宿主项目，安装 Louke wheel，并以预录 Agent 输出驱动完整 13 阶段工作流（M-START → M-STORY → M-SPEC → M-ACC → M-REQ-APPROVAL → M-DESIGN → M-IMPL → M-TEST → M-VERIFY → M-SECURITY → M-RELEASE → M-PUBLISH → M-MILESTONE）。
+
+测试验证阶段衔接、状态流转、artifact 绑定、证据传递和 Project Status 投影的正确性，不验证 Agent 语义输出质量。Agent 输出（Scribe story.md、Sage spec/acceptance、Lex 格式验收、Archer 设计三件套与接口桩、Shield 测试与反例、Devon 实现、Prism 审查）使用预录 fixture，不依赖真实 LLM provider。Human 交互（确认、Go 决策、批准、发布审批）通过浏览器或 API 脚本驱动。
+
+wordcount 宿主项目位于系统临时目录，测试结束后清理；Louke 生产代码和测试代码不得混入 wordcount 项目。默认禁用的阶段（如 `security_audit = "disabled"` 时的 M-SECURITY）视为自动 pass-through，测试记录 disabled 证据后继续推进，仍计为经过该阶段。
 
 ---
 
