@@ -131,3 +131,157 @@ def test_csrf_token_rotation_on_re_issue(client: TestClient) -> None:
     assert token2_resp.status_code == 200
     token2 = token2_resp.json()["csrf_token"]
     assert token1 != token2, "issue_for_session must rotate the stored token"
+
+
+# ---------------------------------------------------------------------------
+# IF-SETUP-03: real OpenCode model check
+# ---------------------------------------------------------------------------
+
+
+def _seed_pending_model(tmp_path: Path) -> None:
+    """Persist a ``pending_model`` manifest with an established first user."""
+    from louke.web.first_user import principal_id_for
+    from louke.web.setup_state import (
+        SetupManifest,
+        SetupStatus,
+        write_manifest,
+    )
+    from louke.web.store import ProjectStore
+
+    manifest = SetupManifest(
+        workspace_id="",
+        revision=0,
+        status=SetupStatus.PENDING_USER,
+    ).advance_to_pending_model(
+        first_principal_id=principal_id_for("alice"), expected_revision=0
+    )
+    write_manifest(tmp_path, manifest)
+    ProjectStore(tmp_path).create_user("alice", "secret-token")
+
+
+def _probe_result(state: str, model_id: str | None = "minimax/m2"):
+    """Build a deterministic :class:`ModelCheckResult` for ``run_check``."""
+    from louke.web.opencode_probe import ModelCheckResult, ProbeResult
+
+    diagnosis = None
+    if state != "passed":
+        diagnosis = {
+            "reason": "nonzero_exit",
+            "object": "opencode model check",
+            "known_facts": "opencode run --model minimax/m2 exited with code 1",
+            "impact": "Setup cannot verify a working OpenCode model",
+            "recovery_url": "/setup",
+        }
+    return ModelCheckResult(
+        check_id="chk_unit",
+        revision=1,
+        state=state,
+        current_model_id=model_id if state == "passed" else None,
+        attempted=[ProbeResult(model_id="minimax/m2", state=state, diagnosis=diagnosis)],
+        diagnosis=diagnosis,
+        observed_at="2026-07-25T00:00:00Z",
+    )
+
+
+def test_model_checks_post_requires_csrf(client: TestClient, tmp_path: Path) -> None:
+    """AC-NFR0101-01: a model-check POST without a CSRF token returns 403."""
+    _seed_pending_model(tmp_path)
+    resp = client.post("/model-checks", json={"expected_revision": 1})
+    assert resp.status_code == 403
+
+
+def test_model_checks_post_requires_first_user(client: TestClient) -> None:
+    """IF-SETUP-03: a model check is refused before any first user exists."""
+    token = _csrf_token(client)
+    resp = client.post(
+        "/model-checks",
+        json={"expected_revision": 0},
+        headers={"X-Louke-CSRF": token},
+    )
+    assert resp.status_code == 409
+
+
+def test_model_checks_post_passed_completes_setup(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    """AC-FR0301-01: a passed probe completes Setup and points at Projects."""
+    from louke.web import opencode_probe
+    from louke.web.setup_state import try_read_manifest
+
+    _seed_pending_model(tmp_path)
+    monkeypatch.setattr(
+        opencode_probe, "run_check", lambda **kwargs: _probe_result("passed")
+    )
+    token = _csrf_token(client)
+    resp = client.post(
+        "/model-checks",
+        json={"expected_revision": 1},
+        headers={"X-Louke-CSRF": token},
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["state"] == "passed"
+    assert body["continue_url"] == "/workbench?activity=projects"
+    assert body["current_model_id"] == "minimax/m2"
+    # The manifest is atomically completed.
+    assert try_read_manifest(tmp_path).status.value == "complete"
+
+
+def test_model_checks_post_failed_keeps_pending_model(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    """AC-FR0201-02: a failed probe persists a diagnosis and stays pending_model."""
+    from louke.web import opencode_probe
+    from louke.web.setup_state import try_read_manifest
+
+    _seed_pending_model(tmp_path)
+    monkeypatch.setattr(
+        opencode_probe, "run_check", lambda **kwargs: _probe_result("failed")
+    )
+    token = _csrf_token(client)
+    resp = client.post(
+        "/model-checks",
+        json={"expected_revision": 1},
+        headers={"X-Louke-CSRF": token},
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["state"] == "failed"
+    assert body["continue_url"] is None
+    assert body["retry_allowed"] is True
+    for field_name in ("object", "known_facts", "impact", "recovery_url"):
+        assert field_name in body["diagnosis"]
+    manifest = try_read_manifest(tmp_path)
+    assert manifest.status.value == "pending_model"
+    assert manifest.model_check is not None
+    assert manifest.model_check.check_id == "chk_unit"
+
+
+def test_model_checks_get_returns_snapshot(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    """IF-SETUP-03: GET /model-checks/{check_id} returns the persisted check."""
+    from louke.web import opencode_probe
+
+    _seed_pending_model(tmp_path)
+    monkeypatch.setattr(
+        opencode_probe, "run_check", lambda **kwargs: _probe_result("failed")
+    )
+    token = _csrf_token(client)
+    client.post(
+        "/model-checks",
+        json={"expected_revision": 1},
+        headers={"X-Louke-CSRF": token},
+    )
+    resp = client.get("/model-checks/chk_unit")
+    assert resp.status_code == 200
+    assert resp.json()["check_id"] == "chk_unit"
+
+
+def test_model_checks_get_unknown_returns_404(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """IF-SETUP-03: an unknown check id returns 404."""
+    _seed_pending_model(tmp_path)
+    resp = client.get("/model-checks/chk_does_not_exist")
+    assert resp.status_code == 404

@@ -50,6 +50,8 @@ def _routes() -> list[Route]:
     return [
         Route("/status", endpoint=get_status),
         Route("/first-user", endpoint=create_first_user, methods=["POST"]),
+        Route("/model-checks", endpoint=post_model_check, methods=["POST"]),
+        Route("/model-checks/{check_id}", endpoint=get_model_check, methods=["GET"]),
         Route("/state", endpoint=get_state, methods=["GET"]),
         Route("/state", endpoint=post_state, methods=["POST"]),
     ]
@@ -178,6 +180,152 @@ async def create_first_user(request: Request) -> JSONResponse:
         },
         status_code=201,
     )
+
+
+# ---------------------------------------------------------------------------
+# IF-SETUP-03: real OpenCode model check
+# ---------------------------------------------------------------------------
+
+
+def _model_check_payload(
+    result: Any, *, setup_revision: int, continue_url: str | None
+) -> dict[str, Any]:
+    """Shape an OpenCode probe result as the IF-SETUP-03 ``ModelCheck`` object."""
+    return {
+        "check_id": result.check_id,
+        "revision": result.revision,
+        "state": result.state,
+        "current_model_id": result.current_model_id,
+        "attempted_models": [
+            {"model_id": probe.model_id, "result": probe.state}
+            for probe in result.attempted
+        ],
+        "diagnosis": result.diagnosis,
+        "observed_at": result.observed_at,
+        "deadline_at": None,
+        "retry_allowed": result.state in ("failed", "uncertain"),
+        "setup_revision": setup_revision,
+        "continue_url": continue_url,
+    }
+
+
+async def post_model_check(request: Request) -> JSONResponse:
+    """AC-FR0201-01 / AC-FR0301-01: run a real OpenCode model check.
+
+    Body:
+        ``{"expected_revision": int}``.
+
+    Returns:
+        ``202`` with the ``ModelCheck`` object. On ``passed`` the v2
+        manifest is atomically completed and ``continue_url`` points at the
+        Workbench Projects activity; on ``failed``/``uncertain`` the latest
+        non-secret diagnosis is persisted and Setup stays ``pending_model``.
+
+    Raises:
+        HTTPException 403: missing/invalid CSRF token.
+        HTTPException 409: no first user yet, or a stale ``expected_revision``.
+    """
+    from dataclasses import replace
+
+    from louke.web import opencode_probe
+    from louke.web.setup_state import (
+        ModelCheck,
+        SetupStatus,
+        try_read_manifest,
+        write_manifest,
+    )
+
+    csrf_token = request.headers.get("X-Louke-CSRF", "")
+    if not csrf_token or not verify_token(
+        token=csrf_token,
+        session_id=_session_id(request),
+    ):
+        raise HTTPException(status_code=403, detail="CSRF validation failed")
+
+    workspace_root = _workspace_root(request)
+    manifest = try_read_manifest(workspace_root)
+    if manifest is None or manifest.first_principal_id is None:
+        raise HTTPException(
+            status_code=409, detail="first user must be created before a model check"
+        )
+
+    payload = await json_body(request)
+    expected_revision = payload.get("expected_revision", manifest.revision)
+    if expected_revision != manifest.revision:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"stale revision: expected {expected_revision}, "
+                f"current {manifest.revision}"
+            ),
+        )
+
+    result = opencode_probe.run_check()
+
+    if result.state == "passed":
+        completed = manifest.complete(
+            model_check_state="passed",
+            model_check_id=result.check_id,
+            model_check_revision=result.revision,
+            model_id=result.current_model_id,
+            diagnosis=None,
+            observed_at=result.observed_at,
+            expected_revision=manifest.revision,
+        )
+        write_manifest(workspace_root, completed)
+        return JSONResponse(
+            _model_check_payload(
+                result,
+                setup_revision=completed.revision,
+                continue_url="/workbench?activity=projects",
+            ),
+            status_code=202,
+        )
+
+    # Failed / uncertain: persist the latest non-secret diagnosis and keep
+    # Setup pending_model so the page can show an actionable Retry.
+    snapshot = ModelCheck(
+        check_id=result.check_id,
+        revision=result.revision,
+        state=result.state,
+        model_id=result.current_model_id,
+        diagnosis=result.diagnosis,
+        observed_at=result.observed_at,
+    )
+    updated = replace(
+        manifest,
+        status=SetupStatus.PENDING_MODEL,
+        model_check=snapshot,
+        revision=manifest.revision + 1,
+    )
+    write_manifest(workspace_root, updated)
+    return JSONResponse(
+        _model_check_payload(
+            result, setup_revision=updated.revision, continue_url=None
+        ),
+        status_code=202,
+    )
+
+
+async def get_model_check(request: Request) -> JSONResponse:
+    """AC-FR0201-02: read the most recent model check by id.
+
+    Returns:
+        ``200`` with the ``ModelCheck`` object when ``check_id`` matches the
+        persisted snapshot; ``404`` otherwise.
+    """
+    from louke.web.setup_state import try_read_manifest
+
+    check_id = request.path_params["check_id"]
+    manifest = try_read_manifest(_workspace_root(request))
+    model_check = manifest.model_check if manifest else None
+    if model_check is None or model_check.check_id != check_id:
+        raise HTTPException(status_code=404, detail="model check not found")
+    payload = model_check.to_dict()
+    payload["setup_revision"] = manifest.revision
+    payload["retry_allowed"] = model_check.state in ("failed", "uncertain")
+    payload["continue_url"] = None
+    return JSONResponse(payload)
 
 
 _ALLOWED_STEPS: frozenset[str] = frozenset(
