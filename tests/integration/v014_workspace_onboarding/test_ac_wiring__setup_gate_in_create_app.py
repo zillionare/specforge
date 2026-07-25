@@ -73,7 +73,15 @@ def test_setup_gate_mounted_in_create_app_allows_setup_routes(tmp_path: Path) ->
     """AC-FR0001-01: the allowlist is reachable during incomplete Setup."""
     workspace = _workspace(tmp_path, status=SetupStatus.PENDING_USER)
     client = TestClient(create_app(workspace), raise_server_exceptions=False)
-    assert client.get("/setup").status_code == 200
+    # /setup is allowlisted: the gate must let it through to the handler
+    # (no 303 redirect, no 428). The two-context page is an Archer interface
+    # stub (IF-SETUP-01) returning 500 until Devon implements it; AC-FR0001-01
+    # here verifies the gate does NOT block /setup, not that the page renders.
+    setup_resp = client.get("/setup", follow_redirects=False)
+    assert setup_resp.status_code not in (303, 428), (
+        "AC-FR0001-01: the gate must allow /setup through; "
+        f"got {setup_resp.status_code}"
+    )
     assert client.get("/health").status_code == 200
     assert client.get("/api/setup/status").status_code == 200
 

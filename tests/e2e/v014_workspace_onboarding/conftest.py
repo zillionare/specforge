@@ -37,35 +37,6 @@ def pytest_collection_modifyitems(
             item.add_marker(pytest.mark.e2e)
             item.add_marker(pytest.mark.chromium_e2e)
             item.add_marker(pytest.mark.v014_004_e2e)
-        # E-002: legacy ``test_journey_blank_*`` /
-        # ``test_journey_dashboard_*`` / ``test_journey_entry_*`` suites
-        # are from a prior Spec iteration and drive the retired
-        # continuous Setup Wizard or stale deep-link / dashboard
-        # shell. The locked v0.14-004 baseline has only the two-context
-        # ``first_user`` + ``opencode_probe`` Setup; real E2E coverage
-        # lives under ``test_journey_minimal_setup.py`` and friends.
-        # The legacy journeys are kept for diff only and are
-        # explicitly skipped so the v0.14-004 ``ac-trace`` gate does
-        # not double-count their AC tokens.
-        legacy_glob = (
-            "test_journey_blank_clone.py",
-            "test_journey_blank_init.py",
-            "test_journey_dashboard_guide.py",
-            "test_journey_entry_matrix.py",
-        )
-        if str(item.fspath).rsplit("/", 1)[-1] in legacy_glob:
-            # AC-FR0001-01 withdrawn; tracked in #322
-            item.add_marker(
-                pytest.mark.skip(
-                    reason=(
-                        "spec: legacy wizard / dashboard / entry-matrix "
-                        "journey (Prism review E-002); real v0.14-004 "
-                        "journeys live under test_journey_minimal_setup* "
-                        "and test_journey_projects_landing* "
-                        "(AC-FR0001-01 withdrawn journeys, #322)"
-                    )
-                )
-            )
 
 
 def _free_port() -> int:

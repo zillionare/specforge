@@ -37,26 +37,6 @@ def pytest_configure(config: pytest.Config) -> None:
     )
 
 
-WITHDRAWN_TEST_IF_BASENAMES: frozenset[str] = frozenset(
-    {
-        "test_if01_workbench_shell.py",
-        "test_if02_first_user_login.py",
-        "test_if03_entry_projection.py",
-        "test_if04_setup_projection.py",
-        "test_if05_repository_commands.py",
-        "test_if06_dependency_recheck.py",
-        "test_if07_review_apply_reconcile.py",
-        "test_if08_workflow_status.py",
-        "test_if09_guide_projection.py",
-        "test_if10_owning_surface_action.py",
-        "test_if11_start_story_deep_link.py",
-        "test_if12_structured_evidence.py",
-        "test_if13_accessibility_responsive.py",
-        "test_if14_compatibility_urls.py",
-    }
-)
-
-
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
@@ -65,23 +45,6 @@ def pytest_collection_modifyitems(
         if "tests/integration/v014_workspace_onboarding" in path:
             item.add_marker(pytest.mark.integration)
             item.add_marker(pytest.mark.v014_004)
-
-        basename = str(item.fspath).rsplit("/", 1)[-1]
-        if basename in WITHDRAWN_TEST_IF_BASENAMES:
-            # AC-FR0101-01 withdrawn; tracked in #323
-            item.add_marker(
-                pytest.mark.skip(
-                    reason=(
-                        "spec: withdrawn continuous Setup Wizard "
-                        "(Prism review F-001/E-002/N-002); real "
-                        "v0.14-004 contract lives under test_ac_*.py. "
-                        "test_if15_ci_gates_evidence.py is intentionally "
-                        "NOT in this skip-set because it verifies the "
-                        "ac-trace gate itself. "
-                        "AC-FR0101-01 withdrawn; tracked in #323."
-                    )
-                )
-            )
 
 
 # ---------------------------------------------------------------------------
