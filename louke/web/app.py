@@ -79,7 +79,7 @@ from .api._runtime_store import build_run_store
 from louke.runtime.workflow_graph import WorkflowGraphBuilder
 from louke.runtime.store import RunNotFoundError, WorkflowRun, WorkflowRunStore
 
-from .pages.setup import create_app as _create_setup_page_app
+from .pages.setup import setup_root as _setup_page_root
 from .pages.projects import create_app as _create_projects_page_app
 from .pages.gates import (
     gate_decide as gates_page_decide,
@@ -105,7 +105,6 @@ migration_app = _create_migration_app()
 security_app = _create_security_app()
 discussions_app = _create_discussions_app()
 
-setup_page_app = _create_setup_page_app()
 projects_page_app = _create_projects_page_app()
 migration_page_app = _create_migration_page_app()
 
@@ -137,7 +136,6 @@ def create_app(
         project_root = Path.cwd()
     readiness_app = _create_readiness_app(project_root)
     setup_app = _create_setup_app(project_root)
-    setup_page_app.state.workspace_root = Path(project_root).resolve()
     store = ProjectStore(Path(project_root))
     project_runtime_store = build_run_store(
         str(Path(project_root) / ".louke" / "project" / "runtime.sqlite3"),
@@ -338,7 +336,12 @@ def create_app(
                 endpoint=runs_page_command,
                 methods=["POST"],
             ),
-            Mount("/setup", app=setup_page_app),
+            # The Setup page is wired as a plain Route (not a Mount) so the
+            # canonical ``/setup`` URL resolves without a trailing-slash
+            # redirect; the Setup journeys assert ``/setup`` exactly. It handles
+            # GET (render) and POST (server-driven first-user / model-check
+            # forms). ``setup_root`` reads ``app.state.workspace_root``.
+            Route("/setup", endpoint=_setup_page_root, methods=["GET", "POST"]),
             Mount("/projects", app=projects_page_app),
             Mount("/migration", app=migration_page_app),
         ],

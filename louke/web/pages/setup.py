@@ -12,20 +12,23 @@ The retired per-step routes ``/setup/repository/``, ``/setup/dependencies/``,
 ``/setup/review/`` and ``/setup/applying/`` are **not registered** and
 return 404.
 
-Composition root: ``louke.web.app`` imports ``create_app`` and mounts it
-at ``/setup`` (``app.py:82``, ``app.py:341``); it sets
-``app.state.workspace_root`` on the returned instance so the page can read
-the on-disk v2 Setup projection.
+Composition root: ``louke.web.app`` registers :func:`setup_root` directly at
+``/setup`` (``GET`` and ``POST``). The page is served from a plain ``Route``
+rather than a ``Mount`` so ``/setup`` resolves without a trailing-slash
+redirect (the Setup journeys assert the canonical ``/setup`` URL).
 
-The page is server-rendered HTML with progressive enhancement: the form and
-Retry controls submit through the public ``/api/setup/*`` JSON API (fetching
-a fresh session-bound CSRF token first), then re-read ``/setup`` so the
-two-context state always reflects the persisted manifest.
+The page is fully server-rendered and server-driven: both the first-user form
+and the model-check Retry control are plain HTML forms that ``POST`` back to
+``/setup``. The handler mutates the v2 manifest and answers with a ``303``
+redirect, so each human action is a single deterministic navigation (no
+client-side fetch/reload race). A session-bound CSRF token is embedded in each
+form and verified on ``POST``.
 """
 
 from __future__ import annotations
 
 import secrets
+from dataclasses import replace
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -36,9 +39,19 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
 from ..auth import SESSION_COOKIE
+from ..csrf_middleware import issue_for_session, verify_token
+from ..setup_state import (
+    ModelCheck,
+    SetupStatus,
+    try_read_manifest,
+    write_manifest,
+)
 
 #: Where a finished Setup sends the Human.
 _PROJECTS_CONTINUE_URL = "/workbench?activity=projects"
+
+#: The canonical Setup page URL (no trailing slash).
+_SETUP_URL = "/setup"
 
 #: Diagnosis fields rendered for a failed/uncertain model check
 #: (interfaces §IF-SETUP-03 ``ModelCheck.diagnosis``). The display labels
@@ -56,37 +69,25 @@ _DIAGNOSIS_FIELDS: tuple[tuple[str, str], ...] = (
 # ---------------------------------------------------------------------------
 
 
-def _session_id_for(request: Request) -> str:
-    """Return a stable session identifier for CSRF binding.
+def _resolve_session_id(request: Request) -> tuple[str, bool]:
+    """Return ``(session_id, needs_cookie)`` for CSRF binding.
 
-    Mirrors ``louke.web.api.setup._session_id``: the opaque session cookie
-    value when present, otherwise a transport fallback. The Setup page sets
-    the cookie (see :func:`_ensure_session_cookie`) so the identifier stays
-    stable across the browser requests that issue and redeem CSRF tokens.
+    Reuses the opaque Setup session cookie when present; otherwise mints a new
+    pre-auth identifier that the caller must set as a cookie so the same
+    identifier is seen when the form is posted back. The identifier carries no
+    credential and is not an authenticated session (interfaces §1, §IF-SETUP-02).
     """
     cookie = request.cookies.get(SESSION_COOKIE, "")
     if cookie:
-        return cookie
-    client = request.client
-    if client is not None:
-        return f"preauth:{client.host}:{client.port}"
-    return "preauth:anonymous"
+        return cookie, False
+    return f"preauth.{secrets.token_hex(16)}", True
 
 
-def _ensure_session_cookie(request: Request, response: Response) -> None:
-    """Set an opaque pre-auth Setup session cookie when one is absent.
-
-    The cookie gives the browser a stable session identity so the CSRF token
-    issued by ``GET /api/setup/status`` and redeemed by the first-user /
-    model-check mutations resolve to the same session. It carries no
-    credential and is not an authenticated session; ``current_user`` fails
-    closed on it until the first user rotates it (interfaces §1, §IF-SETUP-02).
-    """
-    if request.cookies.get(SESSION_COOKIE, ""):
-        return
+def _set_session_cookie(response: Response, session_id: str) -> None:
+    """Set the opaque pre-auth Setup session cookie on ``response``."""
     response.set_cookie(
         SESSION_COOKIE,
-        f"preauth.{secrets.token_hex(16)}",
+        session_id,
         httponly=True,
         samesite="strict",
         path="/",
@@ -107,23 +108,19 @@ async def _fetch_setup_status(
     Test seam: tests patch this with ``patch.object(setup_page,
     "_fetch_setup_status", ...)`` to feed the real projection derived
     from an on-disk v2 manifest. The production implementation reads the
-    same projection the ``GET /api/setup/status`` endpoint returns and
-    attaches a session-bound CSRF token.
+    same projection the ``GET /api/setup/status`` endpoint returns.
 
     Args:
         api_base: Upstream API base URL (unused; the projection is read
             from the bound workspace).
-        request: The current request, used to resolve the workspace root
-            and session identity.
+        request: The current request, used to resolve the workspace root.
 
     Returns:
         The Setup projection dict (``workspace_id``, ``revision``,
         ``status``, ``first_user``, ``model_check``, ``available_actions``,
-        ``continue_url``) plus a ``csrf_token``.
+        ``continue_url``).
     """
-    from ..csrf_middleware import issue_for_session
     from ..setup_projection import read as read_projection
-    from ..setup_state import try_read_manifest
     from ..store import ProjectStore
 
     workspace_root = Path(request.app.state.workspace_root)
@@ -136,11 +133,6 @@ async def _fetch_setup_status(
         users = ProjectStore(workspace_root).list_users()
         if users:
             first_user["name"] = users[0]["username"]
-
-    body["csrf_token"] = issue_for_session(
-        session_id=_session_id_for(request),
-        revision=body.get("revision", 0),
-    )
     return body
 
 
@@ -149,11 +141,11 @@ async def _post_first_user(
 ) -> dict[str, Any]:
     """IF-SETUP-02: Submit the first-user creation form to the backend API.
 
-    Test seam; production calls ``POST /api/setup/first-user``. The page's
-    browser flow performs this call client-side (so it can carry the live
-    session cookie and a freshly issued CSRF token); this server-side seam
-    is retained for contract symmetry and tooling that drives the API
-    directly.
+    Test seam retained for contract symmetry; production calls
+    ``POST /api/setup/first-user``. The server-rendered page performs the
+    first-user creation inline (see :func:`_create_first_user_from_form`) so
+    the human action is a single deterministic navigation; this client seam is
+    kept for tooling that drives the JSON API directly.
 
     Args:
         api_base: Upstream API base URL (``""`` for same-origin).
@@ -215,7 +207,9 @@ def _model_check_html(model_check: dict[str, Any] | None) -> str:
         )
     state = str(model_check.get("state", "") or "")
     model_id = str(model_check.get("model_id", "") or "")
-    parts = [f'<p class="model-state">Model check state: <strong>{escape(state)}</strong></p>']
+    parts = [
+        f'<p class="model-state">Model check state: <strong>{escape(state)}</strong></p>'
+    ]
     if model_id:
         parts.append(f'<p class="model-id">Model: {escape(model_id)}</p>')
     diagnosis = model_check.get("diagnosis")
@@ -224,10 +218,22 @@ def _model_check_html(model_check: dict[str, Any] | None) -> str:
     return "".join(parts)
 
 
-def _render_pending_user(projection: dict[str, Any]) -> str:
-    """Render the first-user creation form (``pending_user`` context)."""
-    revision = projection.get("revision", 0)
-    csrf_token = projection.get("csrf_token", "") or ""
+def _render_pending_user(
+    projection: dict[str, Any],
+    csrf_token: str,
+    *,
+    name: str = "",
+    error: str = "",
+) -> str:
+    """Render the first-user creation form (``pending_user`` context).
+
+    The form posts back to ``/setup``; the handler creates the first user and
+    redirects, so submitting is a single deterministic navigation. The submitted
+    ``name`` is preserved on error (interfaces §7).
+    """
+    error_html = (
+        f'<p class="setup-error" role="alert">{escape(error)}</p>' if error else ""
+    )
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -237,26 +243,28 @@ def _render_pending_user(projection: dict[str, Any]) -> str:
 <main class="setup-card" data-setup-context="pending_user">
   <h1>Create the first user</h1>
   <p class="setup-lede">Louke needs one local human account to finish Setup.</p>
-  <form id="setup-first-user-form" action="/api/setup/first-user" method="post"
-        data-revision="{escape(str(revision))}" data-csrf="{escape(csrf_token, quote=True)}">
+  <form id="setup-first-user-form" action="{_SETUP_URL}" method="post">
+    <input type="hidden" name="csrf_token" value="{escape(csrf_token, quote=True)}">
     <label class="setup-field">Name
-      <input name="name" type="text" autocomplete="username" required>
+      <input name="name" type="text" autocomplete="username" value="{escape(name, quote=True)}" required>
     </label>
     <label class="setup-field">Credential
       <input name="credential" type="password" autocomplete="new-password" required>
     </label>
-    <button type="submit" name="create_first_user">Create first user</button>
-    <p class="setup-error" role="alert" hidden></p>
+    <button type="submit" name="create_first_user" value="1">Create first user</button>
+    {error_html}
   </form>
 </main>
-<script>{_FIRST_USER_SCRIPT}</script>
 </body></html>"""
 
 
-def _render_pending_model(projection: dict[str, Any]) -> str:
-    """Render the OpenCode model-check view (``pending_model`` context)."""
-    revision = projection.get("revision", 0)
-    csrf_token = projection.get("csrf_token", "") or ""
+def _render_pending_model(projection: dict[str, Any], csrf_token: str) -> str:
+    """Render the OpenCode model-check view (``pending_model`` context).
+
+    The Retry control is a plain form that posts back to ``/setup``; the
+    handler runs the real model check and redirects (to the Workbench Projects
+    activity on success, back to ``/setup`` otherwise).
+    """
     model_check = projection.get("model_check")
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -271,14 +279,11 @@ def _render_pending_model(projection: dict[str, Any]) -> str:
   <section class="model-check" aria-live="polite">
     {_model_check_html(model_check)}
   </section>
-  <form id="setup-model-check-form" data-revision="{escape(str(revision))}"
-        data-csrf="{escape(csrf_token, quote=True)}">
-    <button type="submit" name="retry" value="retry">Retry model check</button>
-    <p class="setup-status" role="status" hidden></p>
-    <p class="setup-error" role="alert" hidden></p>
+  <form id="setup-model-check-form" action="{_SETUP_URL}" method="post">
+    <input type="hidden" name="csrf_token" value="{escape(csrf_token, quote=True)}">
+    <button type="submit" name="retry" value="1">Retry model check</button>
   </form>
 </main>
-<script>{_MODEL_CHECK_SCRIPT}</script>
 </body></html>"""
 
 
@@ -288,18 +293,28 @@ def _render_pending_model(projection: dict[str, Any]) -> str:
 
 
 async def setup_root(request: Request) -> Response:
-    """IF-SETUP-01: Render the two-context Setup page at ``/``.
+    """IF-SETUP-01 / IF-SETUP-02: serve the two-context Setup page at ``/setup``.
 
-    - ``pending_user`` -> 200 HTML with the first-user creation form.
-    - ``pending_model`` -> 200 HTML with the model-check view and a Retry
-      entry; a failed/uncertain check shows ``object``, ``known_facts``,
-      ``impact`` and ``recovery_url``.
+    ``GET`` renders the context matching the v2 manifest projection:
+
+    - ``pending_user`` -> 200 HTML first-user creation form.
+    - ``pending_model`` -> 200 HTML model-check view with a Retry entry; a
+      failed/uncertain check shows ``object``, ``known_facts``, ``impact`` and
+      ``recovery_url``.
     - ``complete`` -> 303 redirect to ``/workbench?activity=projects``.
 
-    The handler reads the v2 manifest projection (via ``_fetch_setup_status``)
-    and renders the matching context. No retired six-step routes or markers
-    (``Runtime dependencies``, ``/setup/repository/``, etc.) are rendered.
+    ``POST`` processes the server-driven forms (first-user creation or model
+    check) and answers with a 303 redirect, so each human action is a single
+    deterministic navigation. No retired six-step routes or markers are
+    rendered.
     """
+    if request.method == "POST":
+        return await _handle_setup_post(request)
+    return await _handle_setup_get(request)
+
+
+async def _handle_setup_get(request: Request) -> Response:
+    """Render the Setup context for a ``GET`` request."""
     projection = await _fetch_setup_status("", request=request)
     status = projection.get("status", "")
 
@@ -307,13 +322,129 @@ async def setup_root(request: Request) -> Response:
         continue_url = projection.get("continue_url") or _PROJECTS_CONTINUE_URL
         return RedirectResponse(url=continue_url, status_code=303)
 
-    if status == "pending_model":
-        response: Response = HTMLResponse(_render_pending_model(projection))
-    else:
-        response = HTMLResponse(_render_pending_user(projection))
+    session_id, needs_cookie = _resolve_session_id(request)
+    csrf_token = issue_for_session(
+        session_id=session_id, revision=projection.get("revision", 0)
+    )
 
-    _ensure_session_cookie(request, response)
+    if status == "pending_model":
+        response: Response = HTMLResponse(
+            _render_pending_model(projection, csrf_token)
+        )
+    else:
+        response = HTMLResponse(_render_pending_user(projection, csrf_token))
+
+    if needs_cookie:
+        _set_session_cookie(response, session_id)
     return response
+
+
+async def _handle_setup_post(request: Request) -> Response:
+    """Process a server-driven Setup form and redirect."""
+    form = await request.form()
+    session_id = request.cookies.get(SESSION_COOKIE, "")
+    csrf_token = str(form.get("csrf_token", ""))
+    if not csrf_token or not verify_token(token=csrf_token, session_id=session_id):
+        # Fail closed: an invalid CSRF token re-renders Setup without mutation.
+        return RedirectResponse(url=_SETUP_URL, status_code=303)
+
+    if "create_first_user" in form:
+        return await _create_first_user_from_form(request, form)
+    if "retry" in form:
+        return _run_model_check_from_form(request)
+    return RedirectResponse(url=_SETUP_URL, status_code=303)
+
+
+async def _create_first_user_from_form(request: Request, form: Any) -> Response:
+    """Create the first user from the posted form, then redirect to ``/setup``.
+
+    On success the manifest advances to ``pending_model`` and the redirect
+    re-renders the model-check context. On a validation/conflict error the
+    first-user form is re-rendered with the submitted name preserved
+    (interfaces §7).
+    """
+    from ..first_user import create_first_user
+    from ..setup_state import SetupStateError
+    from ..store import ProjectStore, ValidationError
+
+    name = str(form.get("name", "") or "")
+    credential = str(form.get("credential", "") or "")
+    workspace_root = Path(request.app.state.workspace_root)
+    manifest = try_read_manifest(workspace_root)
+    workspace_id = manifest.workspace_id if manifest else ""
+    expected_revision = manifest.revision if manifest else 0
+
+    try:
+        create_first_user(
+            workspace_root,
+            workspace_id=workspace_id,
+            name=name,
+            credential=credential,
+            expected_revision=expected_revision,
+            store=ProjectStore(workspace_root),
+        )
+    except (SetupStateError, ValidationError) as exc:
+        projection = await _fetch_setup_status("", request=request)
+        session_id, needs_cookie = _resolve_session_id(request)
+        csrf_token = issue_for_session(
+            session_id=session_id, revision=projection.get("revision", 0)
+        )
+        response = HTMLResponse(
+            _render_pending_user(projection, csrf_token, name=name, error=str(exc))
+        )
+        if needs_cookie:
+            _set_session_cookie(response, session_id)
+        return response
+
+    return RedirectResponse(url=_SETUP_URL, status_code=303)
+
+
+def _run_model_check_from_form(request: Request) -> Response:
+    """Run the real model check from the posted form, then redirect.
+
+    On ``passed`` the manifest is atomically completed and the redirect targets
+    the Workbench Projects activity. On ``failed``/``uncertain`` the latest
+    non-secret diagnosis is persisted and the redirect returns to ``/setup`` so
+    the page shows the actionable diagnosis and a Retry entry.
+    """
+    from .. import opencode_probe
+
+    workspace_root = Path(request.app.state.workspace_root)
+    manifest = try_read_manifest(workspace_root)
+    if manifest is None or manifest.first_principal_id is None:
+        return RedirectResponse(url=_SETUP_URL, status_code=303)
+
+    result = opencode_probe.run_check()
+
+    if result.state == "passed":
+        completed = manifest.complete(
+            model_check_state="passed",
+            model_check_id=result.check_id,
+            model_check_revision=result.revision,
+            model_id=result.current_model_id,
+            diagnosis=None,
+            observed_at=result.observed_at,
+            expected_revision=manifest.revision,
+        )
+        write_manifest(workspace_root, completed)
+        return RedirectResponse(url=_PROJECTS_CONTINUE_URL, status_code=303)
+
+    snapshot = ModelCheck(
+        check_id=result.check_id,
+        revision=result.revision,
+        state=result.state,
+        model_id=result.current_model_id,
+        diagnosis=result.diagnosis,
+        observed_at=result.observed_at,
+    )
+    updated = replace(
+        manifest,
+        status=SetupStatus.PENDING_MODEL,
+        model_check=snapshot,
+        revision=manifest.revision + 1,
+    )
+    write_manifest(workspace_root, updated)
+    return RedirectResponse(url=_SETUP_URL, status_code=303)
 
 
 # ---------------------------------------------------------------------------
@@ -324,9 +455,10 @@ async def setup_root(request: Request) -> Response:
 def create_app() -> Starlette:
     """Return the two-context Setup page sub-app.
 
-    Only ``/`` is registered; retired six-step routes naturally 404.
-    ``louke.web.app`` mounts this at ``/setup`` and sets
-    ``app.state.workspace_root`` on the returned instance.
+    Only ``/`` is registered for ``GET``; retired six-step routes naturally
+    404. Used by the page unit tests; ``louke.web.app`` wires
+    :func:`setup_root` directly at ``/setup`` (``GET`` + ``POST``) so the
+    server-driven forms resolve without a trailing-slash redirect.
     """
     return Starlette(
         routes=[
@@ -336,7 +468,7 @@ def create_app() -> Starlette:
 
 
 # ---------------------------------------------------------------------------
-# Static assets (styles + progressive-enhancement scripts)
+# Static assets (styles)
 # ---------------------------------------------------------------------------
 
 _SETUP_STYLES = """
@@ -358,7 +490,6 @@ button[type="submit"] { min-height:40px; padding:0 18px; border:0; border-radius
   color:#fff; background:var(--accent); font-weight:600; cursor:pointer; }
 button[type="submit"]:disabled { opacity:.5; cursor:default; }
 .setup-error { color:var(--error); }
-.setup-status { color:var(--muted); }
 .model-check { margin-bottom:18px; }
 .model-state { margin:0 0 6px; }
 .model-id { margin:0 0 12px; color:var(--muted); }
@@ -368,88 +499,4 @@ button[type="submit"]:disabled { opacity:.5; cursor:default; }
   padding:4px 0; }
 .diagnosis-row dt { color:var(--muted); font-weight:600; }
 .diagnosis-row dd { margin:0; overflow-wrap:anywhere; }
-"""
-
-_FIRST_USER_SCRIPT = """
-(function () {
-  const form = document.getElementById('setup-first-user-form');
-  if (!form) return;
-  const errorEl = form.querySelector('.setup-error');
-  const submit = form.querySelector('button[type="submit"]');
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    errorEl.hidden = true;
-    submit.disabled = true;
-    const name = form.querySelector('input[name="name"]').value;
-    const credential = form.querySelector('input[name="credential"]').value;
-    try {
-      const status = await fetch('/api/setup/status').then((r) => r.json());
-      const resp = await fetch('/api/setup/first-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Louke-CSRF': status.csrf_token || '',
-          'Idempotency-Key': (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-        },
-        body: JSON.stringify({
-          name: name,
-          credential: credential,
-          expected_revision: status.revision || 0,
-        }),
-      });
-      if (resp.ok) {
-        window.location.reload();
-        return;
-      }
-      const detail = await resp.json().catch(() => ({}));
-      errorEl.textContent = detail.message || detail.error || ('Request failed (' + resp.status + ')');
-      errorEl.hidden = false;
-    } catch (err) {
-      errorEl.textContent = 'Could not reach the server.';
-      errorEl.hidden = false;
-    } finally {
-      submit.disabled = false;
-    }
-  });
-})();
-"""
-
-_MODEL_CHECK_SCRIPT = """
-(function () {
-  const form = document.getElementById('setup-model-check-form');
-  if (!form) return;
-  const errorEl = form.querySelector('.setup-error');
-  const statusEl = form.querySelector('.setup-status');
-  const submit = form.querySelector('button[type="submit"]');
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    errorEl.hidden = true;
-    statusEl.hidden = false;
-    statusEl.textContent = 'Checking model…';
-    submit.disabled = true;
-    try {
-      const status = await fetch('/api/setup/status').then((r) => r.json());
-      const resp = await fetch('/api/setup/model-checks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Louke-CSRF': status.csrf_token || '',
-          'Idempotency-Key': (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-        },
-        body: JSON.stringify({ expected_revision: status.revision || 0 }),
-      });
-      const check = await resp.json().catch(() => ({}));
-      if (resp.ok && check.state === 'passed') {
-        window.location.href = check.continue_url || '/workbench?activity=projects';
-        return;
-      }
-      window.location.reload();
-    } catch (err) {
-      errorEl.textContent = 'Could not reach the server.';
-      errorEl.hidden = false;
-      statusEl.hidden = true;
-      submit.disabled = false;
-    }
-  });
-})();
 """
