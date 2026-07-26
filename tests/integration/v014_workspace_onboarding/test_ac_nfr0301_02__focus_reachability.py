@@ -2,7 +2,7 @@
 
 AC-NFR0301-02
 
-Background checks and Guide auto-advice must not clear the user's unsent
+Terminal Environment checks and Guide advice must not clear the user's unsent
 Story/version input, nor block the cancel / return / owning-Wizard entries
 (acceptance AC-NFR0301-02; interfaces §IF-DRAFT-01, §IF-GUIDE-01).
 
@@ -18,7 +18,20 @@ focus/viewport behaviour is covered by the sibling e2e suite.
 
 from __future__ import annotations
 
-from louke.web import draft_storage, environment_gate, guide_session
+from pathlib import Path
+
+from louke.web import draft_storage, guide_session
+from louke.web.environment_commands import CommandResult
+from louke.web.environment_service import EnvironmentService
+
+
+class QuietEnvironmentExecutor:
+    """Return a terminal blocked command fact without seeing browser draft data."""
+
+    def run(self, argv: tuple[str, ...], *, cwd: Path, timeout: float) -> CommandResult:
+        assert argv == ("gh", "--version")
+        assert cwd.is_absolute() and 0 < timeout <= 15
+        return CommandResult(127, stderr="gh unavailable")
 
 
 def test_ac_nfr0301_02_draft_preserves_unsent_input() -> None:
@@ -65,8 +78,10 @@ def test_ac_nfr0301_02_draft_carries_no_secret_or_identity() -> None:
     )
 
 
-def test_ac_nfr0301_02_background_check_does_not_capture_or_clear_draft() -> None:
-    """AC-NFR0301-02: a triggered background environment check neither captures nor clears the draft."""
+def test_ac_nfr0301_02_terminal_check_does_not_capture_or_clear_draft(
+    tmp_path: Path,
+) -> None:
+    """AC-NFR0301-02: a terminal Environment check neither captures nor clears a draft."""
     # AC-NFR0301-02
     # The user has unsent Story/version input held in the browser draft.
     draft_before = draft_storage.create_draft(
@@ -76,15 +91,15 @@ def test_ac_nfr0301_02_background_check_does_not_capture_or_clear_draft() -> Non
         release_version="0.14.0",
         resume_step="input",
     )
-    # A background environment check is triggered through the real gate.
-    check = environment_gate.start_check(workspace_id="ws_nfr0301", expected_revision=0)
-    assert check["state"] == "running", (
-        "AC-NFR0301-02: the background check must start in the running state"
-    )
-    # The background check must not capture the unsent draft input.
+    # The real terminal Environment service receives only bounded argv facts.
+    check = EnvironmentService(tmp_path, executor=QuietEnvironmentExecutor()).check()
+    assert check["state"] == "blocked"
+    assert check["current_step"] == "gh_executable"
+    assert check["steps"][0]["actions"] == ["Retry"]
+    # The terminal projection must not capture the unsent draft input.
     check_blob = repr(check)
     assert "SECRET_V014004_UNSENT_STORY" not in check_blob, (
-        "AC-NFR0301-02: the background check must not capture the unsent draft"
+        "AC-NFR0301-02: the terminal Environment check must not capture the unsent draft"
     )
     # The draft input survives the background check unchanged.
     draft_after = draft_storage.create_draft(
@@ -95,7 +110,7 @@ def test_ac_nfr0301_02_background_check_does_not_capture_or_clear_draft() -> Non
         resume_step="input",
     )
     assert draft_after["story"] == draft_before["story"], (
-        "AC-NFR0301-02: the unsent draft input must survive a background check"
+        "AC-NFR0301-02: the unsent draft input must survive a terminal Environment check"
     )
 
 

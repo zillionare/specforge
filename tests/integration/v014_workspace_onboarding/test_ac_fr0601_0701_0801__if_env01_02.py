@@ -1,205 +1,150 @@
-"""IF-ENV-01 / IF-ENV-02 — On-demand Environment Gate + repository binding.
+"""Terminal Environment readiness integration contracts.
 
-AC-FR0601-01, AC-FR0601-02, AC-FR0701-01, AC-FR0701-02, AC-FR0801-01, AC-FR0801-02
+AC-FR0601-01, AC-FR0601-02, AC-FR0701-01, AC-FR0801-01
 
-Cross-module:
-* Environment Gate (Environment Gate × Project Context × GitHub/Git
-  Adapters × Workbench Presentation × Guide Session × Fact Stores).
-* Repository binding preview/confirm/reconcile (Environment Gate ×
-  GitHub/Git Adapters × Fact Stores × Workbench Presentation × Guide
-  Session).
-
-Tests drive the real ``louke.web.environment_gate`` module.
+The Human-authorized bootstrap has one synchronous, read-only Environment
+projection. These tests exercise the real Environment service and GitHub/Git
+readiness modules; only bounded external argv responses are controlled.
 """
 
 from __future__ import annotations
 
-from louke.web.environment_gate import (
-    CANONICAL_STEPS,
-    REQUIRED_SCOPES,
-    STEP_CANONICAL_MAIN,
-    STEP_GH_AUTH_SCOPES,
-    STEP_GH_EXECUTABLE,
-    STEP_REPOSITORY_BINDING,
-    repository_confirm,
-    repository_operation_read,
-    repository_preview,
-    start_check,
-)
+from pathlib import Path
+
+from louke.web.environment_commands import CommandResult
+from louke.web.environment_service import CANONICAL_STEPS, EnvironmentService
+from louke.web.github_readiness import REQUIRED_SCOPES
 
 
-# ---------------------------------------------------------------------------
-# IF-ENV-01: scope contract + canonical step order
-# ---------------------------------------------------------------------------
+class RecordingExecutor:
+    """Controlled argv boundary that records each read-only readiness call."""
+
+    def __init__(
+        self, root: Path, responses: dict[tuple[str, ...], CommandResult]
+    ) -> None:
+        self.root = root
+        self.responses = responses
+        self.calls: list[tuple[str, ...]] = []
+
+    def run(self, argv: tuple[str, ...], *, cwd: Path, timeout: float) -> CommandResult:
+        assert cwd == self.root.resolve()
+        assert 0 < timeout <= 15
+        command = tuple(argv)
+        self.calls.append(command)
+        return self.responses[command]
 
 
-def test_environment_gate_required_scopes_match_contract() -> None:
-    """AC-FR0701-01: the four required scopes are the locked set."""
-    # AC-FR0701-01
-    assert set(REQUIRED_SCOPES) == {"gist", "project", "repo", "workflow"}
-
-
-def test_environment_gate_canonical_step_order_matches_contract() -> None:
-    """AC-FR0601-01: steps run gh_executable → auth_scopes → binding → main."""
-    # AC-FR0601-01
-    assert CANONICAL_STEPS == (
-        STEP_GH_EXECUTABLE,
-        STEP_GH_AUTH_SCOPES,
-        STEP_REPOSITORY_BINDING,
-        STEP_CANONICAL_MAIN,
-    )
-
-
-def test_environment_gate_start_check_returns_running_default() -> None:
-    """AC-FR0601-01: ``start_check`` returns a running 4-step check."""
-    # AC-FR0601-01
-    check = start_check(workspace_id="ws_1")
-    assert check["state"] == "running"
-    assert check["current_step"] == STEP_GH_EXECUTABLE
-    assert len(check["steps"]) == 4
-    # Each step starts pending; no automatic runner state.
-    for step in check["steps"]:
-        assert step["state"] == "pending"
-        assert step["observed"] is None
-        assert step["missing"] == []
-        assert step["diagnosis"] is None
-        assert step["actions"] == []
-
-
-def test_environment_gate_step_ids_match_contract() -> None:
-    """AC-FR0601-01: each ``EnvironmentStep.id`` is one of the four locked ids."""
-    # AC-FR0601-01
-    check = start_check(workspace_id="ws_1")
-    seen_ids = {step["id"] for step in check["steps"]}
-    assert seen_ids == set(CANONICAL_STEPS)
-    assert seen_ids == {
-        "gh_executable",
-        "gh_auth_scopes",
-        "repository_binding",
-        "canonical_main",
+def _ready_responses(root: Path) -> dict[tuple[str, ...], CommandResult]:
+    sha = "a" * 40
+    return {
+        ("gh", "--version"): CommandResult(0, "gh version 2.65.0\n"),
+        ("gh", "auth", "status"): CommandResult(
+            0,
+            "github.com\naccount: zillionare\ntoken scopes: gist, project, repo, workflow\n",
+        ),
+        ("git", "rev-parse", "--is-inside-work-tree"): CommandResult(0, "true\n"),
+        ("git", "rev-parse", "--show-toplevel"): CommandResult(
+            0, f"{root.resolve()}\n"
+        ),
+        ("git", "remote", "get-url", "origin"): CommandResult(
+            0, "git@github.com:zillionare/louke.git\n"
+        ),
+        ("git", "rev-parse", "--verify", "refs/heads/main"): CommandResult(
+            0, f"{sha}\n"
+        ),
+        ("git", "ls-remote", "--heads", "origin", "main"): CommandResult(
+            0, f"{sha}\trefs/heads/main\n"
+        ),
     }
 
 
-def test_environment_gate_booleans_start_disabled() -> None:
-    """AC-FR0601-01: nothing is ``enabled`` until every step passes."""
-    # AC-FR0601-01
-    check = start_check(workspace_id="ws_1")
-    assert check["story_input_enabled"] is False
-    assert check["preview_enabled"] is False
-    assert check["create_enabled"] is False
+def test_ac_fr0701_01_required_github_scopes_are_locked() -> None:
+    """AC-FR0701-01: readiness accepts exactly the required GitHub scopes."""
+    assert set(REQUIRED_SCOPES) == {"gist", "project", "repo", "workflow"}
 
 
-# ---------------------------------------------------------------------------
-# IF-ENV-02: Repository binding preview / confirm / operation read
-# ---------------------------------------------------------------------------
+def test_ac_fr0601_01_terminal_ready_projection_is_read_only(tmp_path: Path) -> None:
+    """AC-FR0601-01/AC-FR0801-01: one check returns canonical repository facts."""
+    executor = RecordingExecutor(tmp_path, _ready_responses(tmp_path))
 
+    result = EnvironmentService(tmp_path, executor=executor).check()
 
-def test_repository_preview_accepts_clean_https() -> None:
-    """AC-FR0801-01: a clean HTTPS GitHub URL produces a binding preview."""
-    # AC-FR0801-01
-    body = repository_preview(
-        check_id="chk_x",
-        repository_url="https://github.com/zillionare/louke",
-        expected_revision=0,
-        workspace_id="ws_1",
+    assert result["state"] == "passed"
+    assert result["current_step"] is None
+    assert (
+        result["story_input_enabled"]
+        is result["preview_enabled"]
+        is result["create_enabled"]
+        is True
     )
-    assert body["binding_preview_id"] == "bpv_chk_x"
-    assert body["preview_revision"] == 1
-    assert body["repository"]["host"] == "github.com"
-    assert body["repository"]["owner"] == "zillionare"
-    assert body["repository"]["name"] == "louke"
-    assert body["repository"]["display_url"] == "https://github.com/zillionare/louke"
-    assert body["side_effects"] == []
-    assert ".louke/" in body["excluded_paths"]
-
-
-def test_repository_preview_accepts_ssh_url() -> None:
-    """AC-FR0801-01: SSH GitHub URLs are also accepted."""
-    # AC-FR0801-01
-    body = repository_preview(
-        check_id="chk_x",
-        repository_url="ssh://git@github.com/zillionare/louke.git",
+    assert [step["id"] for step in result["steps"]] == list(CANONICAL_STEPS)
+    repository = result["steps"][2]["observed"]
+    assert repository == {"host": "github.com", "owner": "zillionare", "name": "louke"}
+    assert result["steps"][3]["observed"]["main_sha"] == "a" * 40
+    assert executor.calls == list(_ready_responses(tmp_path))
+    assert all(
+        command[:2] not in {("git", "add"), ("git", "commit"), ("git", "push")}
+        for command in executor.calls
     )
-    assert body["repository"]["owner"] == "zillionare"
-    assert body["repository"]["name"] == "louke"
 
 
-def test_repository_preview_rejects_credential_url() -> None:
-    """AC-FR0801-01: credential-bearing URLs are rejected."""
-    # AC-FR0801-01
-    import pytest as _pytest
-
-    with _pytest.raises(ValueError):
-        repository_preview(
-            check_id="chk_x",
-            repository_url="https://user:token@github.com/owner/repo.git",
-        )
-
-
-def test_repository_preview_rejects_non_github_url() -> None:
-    """AC-FR0801-01: non-GitHub URLs are rejected."""
-    # AC-FR0801-01
-    import pytest as _pytest
-
-    with _pytest.raises(ValueError):
-        repository_preview(
-            check_id="chk_x",
-            repository_url="https://example.com/not-github",
-        )
-
-
-def test_repository_confirm_returns_operation_id() -> None:
-    """AC-FR0801-02: confirm returns an operation id and running state."""
-    # AC-FR0801-02
-    body = repository_confirm(
-        check_id="chk_x",
-        binding_preview_id="bpv_chk_x",
-        expected_preview_revision=1,
-        expected_check_revision=0,
+def test_ac_fr0601_02_blocked_diagnosis_exposes_repair_action(tmp_path: Path) -> None:
+    """AC-FR0601-02/AC-FR0701-02: missing scope is terminal and actionable."""
+    responses = _ready_responses(tmp_path)
+    responses[("gh", "auth", "status")] = CommandResult(
+        0, "github.com\naccount: zillionare\ntoken scopes: gist, project, repo\n"
     )
-    assert body["operation_id"] == "op_bpv_chk_x"
-    assert body["state"] == "running"
-    assert body["check_revision"] == 1
-    assert body["recovery_url"].startswith("/api/projects/environment-checks/")
+
+    result = EnvironmentService(
+        tmp_path, executor=RecordingExecutor(tmp_path, responses)
+    ).check()
+
+    assert result["state"] == "blocked"
+    assert result["current_step"] == "gh_auth_scopes"
+    failed = result["steps"][1]
+    assert "workflow" in failed["missing"]
+    assert failed["diagnosis"]["object"] == "gh_auth_scopes"
+    assert failed["diagnosis"]["impact"]
+    assert failed["actions"] == ["Retry"]
+    assert result["create_enabled"] is False
 
 
-def test_repository_operation_read_returns_shape() -> None:
-    """AC-FR0801-02: operation read returns the documented shape."""
-    # AC-FR0801-02
-    body = repository_operation_read(
-        check_id="chk_x",
-        operation_id="op_bpv_chk_x",
+def test_ac_fr0801_02_main_mismatch_blocks_without_mutating_workspace(
+    tmp_path: Path,
+) -> None:
+    """AC-FR0801-02: mismatched canonical main remains blocked with Retry."""
+    responses = _ready_responses(tmp_path)
+    responses[("git", "ls-remote", "--heads", "origin", "main")] = CommandResult(
+        0, f"{'b' * 40}\trefs/heads/main\n"
     )
-    assert body["operation_id"] == "op_bpv_chk_x"
-    assert body["state"] == "running"
-    assert "local_git" in body
-    assert "remote_main" in body
-    assert "excluded_paths" in body
-    assert ".louke/" in body["excluded_paths"]
+    executor = RecordingExecutor(tmp_path, responses)
 
+    result = EnvironmentService(tmp_path, executor=executor).check()
 
-# ---------------------------------------------------------------------------
-# Activation: real artifact surface
-# ---------------------------------------------------------------------------
-
-
-def test_real_environment_gate_required_scopes() -> None:
-    """AC-FR0701-01: real ``louke.web.environment_gate`` exposes ``REQUIRED_SCOPES``."""
-    # AC-FR0701-01
-    import louke.web.environment_gate as mod
-
-    scopes = set(mod.REQUIRED_SCOPES)
-    assert scopes == {"gist", "project", "repo", "workflow"}
-
-
-def test_real_environment_gate_canonical_steps() -> None:
-    """AC-FR0601-01: real artifact exposes the canonical step order."""
-    # AC-FR0601-01
-    import louke.web.environment_gate as mod
-
-    assert tuple(mod.CANONICAL_STEPS) == (
-        "gh_executable",
-        "gh_auth_scopes",
-        "repository_binding",
-        "canonical_main",
+    failed = result["steps"][3]
+    assert result["state"] == "blocked"
+    assert failed["id"] == "canonical_main"
+    assert failed["diagnosis"]["impact"] == "Local main must match origin/main."
+    assert failed["actions"] == ["Retry"]
+    assert all(
+        command[0] != "git" or command[1] not in {"add", "commit", "push"}
+        for command in executor.calls
     )
+
+
+def test_ac_fr0601_02_retry_is_a_fresh_terminal_rerun(tmp_path: Path) -> None:
+    """AC-FR0601-02: Retry is another synchronous read, never a background resume."""
+    responses = _ready_responses(tmp_path)
+    responses[("gh", "--version")] = CommandResult(None, timed_out=True)
+    executor = RecordingExecutor(tmp_path, responses)
+    service = EnvironmentService(tmp_path, executor=executor)
+
+    first = service.check()
+    executor.responses[("gh", "--version")] = CommandResult(0, "gh version 2.65.0\n")
+    second = service.check()
+
+    assert first["state"] == "uncertain"
+    assert first["current_step"] == "gh_executable"
+    assert first["steps"][0]["actions"] == ["Retry"]
+    assert second["state"] == "passed"
+    assert executor.calls.count(("gh", "--version")) == 2

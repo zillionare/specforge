@@ -15,7 +15,6 @@ from __future__ import annotations
 import hashlib
 import re
 import subprocess
-import time
 from pathlib import Path
 
 import httpx
@@ -48,7 +47,9 @@ def _cookies(session: str) -> dict[str, str]:
 
 
 def _csrf(client: httpx.Client, session: str) -> str:
-    resp = client.get("/projects/new", cookies=_cookies(session))
+    resp = client.get(
+        "/workbench?activity=projects&action=new_project", cookies=_cookies(session)
+    )
     m = re.search(r'const\s+csrf\s*=\s*"([a-f0-9]+)"', resp.text)
     if m:
         return m.group(1)
@@ -60,9 +61,14 @@ def _mut_headers(base_url: str, csrf: str) -> dict[str, str]:
 
 
 def _preview(client: httpx.Client, session: str, headers: dict[str, str]) -> dict:
+    environment = client.post(
+        "/api/projects/environment-checks", cookies=_cookies(session), headers=headers
+    )
+    assert environment.status_code == 200, environment.text
+    assert environment.json()["state"] == "passed", environment.text
     resp = client.post(
-        "/api/v14/releases/preview",
-        json={"story": CANONICAL_HUMAN_STORY, "release_version": "0.14.0"},
+        "/api/projects/preview",
+        json={"story": CANONICAL_HUMAN_STORY, "release_version": "0.15.0"},
         cookies=_cookies(session),
         headers=headers,
     )
@@ -74,40 +80,34 @@ def _confirm(
     client: httpx.Client, session: str, headers: dict[str, str], preview: dict
 ) -> dict:
     resp = client.post(
-        "/api/v14/releases/confirm",
+        "/api/projects/confirm",
         json={
             "preview_id": preview["preview_id"],
             "expected_preview_revision": preview["preview_revision"],
             "request_digest": preview["request_digest"],
-            "idempotency_key": "confirm-1",
         },
         cookies=_cookies(session),
-        headers=headers,
+        headers={**headers, "Idempotency-Key": "confirm-1"},
     )
     assert resp.status_code == 202, resp.text
     return resp.json()
 
 
-def _poll_status(
+def _status(
     client: httpx.Client, session: str, request_id: str, timeout: float = 30
 ) -> dict:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        resp = client.get(
-            f"/api/v14/releases/requests/{request_id}",
-            cookies=_cookies(session),
-        )
-        assert resp.status_code == 200
-        body = resp.json()
-        if body["status"] in ("ready", "conflict", "blocked"):
-            return body
-        time.sleep(0.5)
-    raise TimeoutError(f"release request {request_id} did not settle")
+    del timeout
+    resp = client.get(
+        f"/api/projects/requests/{request_id}",
+        cookies=_cookies(session),
+    )
+    assert resp.status_code == 200, resp.text
+    return resp.json()
 
 
 def _current(client: httpx.Client, session: str, project_id: str) -> dict:
     resp = client.get(
-        f"/api/v14/projects/{project_id}/current",
+        f"/api/projects/{project_id}/current",
         cookies=_cookies(session),
     )
     assert resp.status_code == 200, resp.text
@@ -122,7 +122,7 @@ def _reconcile_task(
     task_id: str,
 ) -> dict:
     resp = client.post(
-        f"/api/v14/runs/{run_id}/tasks/{task_id}/reconcile",
+        f"/api/runs/{run_id}/tasks/{task_id}/reconcile",
         cookies=_cookies(session),
         headers=headers,
     )
@@ -142,7 +142,7 @@ def _decide(
     key: str = "go-1",
 ) -> dict:
     resp = client.post(
-        f"/api/v14/runs/{run_id}/actions",
+        f"/api/runs/{run_id}/actions",
         json={
             "action": "story_decision",
             "expected_run_revision": run_revision,
@@ -190,25 +190,25 @@ class TestEntrySliceGoldenPath:
         # AC-FR0300-01: preview produces no side effects
         preview = _preview(client, session, headers)
         assert preview["side_effects"] == []
-        assert preview["release"]["external"] == "0.14.0"
+        assert preview["release"]["external"] == "0.15.0"
 
         # AC-FR0300-02/AC-FR0400-02: confirm + Foundation
         confirm_body = _confirm(client, session, headers, preview)
-        status = _poll_status(client, session, confirm_body["request_id"])
+        status = _status(client, session, confirm_body["request_id"])
         assert status["status"] == "ready"
-        project_id = status["project_id"]
-        run_id = status["run_id"]
+        project_id = status["project"]["project_id"]
+        run_id = status["run"]["run_id"]
 
         # AC-FR0400-02/03: Foundation evidence
         foundation = client.get(
-            f"/api/v14/releases/requests/{confirm_body['request_id']}/foundation",
+            f"/api/projects/requests/{confirm_body['request_id']}",
             cookies=_cookies(session),
         ).json()
         assert foundation["status"] == "ready"
         release_branch = foundation["foundation"]["resources"]["release_branch"]
-        assert release_branch["full_ref"] == "refs/heads/releases/0.14.0"
+        assert release_branch["full_ref"] == "refs/heads/releases/0.15.0"
         assert release_branch["checked_out"] is True
-        assert release_branch["head_symbolic_ref"] == "releases/0.14.0"
+        assert release_branch["head_symbolic_ref"] == "releases/0.15.0"
         worktree_path = foundation["foundation"]["resources"]["worktree"]["path"]
         # Independent Git ground truth.
         sym = subprocess.run(
@@ -218,7 +218,7 @@ class TestEntrySliceGoldenPath:
             text=True,
             check=True,
         ).stdout.strip()
-        assert sym == "releases/0.14.0"
+        assert sym == "releases/0.15.0"
 
         # AC-FR0500-01/03: Story revision + independent digest
         current = _current(client, session, project_id)
@@ -232,7 +232,7 @@ class TestEntrySliceGoldenPath:
             / ".louke"
             / "project"
             / "specs"
-            / "v0.14-001-workflow-reflow-spec"
+            / status["project"]["spec_id"]
             / "story.md"
         )
         expected = f"sha256:{hashlib.sha256(story_path.read_bytes()).hexdigest()}"
@@ -243,7 +243,7 @@ class TestEntrySliceGoldenPath:
         assert task, "Scribe task must exist (AC-FR0700-01)"
         assert task["task_id"].startswith("task_")
         task_detail = client.get(
-            f"/api/v14/runs/{run_id}/tasks/{task['task_id']}",
+            f"/api/runs/{run_id}/tasks/{task['task_id']}",
             cookies=_cookies(session),
         ).json()
         assert task_detail["phase"] == "M-STORY"
@@ -334,10 +334,10 @@ class TestProviderResultFailClosed:
 
         preview = _preview(client, session, headers)
         confirm_body = _confirm(client, session, headers, preview)
-        status = _poll_status(client, session, confirm_body["request_id"])
+        status = _status(client, session, confirm_body["request_id"])
         assert status["status"] == "ready"
-        project_id = status["project_id"]
-        run_id = status["run_id"]
+        project_id = status["project"]["project_id"]
+        run_id = status["run"]["run_id"]
 
         current = _current(client, session, project_id)
         task = current["task"]
@@ -373,8 +373,8 @@ class TestEntrySliceFailClosed:
         csrf = _csrf(client, session)
 
         resp = client.post(
-            "/api/v14/releases/preview",
-            json={"story": CANONICAL_HUMAN_STORY, "release_version": "0.14.0"},
+            "/api/projects/preview",
+            json={"story": CANONICAL_HUMAN_STORY, "release_version": "0.15.0"},
             cookies=_cookies(session),
             headers={"Origin": "https://foreign.example", "X-Louke-CSRF": csrf},
         )
@@ -386,8 +386,8 @@ class TestEntrySliceFailClosed:
         base_url, _, _ = live_server
         client = _client(base_url)
         resp = client.post(
-            "/api/v14/releases/preview",
-            json={"story": CANONICAL_HUMAN_STORY, "release_version": "0.14.0"},
+            "/api/projects/preview",
+            json={"story": CANONICAL_HUMAN_STORY, "release_version": "0.15.0"},
         )
         assert resp.status_code == 401
 
@@ -400,7 +400,7 @@ class TestEntrySliceFailClosed:
         csrf = _csrf(client, session)
 
         resp = client.post(
-            "/api/v14/releases/preview",
+            "/api/projects/preview",
             json={"story": CANONICAL_HUMAN_STORY, "release_version": "../escape"},
             cookies=_cookies(session),
             headers=_mut_headers(base_url, csrf),
@@ -419,9 +419,9 @@ class TestEntrySliceFailClosed:
 
         preview = _preview(client, session, headers)
         confirm_body = _confirm(client, session, headers, preview)
-        status = _poll_status(client, session, confirm_body["request_id"])
-        project_id = status["project_id"]
-        run_id = status["run_id"]
+        status = _status(client, session, confirm_body["request_id"])
+        project_id = status["project"]["project_id"]
+        run_id = status["run"]["run_id"]
         current = _current(client, session, project_id)
 
         # Reconcile to get a recommendation (this advances the run revision).
@@ -435,7 +435,7 @@ class TestEntrySliceFailClosed:
 
         # Stale revision.
         stale = client.post(
-            f"/api/v14/runs/{run_id}/actions",
+            f"/api/runs/{run_id}/actions",
             json={
                 "action": "story_decision",
                 "expected_run_revision": run_revision + 999,
@@ -467,9 +467,9 @@ class TestEntrySliceFailClosed:
 
         preview = _preview(client, session, headers)
         confirm_body = _confirm(client, session, headers, preview)
-        status = _poll_status(client, session, confirm_body["request_id"])
-        project_id = status["project_id"]
-        run_id = status["run_id"]
+        status = _status(client, session, confirm_body["request_id"])
+        project_id = status["project"]["project_id"]
+        run_id = status["run"]["run_id"]
         current = _current(client, session, project_id)
         task = current["task"]
         _reconcile_task(client, session, headers, run_id, task["task_id"])
@@ -478,7 +478,7 @@ class TestEntrySliceFailClosed:
         current = _current(client, session, project_id)
 
         invalid = client.post(
-            f"/api/v14/runs/{run_id}/actions",
+            f"/api/runs/{run_id}/actions",
             json={
                 "action": "story_decision",
                 "expected_run_revision": current["run"]["revision"],
@@ -507,9 +507,9 @@ class TestEntrySliceFailClosed:
 
         preview = _preview(client, session, headers)
         confirm_body = _confirm(client, session, headers, preview)
-        status = _poll_status(client, session, confirm_body["request_id"])
-        project_id = status["project_id"]
-        run_id = status["run_id"]
+        status = _status(client, session, confirm_body["request_id"])
+        project_id = status["project"]["project_id"]
+        run_id = status["run"]["run_id"]
         current = _current(client, session, project_id)
         task = current["task"]
         _reconcile_task(client, session, headers, run_id, task["task_id"])
@@ -621,11 +621,11 @@ class TestFixtureGitIdentity:
 
             preview = _preview(client, session, headers)
             confirm_body = _confirm(client, session, headers, preview)
-            status = _poll_status(client, session, confirm_body["request_id"])
+            status = _status(client, session, confirm_body["request_id"])
             # Foundation + Story commit must succeed despite no global Git identity.
             assert status["status"] == "ready", status
 
-            current = _current(client, session, status["project_id"])
+            current = _current(client, session, status["project"]["project_id"])
             assert current["run"]["phase"] == "M-STORY"
             assert current["artifact"], "Story artifact must exist"
             assert current["artifact"]["revision"] == 1

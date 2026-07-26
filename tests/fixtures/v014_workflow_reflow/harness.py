@@ -703,6 +703,23 @@ def build_isolated_workspace(
     gh_bin.write_text(_GH_STANDIN_SCRIPT, encoding="utf-8")
     gh_bin.chmod(gh_bin.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
+    # ``url.<bare>.insteadOf`` keeps Foundation's actual Git traffic local,
+    # but ``git remote get-url`` expands that rewrite.  Environment readiness
+    # must observe the configured GitHub binding, while all other Git commands
+    # must retain their real local-bare behavior.  This bounded wrapper exposes
+    # only that read-only identity fact and delegates every operation to Git.
+    git_bin = gh_dir / "git"
+    git_bin.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "remote" ] && [ "$2" = "get-url" ] && [ "$3" = "origin" ]; then\n'
+        '  printf "%s\\n" "https://github.com/zillionare/louke.git"\n'
+        "  exit 0\n"
+        "fi\n"
+        'exec /usr/bin/git "$@"\n',
+        encoding="utf-8",
+    )
+    git_bin.chmod(git_bin.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
     # v0.14-004: an ``opencode`` CLI stand-in for the Setup model probe. It
     # lives in the same bin dir as the ``gh`` stand-in so the conftest PATH
     # addition (``workspace.gh_bin.parent``) puts both on PATH. It answers
