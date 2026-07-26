@@ -37,10 +37,13 @@ contract lands.
 from __future__ import annotations
 
 import contextlib
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from starlette.applications import Starlette
+from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from louke.web import setup_projection
@@ -49,6 +52,7 @@ from louke.web.setup_state import (
     ModelCheck,
     SetupManifest,
     SetupStatus,
+    try_read_manifest,
     write_manifest,
 )
 
@@ -87,7 +91,9 @@ def workspace(tmp_path: Path) -> Path:
 
 def _client(workspace: Path) -> TestClient:
     """Return a TestClient for the real setup page sub-app bound to ``workspace``."""
-    app = setup_page.create_app()
+    app = Starlette(
+        routes=[Route("/", endpoint=setup_page.setup_root, methods=["GET", "POST"])]
+    )
     app.state.workspace_root = workspace
     return TestClient(app)
 
@@ -205,6 +211,38 @@ def test_setup_pending_user_shows_first_user_form_only(workspace: Path) -> None:
         "AC-FR0101-01: pending_user must show the first-user credential field"
     )
     _assert_retired_wizard_absent(body)
+
+
+def test_setup_first_user_form_post_creates_user_without_server_error(
+    workspace: Path,
+) -> None:
+    """The supported first-user form POST redirects after creating the user."""
+    _write_pending_user(workspace)
+    client = _client(workspace)
+    with _feed_projection(workspace):
+        page = client.get("/", follow_redirects=False)
+        csrf_tokens = re.findall(r'name="csrf_token" value="([^"]*)"', page.text)
+        assert len(csrf_tokens) == 1, (
+            "The rendered first-user form must contain exactly one CSRF token"
+        )
+        csrf_token = csrf_tokens[0]
+        assert csrf_token, (
+            "The rendered first-user form must contain a nonempty CSRF token"
+        )
+        created = client.post(
+            "/",
+            data={
+                "csrf_token": csrf_token,
+                "name": "First Human",
+                "credential": "supported-form-credential",
+                "create_first_user": "1",
+            },
+            follow_redirects=False,
+        )
+
+    assert created.status_code == 303
+    assert created.headers["location"] == "/setup"
+    assert try_read_manifest(workspace).status is SetupStatus.PENDING_MODEL
 
 
 def test_setup_pending_model_shows_model_check_and_retry(workspace: Path) -> None:
