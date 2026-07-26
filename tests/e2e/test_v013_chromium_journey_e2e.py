@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import socket
 import subprocess
 import time
@@ -12,6 +13,11 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 import pytest
+
+from tests.fixtures.v014_workflow_reflow.harness import (
+    build_isolated_workspace,
+    start_opencode_standin,
+)
 
 
 def _chromium_available() -> bool:
@@ -62,13 +68,6 @@ def _prepare_workspace(root: Path) -> None:
                 "[meta]",
                 'current_stage = "M-E2E"',
             )
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    (root / ".louke" / "web-users.json").write_text(
-        json.dumps(
-            {"version": 1, "users": [{"username": "owner", "password": "secret"}]}
         )
         + "\n",
         encoding="utf-8",
@@ -132,6 +131,31 @@ def _seed_runtime_run(root: Path) -> None:
     store.append_event(event)
 
 
+def _complete_setup(page, base_url: str) -> None:
+    """Drive the public first-user and model-probe journey to Workbench."""
+    page.goto(f"{base_url}/setup", wait_until="domcontentloaded")
+    page.wait_for_load_state("networkidle")
+    name_input = page.locator('input[name="name"]')
+    name_input.wait_for(state="visible")
+    name_input.fill("owner")
+    assert name_input.input_value() == "owner"
+    credential_input = page.locator('input[name="credential"]')
+    credential_input.wait_for(state="visible")
+    credential_input.fill("secret")
+    assert credential_input.input_value() == "secret"
+    page.click('button[type="submit"]')
+    page.wait_for_load_state("networkidle")
+    body = page.inner_text("body").lower()
+    assert "model" in body or "opencode" in body
+    trigger = page.query_selector('button[name="retry"]') or page.query_selector(
+        'button[name="start"]'
+    )
+    if trigger is not None:
+        trigger.click()
+        page.wait_for_load_state("networkidle")
+    page.wait_for_url("**/workbench?activity=projects")
+
+
 @pytest.mark.chromium_e2e
 @pytest.mark.skipif(
     not _chromium_available(),
@@ -142,7 +166,7 @@ def _seed_runtime_run(root: Path) -> None:
     or not os.environ.get("LOUKE_E2E_CASE_CWD"),
     reason="v0.13 Chromium journey must run through the project-venv E2E runner",
 )
-def test_v013_chromium_main_journey() -> None:
+def test_v013_chromium_main_journey(tmp_path: Path) -> None:
     """AC-FR1317-01/02/03/04@v0.13: complete real-browser journey."""
     from playwright.sync_api import sync_playwright
 
@@ -170,9 +194,25 @@ def test_v013_chromium_main_journey() -> None:
     )
     _prepare_workspace(workspace)
 
+    # Reuse the project-local OpenCode CLI/HTTP stand-ins rather than bypassing
+    # the Setup probe. The product process still executes its real subprocess
+    # boundary and records the bounded ``opencode run --model`` invocation.
+    boundary = build_isolated_workspace(tmp_path / "opencode-boundary")
+    opencode = start_opencode_standin(tmp_path)
+
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
     environment = os.environ.copy()
+    environment["PATH"] = os.pathsep.join(
+        [str(boundary.gh_bin.parent), environment.get("PATH", "")]
+    )
+    environment["LOUKE_GH_OWNER"] = "zillionare"
+    environment["LOUKE_OPENCODE_BACKEND"] = "real"
+    environment["LOUKE_OPENCODE_BASE_URL"] = opencode.base_url
+    environment["LOUKE_OPENCODE_USE_SERVER_DEFAULT"] = "1"
+    environment["LOUKE_OPENCODE_CLI_LEDGER_PATH"] = str(boundary.opencode_ledger)
+    environment["NO_PROXY"] = "127.0.0.1,localhost"
+    environment["no_proxy"] = "127.0.0.1,localhost"
     server = subprocess.Popen(
         [
             str(product_python),
@@ -186,7 +226,7 @@ def test_v013_chromium_main_journey() -> None:
             "--project-root",
             str(workspace),
             "--opencode-backend",
-            "mock",
+            "real",
         ],
         cwd=workspace,
         env=environment,
@@ -211,11 +251,17 @@ def test_v013_chromium_main_journey() -> None:
                         else None
                     ),
                 )
-                login = page.request.post(
-                    f"{base_url}/api/auth/login",
-                    data={"username": "owner", "password": "secret"},
-                )
-                assert login.ok
+                _complete_setup(page, base_url)
+                ledger = [
+                    json.loads(line)
+                    for line in boundary.opencode_ledger.read_text(
+                        encoding="utf-8"
+                    ).splitlines()
+                ]
+                assert any(
+                    entry["kind"] == "run" and "--model" in entry["argv"]
+                    for entry in ledger
+                ), "Setup must execute the real model-probe command boundary"
                 page.goto(f"{base_url}/workbench", wait_until="domcontentloaded")
                 expect = page.get_by_test_id
                 assert expect("workbench-toolbar").is_visible()
@@ -295,3 +341,7 @@ def test_v013_chromium_main_journey() -> None:
             except subprocess.TimeoutExpired:
                 server.kill()
                 server.wait(timeout=5)
+        opencode.stop()
+        boundary.cleanup()
+        if boundary.bare_remote.exists():
+            shutil.rmtree(boundary.bare_remote, ignore_errors=True)
