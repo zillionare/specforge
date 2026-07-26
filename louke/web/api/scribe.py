@@ -32,7 +32,7 @@ async def story_page(request: Request) -> HTMLResponse | JSONResponse:
     run = _run_for_binding(request, str(binding["run_id"]))
     if run is None:
         return _error("NOT_FOUND", "persisted project run does not exist", 404)
-    artifact = request.app.state.v14_story_entry.artifact(run.run_id)
+    artifact = request.app.state.story_entry.artifact(run.run_id)
     if artifact is None:
         return _error("NOT_FOUND", "Story artifact does not exist", 404)
     task = _task_for_artifact(request, run.run_id)
@@ -70,12 +70,16 @@ async def current_project(request: Request) -> JSONResponse:
     run = _run_for_binding(request, str(binding["run_id"]))
     if run is None:
         return _error("NOT_FOUND", "persisted project run does not exist", 404)
-    artifact = request.app.state.v14_story_entry.artifact(run.run_id)
+    artifact = request.app.state.story_entry.artifact(run.run_id)
     task = _task_for_artifact(request, run.run_id)
     gate = _scribe(request).story_gate(run.run_id)
+    project = binding.get("project") if isinstance(binding.get("project"), dict) else {}
     return JSONResponse(
         {
-            "project": {"project_id": binding["project_id"]},
+            "project": {
+                "project_id": project.get("project_id", binding["project_id"]),
+                "spec_id": project.get("spec_id"),
+            },
             "run": {
                 "run_id": run.run_id,
                 "revision": run.revision,
@@ -113,7 +117,7 @@ async def run_action(request: Request) -> JSONResponse:
                 "HUMAN_AUTHORITY_REQUIRED",
                 "actor identity is derived from the authenticated Human session",
             )
-        binding = request.app.state.v14_release_entry.project_for_run(
+        binding = request.app.state.release_entry.project_for_run(
             request.path_params["run_id"]
         )
         requested_project = action_payload.get("project_id")
@@ -147,7 +151,7 @@ async def story_artifact(request: Request) -> JSONResponse:
         return user_or_response
     if request.path_params["kind"] != "story":
         return _error("NOT_FOUND", "only the Story artifact is available", 404)
-    artifact = request.app.state.v14_story_entry.artifact(request.path_params["run_id"])
+    artifact = request.app.state.story_entry.artifact(request.path_params["run_id"])
     if artifact is None:
         return _error("NOT_FOUND", "Story artifact does not exist", 404)
     return JSONResponse(_artifact_model(artifact))
@@ -226,7 +230,7 @@ async def task_retry(request: Request) -> JSONResponse:
         result = _scribe(request).retry(
             request.path_params["run_id"],
             request.path_params["task_id"],
-            str(Path(request.app.state.v14_scribe_entry.workspace_root or "")),
+            str(Path(request.app.state.scribe_entry.workspace_root or "")),
         )
     except ScribeTaskError as exc:
         return _error(exc.code, exc.message, 409)
@@ -235,12 +239,12 @@ async def task_retry(request: Request) -> JSONResponse:
 
 def _scribe(request: Request) -> ScribeEntryService:
     """Return the application-owned Scribe service."""
-    return request.app.state.v14_scribe_entry
+    return request.app.state.scribe_entry
 
 
 def _project_binding(request: Request) -> dict[str, Any] | None:
     """Resolve a project path through its exact persisted release identity."""
-    return request.app.state.v14_release_entry.current_project(
+    return request.app.state.release_entry.current_project(
         request.path_params["project_id"]
     )
 
@@ -309,7 +313,7 @@ def _require_human(request: Request, *, csrf_required: bool):
     if user is None:
         return _error("AUTH_REQUIRED", "login required", 401)
     if csrf_required and not same_origin(
-        request, getattr(request.app.state, "v14_allowed_origin", None)
+        request, getattr(request.app.state, "allowed_origin", None)
     ):
         return _error(
             "ORIGIN_FORBIDDEN",
@@ -386,10 +390,10 @@ function showTask(value) {{
   send.disabled = false;
 }}
 async function refreshChat() {{
-  const taskResponse = await fetch(`/api/v14/runs/${{scribeRun}}/tasks/${{scribeTask}}`);
+  const taskResponse = await fetch(`/api/runs/${{scribeRun}}/tasks/${{scribeTask}}`);
   if (!taskResponse.ok) {{ statusLine.textContent = "Scribe task unavailable"; return; }}
   showTask(await taskResponse.json());
-  const messageResponse = await fetch(`/api/v14/runs/${{scribeRun}}/tasks/${{scribeTask}}/messages`);
+  const messageResponse = await fetch(`/api/runs/${{scribeRun}}/tasks/${{scribeTask}}/messages`);
   if (!messageResponse.ok) return;
   messages.replaceChildren();
   for (const item of (await messageResponse.json()).messages) {{
@@ -404,7 +408,7 @@ document.getElementById("scribe-reply").addEventListener("submit", async (event)
   send.disabled = true;
   const clientMessageId = crypto.randomUUID();
   try {{
-    await fetch(`/api/v14/runs/${{scribeRun}}/tasks/${{scribeTask}}/messages`, {{
+    await fetch(`/api/runs/${{scribeRun}}/tasks/${{scribeTask}}/messages`, {{
       method: "POST", headers: {{"Content-Type": "application/json", "X-Louke-CSRF": scribeCsrf}},
       body: JSON.stringify({{client_message_id: clientMessageId, correlation_id: `chat:${{clientMessageId}}`, body: body.value, expected_attempt_id: task.active_attempt.attempt_id, expected_artifact_revision: task.artifact.revision}})
     }});
@@ -412,8 +416,8 @@ document.getElementById("scribe-reply").addEventListener("submit", async (event)
     await refreshChat();
   }} finally {{ send.disabled = false; }}
 }});
-retry.addEventListener("click", async () => {{ retry.disabled = true; await fetch(`/api/v14/runs/${{scribeRun}}/tasks/${{scribeTask}}/retry`, {{method: "POST", headers: {{"X-Louke-CSRF": scribeCsrf}}}}); retry.disabled = false; await refreshChat(); }});
-reconcile.addEventListener("click", async () => {{ reconcile.disabled = true; await fetch(`/api/v14/runs/${{scribeRun}}/tasks/${{scribeTask}}/reconcile`, {{method: "POST", headers: {{"X-Louke-CSRF": scribeCsrf}}}}); reconcile.disabled = false; await refreshChat(); }});
+  retry.addEventListener("click", async () => {{ retry.disabled = true; await fetch(`/api/runs/${{scribeRun}}/tasks/${{scribeTask}}/retry`, {{method: "POST", headers: {{"X-Louke-CSRF": scribeCsrf}}}}); retry.disabled = false; await refreshChat(); }});
+  reconcile.addEventListener("click", async () => {{ reconcile.disabled = true; await fetch(`/api/runs/${{scribeRun}}/tasks/${{scribeTask}}/reconcile`, {{method: "POST", headers: {{"X-Louke-CSRF": scribeCsrf}}}}); reconcile.disabled = false; await refreshChat(); }});
 refreshChat();
 </script>"""
 
@@ -451,7 +455,7 @@ for (const button of decisionGate.querySelectorAll('[data-decision]')) {{
     for (const candidate of decisionGate.querySelectorAll('[data-decision]')) candidate.disabled = true;
     const idempotencyKey = crypto.randomUUID();
     try {{
-      const response = await fetch('/api/v14/runs/{escape(run_id)}/actions', {{
+      const response = await fetch('/api/runs/{escape(run_id)}/actions', {{
         method: 'POST', headers: {{'Content-Type': 'application/json', 'Origin': window.location.origin, 'X-Louke-CSRF': decisionCsrf}},
         body: JSON.stringify({{action: 'story_decision', expected_run_revision: {run_revision}, expected_artifact_revision: {artifact_revision}, idempotency_key: idempotencyKey,
           payload: {{candidate: button.dataset.decision, reason: document.getElementById('story-decision-reason').value, project_id: '{escape(project_id)}'}}}})

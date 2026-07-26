@@ -40,7 +40,7 @@ class ScribeStore:
         self._conn = run_store._conn
         self._conn.executescript(
             """
-            CREATE TABLE IF NOT EXISTS v14_scribe_tasks (
+            CREATE TABLE IF NOT EXISTS scribe_tasks (
                 task_id TEXT PRIMARY KEY,
                 run_id TEXT NOT NULL UNIQUE,
                 phase TEXT NOT NULL,
@@ -58,7 +58,7 @@ class ScribeStore:
                 lease_id TEXT NOT NULL,
                 last_error TEXT
             );
-            CREATE TABLE IF NOT EXISTS v14_scribe_attempts (
+            CREATE TABLE IF NOT EXISTS scribe_attempts (
                 attempt_id TEXT PRIMARY KEY,
                 task_id TEXT NOT NULL,
                 attempt_no INTEGER NOT NULL,
@@ -71,7 +71,7 @@ class ScribeStore:
                 error TEXT,
                 UNIQUE(task_id, attempt_no)
             );
-            CREATE TABLE IF NOT EXISTS v14_scribe_messages (
+            CREATE TABLE IF NOT EXISTS scribe_messages (
                 message_id TEXT PRIMARY KEY,
                 task_id TEXT NOT NULL,
                 attempt_id TEXT NOT NULL,
@@ -83,7 +83,7 @@ class ScribeStore:
                 provider_message_id TEXT,
                 created_at TEXT NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS v14_scribe_results (
+            CREATE TABLE IF NOT EXISTS scribe_results (
                 task_id TEXT PRIMARY KEY,
                 run_id TEXT NOT NULL UNIQUE,
                 attempt_id TEXT NOT NULL,
@@ -98,7 +98,7 @@ class ScribeStore:
                 result_status TEXT NOT NULL,
                 received_at TEXT NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS v14_story_decisions (
+            CREATE TABLE IF NOT EXISTS story_decisions (
                 run_id TEXT PRIMARY KEY,
                 story_revision INTEGER NOT NULL,
                 story_digest TEXT NOT NULL,
@@ -118,14 +118,14 @@ class ScribeStore:
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         """Return one raw persisted task record, if present."""
         row = self._conn.execute(
-            "SELECT * FROM v14_scribe_tasks WHERE task_id = ?", (task_id,)
+            "SELECT * FROM scribe_tasks WHERE task_id = ?", (task_id,)
         ).fetchone()
         return _decode_task(row) if row is not None else None
 
     def get_task_for_run(self, run_id: str) -> dict[str, Any] | None:
         """Return the single Scribe task bound to ``run_id``, if present."""
         row = self._conn.execute(
-            "SELECT * FROM v14_scribe_tasks WHERE run_id = ?", (run_id,)
+            "SELECT * FROM scribe_tasks WHERE run_id = ?", (run_id,)
         ).fetchone()
         return _decode_task(row) if row is not None else None
 
@@ -146,7 +146,7 @@ class ScribeStore:
         with self._conn:
             self._conn.execute(
                 """
-                INSERT INTO v14_scribe_tasks
+                INSERT INTO scribe_tasks
                 (task_id, run_id, phase, role, manifest_json, manifest_digest,
                  artifact_revision, artifact_digest, write_scope_json,
                  output_contract_digest, status, active_attempt_id, session_id,
@@ -169,7 +169,7 @@ class ScribeStore:
             )
             self._conn.execute(
                 """
-                INSERT INTO v14_scribe_attempts
+                INSERT INTO scribe_attempts
                 (attempt_id, task_id, attempt_no, status, input_digest, manifest_digest)
                 VALUES (?, ?, 1, 'pending', ?, ?)
                 """,
@@ -194,7 +194,7 @@ class ScribeStore:
         with self._conn:
             self._conn.execute(
                 """
-                INSERT INTO v14_scribe_attempts
+                INSERT INTO scribe_attempts
                 (attempt_id, task_id, attempt_no, status, input_digest, manifest_digest)
                 VALUES (?, ?, ?, 'pending', ?, ?)
                 """,
@@ -208,7 +208,7 @@ class ScribeStore:
             )
             self._conn.execute(
                 """
-                UPDATE v14_scribe_tasks
+                UPDATE scribe_tasks
                 SET manifest_json = ?, manifest_digest = ?, active_attempt_id = ?,
                     session_id = NULL, status = 'pending', connection = 'reconnecting',
                     last_error = NULL
@@ -241,7 +241,7 @@ class ScribeStore:
         assignments = ", ".join(f"{key} = ?" for key in fields)
         with self._conn:
             self._conn.execute(
-                f"UPDATE v14_scribe_tasks SET {assignments} WHERE task_id = ?",
+                f"UPDATE scribe_tasks SET {assignments} WHERE task_id = ?",
                 (*fields.values(), task_id),
             )
 
@@ -256,14 +256,14 @@ class ScribeStore:
         assignments = ", ".join(f"{key} = ?" for key in fields)
         with self._conn:
             self._conn.execute(
-                f"UPDATE v14_scribe_attempts SET {assignments} WHERE attempt_id = ?",
+                f"UPDATE scribe_attempts SET {assignments} WHERE attempt_id = ?",
                 (*fields.values(), attempt_id),
             )
 
     def get_attempts(self, task_id: str) -> list[dict[str, Any]]:
         """Return attempts for a task in ascending attempt order."""
         rows = self._conn.execute(
-            "SELECT * FROM v14_scribe_attempts WHERE task_id = ? ORDER BY attempt_no",
+            "SELECT * FROM scribe_attempts WHERE task_id = ? ORDER BY attempt_no",
             (task_id,),
         ).fetchall()
         return [dict(row) for row in rows]
@@ -271,7 +271,7 @@ class ScribeStore:
     def get_message_by_client(self, client_message_id: str) -> dict[str, Any] | None:
         """Return a persisted message by its client idempotency identity."""
         row = self._conn.execute(
-            "SELECT * FROM v14_scribe_messages WHERE client_message_id = ?",
+            "SELECT * FROM scribe_messages WHERE client_message_id = ?",
             (client_message_id,),
         ).fetchone()
         return dict(row) if row is not None else None
@@ -294,7 +294,7 @@ class ScribeStore:
         with self._conn:
             self._conn.execute(
                 """
-                INSERT INTO v14_scribe_messages
+                INSERT INTO scribe_messages
                 (message_id, task_id, attempt_id, client_message_id, correlation_id,
                  role, body, status, provider_message_id, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -323,18 +323,18 @@ class ScribeStore:
         assignments = ", ".join(f"{key} = ?" for key in fields)
         with self._conn:
             self._conn.execute(
-                f"UPDATE v14_scribe_messages SET {assignments} WHERE message_id = ?",
+                f"UPDATE scribe_messages SET {assignments} WHERE message_id = ?",
                 (*fields.values(), message_id),
             )
         row = self._conn.execute(
-            "SELECT * FROM v14_scribe_messages WHERE message_id = ?", (message_id,)
+            "SELECT * FROM scribe_messages WHERE message_id = ?", (message_id,)
         ).fetchone()
         return dict(row) if row is not None else {}
 
     def list_messages(self, task_id: str) -> list[dict[str, Any]]:
         """Return persisted task messages in creation order."""
         rows = self._conn.execute(
-            "SELECT * FROM v14_scribe_messages WHERE task_id = ? ORDER BY created_at, message_id",
+            "SELECT * FROM scribe_messages WHERE task_id = ? ORDER BY created_at, message_id",
             (task_id,),
         ).fetchall()
         return [dict(row) for row in rows]
@@ -342,7 +342,7 @@ class ScribeStore:
     def get_result(self, task_id: str) -> dict[str, Any] | None:
         """Return the persisted result for one Scribe task, if present."""
         row = self._conn.execute(
-            "SELECT * FROM v14_scribe_results WHERE task_id = ?", (task_id,)
+            "SELECT * FROM scribe_results WHERE task_id = ?", (task_id,)
         ).fetchone()
         if row is None:
             return None
@@ -355,7 +355,7 @@ class ScribeStore:
         with self._conn:
             self._conn.execute(
                 """
-                INSERT INTO v14_scribe_results
+                INSERT INTO scribe_results
                 (task_id, run_id, attempt_id, session_id, role, manifest_digest,
                  artifact_revision, artifact_digest, write_scope_json,
                  recommendation, reason, result_status, received_at)
@@ -381,7 +381,7 @@ class ScribeStore:
     def get_decision(self, run_id: str) -> dict[str, Any] | None:
         """Return the persisted Human story decision for a run, if present."""
         row = self._conn.execute(
-            "SELECT * FROM v14_story_decisions WHERE run_id = ?", (run_id,)
+            "SELECT * FROM story_decisions WHERE run_id = ?", (run_id,)
         ).fetchone()
         if row is None:
             return None
@@ -396,7 +396,7 @@ class ScribeStore:
         with self._conn:
             self._conn.execute(
                 """
-                INSERT INTO v14_story_decisions
+                INSERT INTO story_decisions
                 (run_id, story_revision, story_digest, value, reason, actor,
                  actor_kind, idempotency_key, decided_at, backlog_json, cleanup_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -654,7 +654,7 @@ class ScribeEntryService:
     def m_spec_task_count(self, run_id: str) -> int:
         """Return the number of persisted M-SPEC tasks for a Runtime run."""
         row = self._store._conn.execute(
-            "SELECT COUNT(*) AS count FROM v14_scribe_tasks WHERE run_id = ? AND phase = 'M-SPEC'",
+            "SELECT COUNT(*) AS count FROM scribe_tasks WHERE run_id = ? AND phase = 'M-SPEC'",
             (run_id,),
         ).fetchone()
         return int(row["count"])
@@ -919,7 +919,7 @@ class ScribeEntryService:
             manifest_digest=manifest_digest,
         )
         story = self._run_store._conn.execute(
-            "SELECT body_md FROM v14_story_artifacts WHERE run_id = ?", (run_id,)
+            "SELECT body_md FROM story_artifacts WHERE run_id = ?", (run_id,)
         ).fetchone()
         return self._dispatch(
             task_id=task_id,
@@ -1094,7 +1094,7 @@ class ScribeEntryService:
     def _current_artifact(self, run_id: str) -> dict[str, Any] | None:
         """Read the current Story identity from Runtime persistence."""
         row = self._store._conn.execute(
-            "SELECT revision, digest FROM v14_story_artifacts WHERE run_id = ?",
+            "SELECT revision, digest FROM story_artifacts WHERE run_id = ?",
             (run_id,),
         ).fetchone()
         return dict(row) if row is not None else None

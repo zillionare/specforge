@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import json
 
-from louke.web.api.v14_scribe import _require_human, _task_summary
+from louke.web.api.scribe import _require_human, _task_summary
 from louke.web.store import ProjectStore
 
 

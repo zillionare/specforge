@@ -399,71 +399,52 @@ def start_opencode_standin(tmp_path: Path, *, mode: str = "default") -> OpenCode
 
 _GH_STANDIN_SCRIPT = """\
 #!/usr/bin/env python3
-\"\"\"Deterministic ``gh`` stand-in for the v0.14-001 entry-slice tests.
+\"\"\"Bounded read-only ``gh`` stand-in for isolated workspace checks.
 
-Records every invocation in ``--ledger-path`` and responds to the two
-``gh project`` sub-commands the Foundation adapter issues:
-
-  * ``gh project list   --owner O --format json``
-  * ``gh project create --owner O --title T --format json``
+It supports the bounded CLI argv used by Environment readiness and Foundation
+Project reconciliation; it never persists command history.
 \"\"\"
 from __future__ import annotations
 
-import hashlib
 import json
-import os
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def main(argv: list[str]) -> int:
-    ledger = Path(os.environ.get("LOUKE_GH_LEDGER_PATH", "/tmp/gh-standin-ledger.json"))
-    records: list[dict] = []
-    if ledger.exists():
-        try:
-            records = json.loads(ledger.read_text())
-        except Exception:
-            records = []
-    entry = {"argv": argv, "env_owner": os.environ.get("LOUKE_GH_OWNER", ""), "at": _now()}
+    if argv == ["--version"]:
+        print("gh version 2.65.0 (stand-in)")
+        return 0
+    if argv == ["auth", "status"]:
+        print("github.com")
+        print("  account: zillionare")
+        print("  token scopes: gist, project, repo, workflow")
+        return 0
     if len(argv) >= 2 and argv[0] == "project" and argv[1] == "list":
         owner = ""
         for i, tok in enumerate(argv):
             if tok == "--owner" and i + 1 < len(argv):
                 owner = argv[i + 1]
-        project_id = f"P_gt_{hashlib.sha256(owner.encode()).hexdigest()[:12]}"
-        payload = {"projects": [{"id": project_id, "title": "", "url": f"https://github.com/users/{owner}/projects/99"}]}
-        entry["kind"] = "project_list"
-        entry["owner"] = owner
-        records.append(entry)
-        ledger.write_text(json.dumps(records, indent=2))
+        payload = {"projects": []}
         print(json.dumps(payload))
         return 0
     if len(argv) >= 2 and argv[0] == "project" and argv[1] == "create":
         owner = ""
         title = ""
-        for i, tok in enumerate(argv):
-            if tok == "--owner" and i + 1 < len(argv):
-                owner = argv[i + 1]
-            if tok == "--title" and i + 1 < len(argv):
-                title = argv[i + 1]
-        project_id = f"P_gt_{hashlib.sha256(f'{owner}/{title}'.encode()).hexdigest()[:12]}"
-        payload = {"id": project_id, "title": title, "url": f"https://github.com/users/{owner}/projects/99"}
-        entry["kind"] = "project_create"
-        entry["owner"] = owner
-        entry["title"] = title
-        entry["project_id"] = project_id
-        records.append(entry)
-        ledger.write_text(json.dumps(records, indent=2))
-        print(json.dumps(payload))
+        for index, token in enumerate(argv):
+            if token == "--owner" and index + 1 < len(argv):
+                owner = argv[index + 1]
+            if token == "--title" and index + 1 < len(argv):
+                title = argv[index + 1]
+        print(
+            json.dumps(
+                {
+                    "id": "P_gt_created",
+                    "title": title,
+                    "url": f"https://github.com/users/{owner}/projects/99",
+                }
+            )
+        )
         return 0
-    entry["kind"] = "unsupported"
-    records.append(entry)
-    ledger.write_text(json.dumps(records, indent=2))
     print(f"gh stand-in: unsupported command: {argv}", file=sys.stderr)
     return 1
 
@@ -538,31 +519,6 @@ if __name__ == "__main__":
 """
 
 
-@dataclass
-class GhLedgerEntry:
-    kind: str
-    owner: str
-    title: str
-    project_id: str
-    at: str
-
-
-def read_gh_ledger(ledger_path: Path) -> list[GhLedgerEntry]:
-    if not ledger_path.exists():
-        return []
-    raw = json.loads(ledger_path.read_text(encoding="utf-8"))
-    return [
-        GhLedgerEntry(
-            kind=str(e.get("kind", "")),
-            owner=str(e.get("owner", "")),
-            title=str(e.get("title", "")),
-            project_id=str(e.get("project_id", "")),
-            at=str(e.get("at", "")),
-        )
-        for e in raw
-    ]
-
-
 # ---------------------------------------------------------------------------
 # Isolated workspace builder
 # ---------------------------------------------------------------------------
@@ -574,7 +530,6 @@ class IsolatedWorkspace:
 
     root: Path
     bare_remote: Path
-    gh_ledger: Path
     gh_bin: Path
     opencode_bin: Path | None = None
     opencode_ledger: Path | None = None
@@ -745,7 +700,6 @@ def build_isolated_workspace(
     gh_dir = tmp_path / "gh-bin"
     gh_dir.mkdir()
     gh_bin = gh_dir / "gh"
-    gh_ledger = tmp_path / "gh-standin-ledger.json"
     gh_bin.write_text(_GH_STANDIN_SCRIPT, encoding="utf-8")
     gh_bin.chmod(gh_bin.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
@@ -825,11 +779,23 @@ def build_isolated_workspace(
         capture_output=True,
         text=True,
     )
+    canonical_origin = "https://github.com/zillionare/louke.git"
+    subprocess.run(
+        ["git", "config", f"url.{bare_remote.as_uri()}.insteadOf", canonical_origin],
+        cwd=str(root),
+        env=env,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "remote", "set-url", "origin", canonical_origin],
+        cwd=str(root),
+        env=env,
+        check=True,
+    )
 
     return IsolatedWorkspace(
         root=root,
         bare_remote=bare_remote,
-        gh_ledger=gh_ledger,
         gh_bin=gh_bin,
         opencode_bin=opencode_bin,
         opencode_ledger=opencode_ledger,

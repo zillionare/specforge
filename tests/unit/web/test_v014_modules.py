@@ -24,7 +24,8 @@ from louke.web.guide_session import (
     AUTHORITY_RUNTIME,
     create_session,
 )
-from louke.web.environment_gate import REQUIRED_SCOPES, start_check
+from louke.web.environment_service import CANONICAL_STEPS
+from louke.web.github_readiness import REQUIRED_SCOPES
 from louke.web.draft_storage import create_draft, draft_key
 from louke.web.document_surface import story_artifact
 from louke.web.compatibility_router import (
@@ -89,15 +90,18 @@ class TestGuideSession:
 
 
 class TestEnvironmentGate:
-    """IF-ENV-01: required scopes and check start."""
+    """IF-ENV-01: terminal readiness requirements."""
 
     def test_required_scopes(self) -> None:
         assert set(REQUIRED_SCOPES) == {"gist", "project", "repo", "workflow"}
 
-    def test_start_check_returns_running(self) -> None:
-        check = start_check(workspace_id="ws_1")
-        assert check["state"] == "running"
-        assert len(check["steps"]) == 4
+    def test_terminal_check_has_four_ordered_steps(self) -> None:
+        assert CANONICAL_STEPS == (
+            "gh_executable",
+            "gh_auth_scopes",
+            "repository_binding",
+            "canonical_main",
+        )
 
 
 class TestDraftStorage:

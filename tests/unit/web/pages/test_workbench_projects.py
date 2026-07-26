@@ -39,6 +39,7 @@ from louke.web.app import create_app
 from louke.web.pages.workbench import (
     _projects_env_wizard,
     _projects_main_panel,
+    _projects_new_project_wizard,
     _projects_sidebar,
     _projects_status_cockpit,
     _render_projects_activity,
@@ -142,6 +143,45 @@ def test_render_projects_activity_returns_projects_html_with_guide(
     body = response.body.decode().lower()
     assert "guide" in body, (
         "AC-FR0501-01: the Projects activity must always mount the Guide sidebar"
+    )
+
+
+def test_render_projects_activity_shares_runtime_identity(workbench_app) -> None:
+    """AC-FR1512-01/02@v0.13.1 / I-15: Projects activity shares the API runtime identity.
+
+    Since ``GET /workbench`` redirects to ``?activity=projects`` once Setup is
+    complete, the rendered Projects activity must itself surface the Settings
+    read-model identity (``<version> (<mode>)``) alongside the project
+    directory and ``.venv`` path metadata, and the v0.15 placeholder.
+    """
+    request = _make_request(
+        "/workbench", query_string=b"activity=projects", app=workbench_app
+    )
+    response = asyncio.run(_render_projects_activity(request))
+    assert isinstance(response, HTMLResponse)
+    html = response.body.decode()
+
+    # AC-FR1512-01: the runtime identity element is rendered on the page.
+    assert 'data-testid="settings-runtime-identity"' in html, (
+        "AC-FR1512-01: the Projects activity must render the runtime identity"
+    )
+    # AC-FR1512-02: project directory and local .venv path metadata are present.
+    assert 'data-testid="settings-project-root"' in html, (
+        "AC-FR1512-02: project directory metadata must accompany the identity"
+    )
+    assert 'data-testid="settings-local-runtime"' in html, (
+        "AC-FR1512-02: the .venv path metadata must accompany the identity"
+    )
+    # The v0.15 Settings placeholder stays visible alongside the identity.
+    assert "待 v0.15" in html
+
+    # The rendered identity matches the public Settings read-model display.
+    from louke import __version__
+    from louke.__main__ import _runtime_mode
+
+    display = f"{__version__} ({_runtime_mode()})"
+    assert display in html, (
+        f"AC-FR1512-01: the rendered display must match the read model ({display!r})"
     )
 
 
@@ -285,9 +325,7 @@ def test_projects_compat_redirects_to_projects_activity() -> None:
     assert isinstance(response, RedirectResponse), (
         "AC-FR1501-02: /projects must redirect to the canonical Projects activity"
     )
-    assert response.status_code == 303, (
-        "AC-FR1501-02: /projects must redirect with 303"
-    )
+    assert response.status_code == 303, "AC-FR1501-02: /projects must redirect with 303"
     assert response.headers["location"].endswith("/workbench?activity=projects"), (
         "AC-FR1501-02: /projects must redirect to /workbench?activity=projects"
     )
@@ -310,6 +348,51 @@ def test_project_detail_compat_redirects_to_project_status() -> None:
     assert "prj_demo" in location, (
         "AC-FR1501-02: /projects/{id} must preserve the project identity"
     )
+
+
+def test_project_detail_compat_rejects_an_unbound_project(
+    workbench_app,
+    tmp_path: Path,
+) -> None:
+    """AC-FR1301-02: an unknown Project deep link returns a locatable 404."""
+    # AC-FR1301-02
+    state_path = tmp_path / ".louke" / "project-state.json"
+    state_path.write_text(
+        '{"state":"active","project_id":"prj_bound"}', encoding="utf-8"
+    )
+    request = _make_request(
+        "/projects/prj_missing",
+        path_params={"project_id": "prj_missing"},
+        app=workbench_app,
+    )
+
+    response = asyncio.run(project_detail_compat(request))
+
+    assert isinstance(response, HTMLResponse)
+    assert response.status_code == 404
+    body = response.body.decode()
+    assert "prj_missing" in body
+    assert "not found" in body.lower() or "migration" in body.lower()
+
+
+def test_new_project_wizard_uses_canonical_preview_and_confirm_apis(
+    workbench_app,
+) -> None:
+    """AC-FR1001-01 / AC-FR1101-01: wizard drives real Preview and Confirm APIs."""
+    # AC-FR1001-01 / AC-FR1101-01
+    request = _make_request(
+        "/workbench",
+        query_string=b"activity=projects&action=new_project",
+        app=workbench_app,
+    )
+
+    html = _projects_new_project_wizard(request)
+
+    assert "/api/projects/preview" in html
+    assert "/api/projects/confirm" in html
+    assert 'data-testid="project-preview"' in html
+    assert 'data-testid="create-project"' in html
+    assert "expected_preview_revision" in html
 
 
 def test_run_detail_compat_redirects_to_project_status() -> None:

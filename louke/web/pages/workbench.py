@@ -9,7 +9,7 @@ import re
 import sys
 
 from starlette.requests import Request
-from starlette.responses import HTMLResponse
+from starlette.responses import HTMLResponse, RedirectResponse
 
 from ..bindings import AGENT_TO_ROLE
 from ..render import render_markdown_view
@@ -52,6 +52,12 @@ async def workbench(request: Request) -> HTMLResponse:
         activity = "chat"
     if activity == "projects":
         return await _render_projects_activity(request)
+    if (
+        activity == "dev-docs"
+        and request.query_params.get("document") == "story"
+        and request.query_params.get("project")
+    ):
+        return _render_project_story_document(request)
 
     store = request.app.state.store
     specs = _spec_tree(store.specs_dir, store.root)
@@ -1334,6 +1340,23 @@ button, input, textarea { font:inherit; }
 [data-role="return-confirm"] { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
   padding:24px; border:1px solid var(--line); border-radius:12px; background:#fff;
   box-shadow:0 8px 32px rgba(0,0,0,.15); z-index:100; }
+[data-louke-region="settings"] { display:flex; gap:0; padding:20px clamp(22px,4vw,64px);
+  border-top:1px solid var(--line); background:var(--panel); }
+[data-settings-pane="menu"] { display:flex; width:220px; flex-direction:column; gap:3px; padding:0; }
+[data-settings-pane="menu"] button { display:flex; min-height:34px; align-items:center; gap:9px;
+  padding:7px 9px; border:1px solid transparent; border-radius:7px; color:#454545;
+  background:transparent; cursor:pointer; font-size:13px; text-align:left; }
+[data-settings-pane="menu"] button:hover { border-color:var(--line); background:#fff; }
+[data-settings-pane="menu"] button span { margin-left:auto; color:var(--faint); font-size:11px; }
+[data-settings-pane="detail"] { min-height:160px; flex:1; margin-left:28px; padding:20px;
+  border-left:1px solid var(--line); color:var(--muted); }
+[data-settings-pane="detail"] h2 { margin:0 0 8px; color:var(--ink); font-size:16px; }
+[data-settings-pane="detail"] h3 { margin:14px 0 4px; color:var(--ink); font-size:13px; }
+[data-settings-pane="detail"] dl { margin:6px 0 0; display:grid; grid-template-columns:auto 1fr;
+  gap:4px 12px; }
+[data-settings-pane="detail"] dt { color:var(--faint); font-size:12px; }
+[data-settings-pane="detail"] dd { margin:0; word-break:break-all; font-size:12px; }
+[aria-disabled="true"] { opacity:.5; cursor:default; }
 """
 
 _PROJECTS_SCRIPT = """
@@ -1344,17 +1367,38 @@ document.querySelectorAll('[data-testid="new-project"]').forEach(function(btn) {
   });
 });
 // IF-STATUS-01: timeline node selection updates URL without changing active pointer.
+function selectTimelineNode(node) {
+  var attId = node.getAttribute('data-attempt-id');
+  var stageId = node.getAttribute('data-stage-id') || node.getAttribute('data-stage');
+  if (!attId && !stageId) return;
+  var url = new URL(window.location);
+  if (attId) url.searchParams.set('selected_attempt', attId);
+  else url.searchParams.set('selected_stage', stageId);
+  window.history.pushState({}, '', url);
+  document.querySelectorAll('[data-testid="stage-timeline"] [tabindex="0"]').forEach(function(n) {
+    n.removeAttribute('data-selected');
+  });
+  node.setAttribute('data-selected', 'true');
+}
 document.querySelectorAll('[data-attempt-id]').forEach(function(node) {
-  node.addEventListener('click', function() {
-    var attId = node.getAttribute('data-attempt-id');
-    if (!attId) return;
-    var url = new URL(window.location);
-    url.searchParams.set('selected_attempt', attId);
-    window.history.pushState({}, '', url);
-    document.querySelectorAll('[data-attempt-id]').forEach(function(n) {
-      n.removeAttribute('data-selected');
-    });
-    node.setAttribute('data-selected', 'true');
+  node.addEventListener('click', function() { selectTimelineNode(node); });
+});
+document.querySelectorAll('[data-testid="stage-timeline"] [tabindex="0"]').forEach(function(node, index, nodes) {
+  node.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      selectTimelineNode(node);
+      return;
+    }
+    var nextIndex = index;
+    if (event.key === 'ArrowRight') nextIndex = Math.min(index + 1, nodes.length - 1);
+    if (event.key === 'ArrowLeft') nextIndex = Math.max(index - 1, 0);
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = nodes.length - 1;
+    if (nextIndex !== index) {
+      event.preventDefault();
+      nodes[nextIndex].focus();
+    }
   });
 });
 // IF-RETURN-01: return button opens a confirm dialog.
@@ -1392,6 +1436,58 @@ document.querySelectorAll('[data-action="return"]').forEach(function(btn) {
   });
 });
 """
+
+
+def _render_project_story_document(
+    request: Request,
+) -> HTMLResponse | RedirectResponse:
+    """Render the authenticated canonical Story in the Workbench Dev Docs URL.
+
+    Args:
+        request: Request containing ``project``, ``document`` and optional
+            ``revision`` query parameters.
+
+    Returns:
+        The exact Project Story document, an authentication redirect, or a
+        locatable 404 response when the identity cannot be resolved.
+
+    Side Effects:
+        None.
+    """
+    from ..auth import SESSION_COOKIE, current_user
+    from urllib.parse import quote
+
+    session = request.cookies.get(SESSION_COOKIE)
+    if current_user(request.app.state.store, session) is None:
+        next_path = str(request.url.path) + "?" + request.url.query
+        return RedirectResponse(
+            url=f"/login?next={quote(next_path, safe='/')}", status_code=303
+        )
+    project_id = request.query_params.get("project", "")
+    binding = request.app.state.release_entry.current_project(project_id)
+    if binding is None or not binding.get("run_id"):
+        return _identity_not_found("Project", project_id)
+    artifact = request.app.state.story_entry.artifact(str(binding["run_id"]))
+    if artifact is None:
+        return _identity_not_found("Story", project_id)
+    requested_revision = request.query_params.get("revision")
+    if requested_revision and requested_revision != str(artifact.revision):
+        return _identity_not_found("Story revision", requested_revision)
+    return HTMLResponse(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        "<title>Louke — Dev Docs — Story</title>"
+        f"<style>{_PROJECTS_STYLES}</style></head><body>"
+        '<main class="projects-card" data-testid="dev-docs-story">'
+        f"<h1>Story</h1><p>Project: {escape(project_id)} · "
+        f"Revision: {artifact.revision}</p>"
+        f"<pre>{escape(artifact.body_md)}</pre>"
+        f'<p><a href="/workbench?activity=projects&amp;project={escape(project_id)}">'
+        "Back to Project Status</a></p></main><script>"
+        "(function(){const key=sessionStorage.getItem('louke.pending-draft-clear');"
+        "if(key){try{localStorage.removeItem(key);}catch(_){ }"
+        "sessionStorage.removeItem('louke.pending-draft-clear');}})();"
+        "</script></body></html>"
+    )
 
 
 def _read_project_state(request: Request) -> dict:
@@ -1433,12 +1529,20 @@ async def _render_projects_activity(request: Request) -> HTMLResponse:
     if action == "new_project" or new_param == "1":
         main = _projects_new_project_wizard(request)
     elif resolved == "active":
-        main = _projects_main_panel_active(state)
+        main = _projects_main_panel_active(
+            _runtime_active_project_state(request, state)
+        )
     else:
         main = _projects_main_panel(resolved)
+    # I-15 / AC-FR1512-01/02: the Projects activity is the canonical
+    # ``/workbench`` landing once Setup is complete, so it must itself
+    # surface the Settings read-model runtime identity alongside the
+    # project directory and ``.venv`` path metadata on every render.
+    workspace_root = Path(request.app.state.workspace_root)
+    settings = _settings(workspace_root)
     return HTMLResponse(
         f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
-        f"<title>Louke — Projects</title>"
+        f"<title>Louke - Projects</title>"
         f"<style>{_PROJECTS_STYLES}</style></head><body>"
         f'<div id="workbench">'
         f'<div data-testid="workbench-toolbar" data-louke-region="toolbar" '
@@ -1447,9 +1551,72 @@ async def _render_projects_activity(request: Request) -> HTMLResponse:
         f'data-role="guide" role="complementary">{sidebar}</aside>'
         f'<main data-testid="workbench-main" data-louke-region="main">{main}</main>'
         f"</div>"
+        f'<section data-testid="settings-region" data-louke-region="settings" '
+        f'aria-label="Settings">{settings}</section>'
         f"<script>{_PROJECTS_SCRIPT}</script>"
         f"</body></html>"
     )
+
+
+def _runtime_active_project_state(request: Request, state: dict) -> dict:
+    """Project active status and timeline from the bound Runtime workflow run."""
+    project = state.get("project") if isinstance(state.get("project"), dict) else {}
+    run_id = str(project.get("run_id") or state.get("run_id") or "")
+    if not run_id:
+        return state
+    try:
+        store = getattr(
+            request.app.state, "runtime_run_store", request.app.state.v12_run_store
+        )
+        run = store.get_run(run_id)
+        definition = store.get_definition(run_id)
+        attempts = store.get_step_attempts(run_id)
+    except (AttributeError, KeyError, ValueError):
+        return state
+    latest_attempts = {attempt.step_id: attempt for attempt in attempts}
+    projected = dict(state)
+    projected["active"] = {
+        "stage": run.current_step,
+        "status": run.status,
+        "run_id": run.run_id,
+        "stage_id": f"stage:{run.run_id}:{run.current_step}",
+        "owner": "Runtime",
+    }
+    projected["timeline"] = [
+        _runtime_timeline_node(run, step.step_id, latest_attempts.get(step.step_id))
+        for step in definition.steps
+    ]
+    return projected
+
+
+def _runtime_timeline_node(run, step_id: str, attempt) -> dict:
+    """Project one declared stage from persisted Runtime run and attempt facts."""
+    stage_id = f"stage:{run.run_id}:{step_id}"
+    if attempt is not None:
+        return {
+            "stage": step_id,
+            "stage_id": stage_id,
+            "attempt_id": attempt.attempt_id,
+            "status": attempt.status,
+            "display_state": "completed"
+            if attempt.status == "completed"
+            else "attention",
+        }
+    if step_id == run.current_step:
+        return {
+            "stage": step_id,
+            "stage_id": stage_id,
+            "attempt_id": None,
+            "status": run.status,
+            "display_state": "active",
+        }
+    return {
+        "stage": step_id,
+        "stage_id": stage_id,
+        "attempt_id": None,
+        "status": "pending",
+        "display_state": "pending",
+    }
 
 
 def _projects_toolbar() -> str:
@@ -1493,53 +1660,56 @@ def _projects_sidebar() -> str:
 def _projects_new_project_wizard(request: Request | None = None) -> str:
     """IF-ENV-01 + IF-DRAFT-01: Render the New Project wizard with Story form.
 
-    Shows the Environment check steps (reading gh-ledger.json when available)
-    and a Story/version input form.
+    Shows terminal Environment readiness steps and a Story/version input form.
+    The browser obtains current readiness from the authenticated read-only API.
     """
-    import json as _json
-
-    # Read gh-ledger.json for real check results when available.
-    ledger: dict = {}
+    csrf_token = ""
+    env_passed = False
+    draft_key = "louke.new-project.v1:unknown:anonymous"
     if request is not None:
+        from ..auth import SESSION_COOKIE, current_user
+        from ..csrf_middleware import issue_for_session
+
+        csrf_token = issue_for_session(
+            session_id=request.cookies.get(SESSION_COOKIE, "preauth")
+        )
         try:
-            workspace_root = Path(request.app.state.workspace_root)
-            ledger_path = workspace_root / ".louke" / "gh-ledger.json"
-            if ledger_path.is_file():
-                ledger = _json.loads(ledger_path.read_text(encoding="utf-8"))
-        except (KeyError, AttributeError, OSError, _json.JSONDecodeError):
+            user = current_user(
+                request.app.state.store,
+                request.cookies.get(SESSION_COOKIE),
+            )
+            principal_id = getattr(user, "username", None) or "anonymous"
+            workspace_id = getattr(request.app.state, "workspace_id", "unknown")
+            draft_key = f"louke.new-project.v1:{workspace_id}:{principal_id}"
+        except (KeyError, AttributeError, OSError, TypeError, ValueError):
             pass
 
-    steps = (
+    step_labels = (
         ("gh_executable", "GitHub CLI executable"),
         ("gh_auth_scopes", "GitHub auth & scopes"),
         ("repository_binding", "Repository binding"),
         ("canonical_main", "Canonical main branch"),
     )
+    env_check = {
+        "state": "blocked",
+        "steps": [
+            {
+                "id": step_id,
+                "state": "blocked",
+                "missing": ["readiness check has not run"],
+                "diagnosis": None,
+            }
+            for step_id, _ in step_labels
+        ],
+    }
     step_items = []
-    for sid, label in steps:
-        val = ledger.get(sid)
-        if val is True or (isinstance(val, dict) and val):
-            state_cls = "passed"
-            state_txt = "passed"
-        elif val is False or val is None:
-            state_cls = "failed"
-            state_txt = "failed"
-            # Show missing scopes for gh_auth_scopes
-            if sid == "gh_auth_scopes" and isinstance(val, list):
-                state_txt = f"failed (missing: {', '.join(val)})"
-        elif isinstance(val, list):
-            # gh_auth_scopes as list of present scopes
-            required = {"gist", "project", "repo", "workflow"}
-            missing = required - set(val)
-            if missing:
-                state_cls = "failed"
-                state_txt = f"failed (missing scope: {', '.join(sorted(missing))})"
-            else:
-                state_cls = "passed"
-                state_txt = "passed"
-        else:
-            state_cls = "pending"
-            state_txt = "pending"
+    for step_def, (sid, label) in zip(env_check["steps"], step_labels):
+        state_cls = step_def["state"]
+        state_txt = step_def["state"]
+        if step_def["missing"] and sid == "gh_auth_scopes":
+            state_txt = f"failed (missing: {', '.join(step_def['missing'])})"
+        elif step_def["missing"]:
+            state_txt = f"failed ({', '.join(step_def['missing'])})"
         step_items.append(
             f'<li data-testid="env-step-{sid}" data-step-id="{sid}" '
             f'data-state="{state_cls}">'
@@ -1548,32 +1718,276 @@ def _projects_new_project_wizard(request: Request | None = None) -> str:
             f"</li>"
         )
 
+    diagnosis_html = _environment_diagnosis_html(env_check)
     env_html = (
         '<section data-testid="env-wizard" aria-label="Environment Wizard">'
         "<h2>Environment check</h2>"
         f'<ol data-testid="env-steps" role="list">{"".join(step_items)}</ol>'
-        '<div data-testid="env-diagnosis" hidden></div>'
-        '<div class="projects-actions">'
-        '<button type="button" data-testid="env-retry">Retry</button>'
-        '<button type="button" data-testid="env-cancel">Cancel</button>'
-        "</div></section>"
+        + diagnosis_html
+        + '<div class="projects-actions">'
+        + '<button type="button" data-testid="env-retry">Retry</button>'
+        + '<button type="button" data-testid="env-cancel">Cancel</button>'
+        + "</div></section>"
     )
 
-    return (
-        '<div class="projects-card" data-projects-state="new_project">'
+    # AC-FR0601-02: disable Story input, Preview and Create until the
+    # environment gate passes. The server-side /api/projects/preview and
+    # /api/projects/confirm also enforce this fail-closed, so the UI
+    # disabled state is defense-in-depth, not the sole authority.
+    gate_attr = f' data-env-passed="{"true" if env_passed else "false"}"'
+    input_disabled = "" if env_passed else " disabled"
+
+    wizard = (
+        '<div class="projects-card" data-projects-state="new_project"' + gate_attr + ">"
         "<h1>New Project</h1>"
         + env_html
-        + '<form name="new_project_story" data-testid="new-project-story">'
+        + '<form name="new_project_story" data-testid="new-project-story" '
+        + f'data-csrf="{escape(csrf_token, quote=True)}" '
+        + ">"
         '<label class="setup-field">Story'
         '<textarea name="story" rows="4" placeholder="Describe the release story…"'
-        ' aria-label="Story"></textarea></label>'
+        f' aria-label="Story" required{input_disabled}></textarea></label>'
         '<label class="setup-field">Release version'
         '<input name="release_version" type="text" placeholder="0.14.0"'
-        ' aria-label="Release version"></label>'
+        f' aria-label="Release version" required{input_disabled}></label>'
         '<div class="projects-actions">'
-        '<button type="submit" data-testid="preview">Preview</button>'
+        f'<button type="submit" data-testid="preview"{input_disabled}>Preview</button>'
         '<button type="button" data-testid="cancel">Cancel</button>'
-        "</div></form></div>"
+        "</div></form>"
+        '<section data-testid="project-preview" hidden aria-live="polite">'
+        "<h2>Preview</h2>"
+        '<p data-testid="preview-story"></p>'
+        '<p>Release: <strong data-testid="preview-version"></strong></p>'
+        '<p>Workspace: <strong data-testid="preview-workspace"></strong></p>'
+        '<p>Repository: <strong data-testid="preview-repository"></strong></p>'
+        '<p data-testid="preview-error" role="alert" hidden></p>'
+        '<div class="projects-actions">'
+        '<button type="button" data-testid="create-project" disabled>Create</button>'
+        '<button type="button" data-testid="preview-cancel">Cancel</button>'
+        "</div></section></div>"
+    )
+    return wizard + _new_project_script(csrf_token, draft_key)
+
+
+def _environment_diagnosis_html(environment: dict) -> str:
+    """Render the first persisted blocking diagnosis for the Environment Wizard.
+
+    Args:
+        environment: Evaluated Environment Check projection.
+
+    Returns:
+        Escaped visible diagnosis markup, or a hidden empty diagnosis region
+        when every step has no actionable persisted diagnosis.
+
+    Side Effects:
+        None.
+    """
+    for step in environment.get("steps", []):
+        if not isinstance(step, dict) or step.get("state") not in {
+            "failed",
+            "uncertain",
+        }:
+            continue
+        diagnosis = step.get("diagnosis")
+        if not isinstance(diagnosis, dict):
+            continue
+        impact = diagnosis.get("impact")
+        if not impact:
+            continue
+        object_name = escape(str(diagnosis.get("object") or "Environment check"))
+        return (
+            '<div data-testid="env-diagnosis" role="alert">'
+            f"<strong>{object_name}</strong>"
+            f"<p>{escape(str(impact))}</p>"
+            "</div>"
+        )
+    return '<div data-testid="env-diagnosis" hidden></div>'
+
+
+def _new_project_script(csrf_token: str, draft_key: str = "") -> str:
+    """Return browser behavior for canonical Preview, Confirm and status readback.
+
+    Args:
+        csrf_token: Session-bound CSRF token rendered as a JS literal so the
+            browser and integration tests share the same extraction contract.
+        draft_key: Workspace/principal-bound browser draft key.
+
+    Returns:
+        A script that drives the version-agnostic Project APIs and opens the
+        resulting canonical Story in Workbench Dev Docs.
+
+    Side Effects:
+        The generated browser code performs authenticated HTTP mutations only
+        after the Human selects Create.
+    """
+    token = escape(csrf_token, quote=True)
+    safe_draft_key = json.dumps(draft_key or "louke.new-project.v1:unknown:anonymous")
+    template = """<script>
+(function() {
+  const csrf = "__CSRF_TOKEN__";
+  const form = document.querySelector('form[name="new_project_story"]');
+  const previewPanel = document.querySelector('[data-testid="project-preview"]');
+  const error = document.querySelector('[data-testid="preview-error"]');
+  const create = document.querySelector('[data-testid="create-project"]');
+  const retry = document.querySelector('[data-testid="env-retry"]');
+  const diagnosis = document.querySelector('[data-testid="env-diagnosis"]');
+  const headers = {'Content-Type': 'application/json', 'X-Louke-CSRF': csrf};
+  const draftKey = __DRAFT_KEY__;
+  let preview = null;
+  // AC-FR1101-02: one logical idempotency key preserved across Confirm
+  // retry/readback so repeated/subsequent Confirm calls for the same
+  // preview reuse the same key rather than minting a new UUID each time.
+  let storedIdempotencyKey = null;
+  let previewIdempotencyKey = null;
+  function getIdempotencyKey() {
+    if (!storedIdempotencyKey) {
+      storedIdempotencyKey = window.crypto && window.crypto.randomUUID
+        ? window.crypto.randomUUID()
+        : 'project-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    }
+    return storedIdempotencyKey;
+  }
+  function getPreviewIdempotencyKey() {
+    if (!previewIdempotencyKey) previewIdempotencyKey = 'preview-' + getIdempotencyKey();
+    return previewIdempotencyKey;
+  }
+  function showError(message) {
+    error.textContent = message;
+    error.hidden = false;
+  }
+  function showEnvironmentError(message) {
+    diagnosis.textContent = message;
+    diagnosis.hidden = false;
+  }
+  function updateEnvironment(check) {
+    document.querySelectorAll('[data-step-id]').forEach(function(item) {
+      const step = (check.steps || []).find(function(candidate) {
+        return candidate.id === item.dataset.stepId;
+      });
+      if (!step) return;
+      item.dataset.state = step.state;
+      const state = item.querySelector('.env-step-state');
+      if (state) {
+        state.textContent = step.missing && step.missing.length
+          ? step.state + ' (' + step.missing.join(', ') + ')' : step.state;
+      }
+    });
+    const enabled = check.state === 'passed' && check.story_input_enabled;
+    const card = document.querySelector('[data-projects-state="new_project"]');
+    if (card) card.dataset.envPassed = enabled ? 'true' : 'false';
+    form.querySelectorAll('textarea, input, [data-testid="preview"]').forEach(function(control) {
+      control.disabled = !enabled;
+    });
+    if (!enabled) create.disabled = true;
+    if (enabled) diagnosis.hidden = true;
+  }
+  function restoreDraft() {
+    try {
+      const draft = JSON.parse(window.localStorage.getItem(draftKey) || '{}');
+      if (typeof draft.story === 'string') form.story.value = draft.story;
+      if (typeof draft.release_version === 'string') form.release_version.value = draft.release_version;
+    } catch (_) { /* Browser storage is optional. */ }
+  }
+  function saveDraft() {
+    try {
+      window.localStorage.setItem(draftKey, JSON.stringify({
+        story: form.story.value, release_version: form.release_version.value,
+        resume_step: 'input', saved_at: new Date().toISOString()
+      }));
+    } catch (_) { /* Blocked storage must not block the wizard. */ }
+  }
+  async function startEnvironmentCheck() {
+    const response = await fetch('/api/projects/environment-checks', {
+      method: 'POST', headers: headers
+    });
+    const body = await response.json();
+    if (!response.ok) { showEnvironmentError(body.message || 'Environment check failed'); return; }
+    updateEnvironment(body);
+  }
+  async function retryEnvironmentCheck() {
+    retry.disabled = true;
+    try {
+      await startEnvironmentCheck();
+    } finally {
+      retry.disabled = false;
+    }
+  }
+  restoreDraft();
+  form.story.addEventListener('input', saveDraft);
+  form.release_version.addEventListener('input', saveDraft);
+  retry.addEventListener('click', retryEnvironmentCheck);
+  startEnvironmentCheck().catch(function() {
+    showEnvironmentError('Environment check could not be completed');
+  });
+  form.addEventListener('submit', async function(event) {
+    event.preventDefault();
+    error.hidden = true;
+    const response = await fetch('/api/projects/preview', {
+      method: 'POST', headers: Object.assign({}, headers,
+        {'Idempotency-Key': getPreviewIdempotencyKey()}),
+      body: JSON.stringify({story: form.story.value,
+        release_version: form.release_version.value})
+    });
+    const body = await response.json();
+    if (!response.ok) { showError(body.message || 'Preview failed'); return; }
+    preview = body;
+    try {
+      window.localStorage.setItem(draftKey, JSON.stringify({
+        story: form.story.value, release_version: form.release_version.value,
+        resume_step: 'preview', saved_at: new Date().toISOString()
+      }));
+    } catch (_) { /* Blocked storage must not block Preview. */ }
+    document.querySelector('[data-testid="preview-story"]').textContent = body.story;
+    document.querySelector('[data-testid="preview-version"]').textContent = body.release.canonical;
+    document.querySelector('[data-testid="preview-workspace"]').textContent =
+      body.workspace && body.workspace.workspace_id || body.workspace_id || '';
+    const repository = body.repository || {};
+    document.querySelector('[data-testid="preview-repository"]').textContent =
+      repository.display_url || [repository.owner, repository.name].filter(Boolean).join('/') || '';
+    create.disabled = false;
+    form.hidden = true;
+    previewPanel.hidden = false;
+    create.focus();
+  });
+  create.addEventListener('click', async function() {
+    if (!preview) return;
+    create.disabled = true;
+    const idemKey = getIdempotencyKey();
+    const response = await fetch('/api/projects/confirm', {
+      method: 'POST', headers: Object.assign({}, headers,
+        {'Idempotency-Key': idemKey}),
+      body: JSON.stringify({preview_id: preview.preview_id,
+        expected_preview_revision: preview.preview_revision,
+        request_digest: preview.request_digest})
+    });
+    const body = await response.json();
+    if (!response.ok) { showError(body.message || 'Create failed'); create.disabled = false; return; }
+    completeCreation(body);
+  });
+  function completeCreation(body) {
+    if (body.status === 'ready') {
+      const revision = body.story && body.story.revision ? body.story.revision : 1;
+      try { window.sessionStorage.setItem('louke.pending-draft-clear', draftKey); } catch (_) { /* optional */ }
+      window.location.assign('/workbench?activity=dev-docs&project=' +
+        encodeURIComponent(body.project_id) + '&document=story&revision=' + revision);
+      return;
+    }
+    showError('Project creation ' + body.status);
+    create.disabled = false;
+  }
+  document.querySelector('[data-testid="cancel"]').addEventListener('click', function() {
+    window.location.assign('/workbench?activity=projects');
+  });
+  document.querySelector('[data-testid="env-cancel"]').addEventListener('click', function() {
+    window.location.assign('/workbench?activity=projects');
+  });
+  document.querySelector('[data-testid="preview-cancel"]').addEventListener('click', function() {
+    previewPanel.hidden = true; form.hidden = false; form.querySelector('textarea').focus();
+  });
+})();
+</script>"""
+    return template.replace("__CSRF_TOKEN__", token).replace(
+        "__DRAFT_KEY__", safe_draft_key
     )
 
 
@@ -1593,15 +2007,18 @@ def _projects_main_panel_active(state: dict) -> str:
     ordinal = active.get("attempt_ordinal", "")
     elapsed = active.get("elapsed_seconds", "")
     active_stage = escape(str(active.get("stage", "")))
-    active_attempt = escape(str(active.get("attempt_id", "")))
+    run_id = escape(str(active.get("run_id", "")))
     ordinal_html = f"<span>Attempt #{ordinal}</span>" if ordinal else ""
     elapsed_html = f"<span>{elapsed}s elapsed</span>" if elapsed else ""
 
     # Timeline nodes
     node_items = []
     for node in timeline:
-        att_id = escape(str(node.get("attempt_id", "")))
+        att_id = escape(str(node.get("attempt_id") or ""))
+        stage_id = escape(str(node.get("stage_id", "")))
         stage = escape(str(node.get("stage", "")))
+        status = escape(str(node.get("status", "")))
+        display_state = escape(str(node.get("display_state", "")))
         ret = node.get("return_eligibility", {})
         allowed = ret.get("allowed", False) if isinstance(ret, dict) else False
         return_btn = (
@@ -1611,31 +2028,18 @@ def _projects_main_panel_active(state: dict) -> str:
             else ""
         )
         node_items.append(
-            f'<li data-attempt-id="{att_id}" data-stage="{stage}" '
+            f'<li data-attempt-id="{att_id}" data-stage-id="{stage_id}" '
+            f'data-stage="{stage}" data-status="{status}" '
+            f'data-display-state="{display_state}" '
             f'tabindex="0" role="listitem">'
-            f"<span>{stage}</span><span>{att_id}</span>{return_btn}</li>"
+            f"<span>{stage}</span><span>{status}</span><span>{att_id}</span>{return_btn}</li>"
         )
 
-    # If no explicit timeline, fall back to the 13 canonical stages
+    # A missing Runtime projection is displayed as one unknown stage rather
+    # than inventing a synthetic lifecycle.
     if not node_items:
-        stages = (
-            "M-START",
-            "M-STORY",
-            "M-SPEC",
-            "M-ACC",
-            "M-REQ-APPROVAL",
-            "M-DESIGN",
-            "M-IMPL",
-            "M-TEST",
-            "M-VERIFY",
-            "M-SECURITY",
-            "M-RELEASE",
-            "M-PUBLISH",
-            "M-MILESTONE",
-        )
         node_items = [
-            f'<li data-stage="{s}" tabindex="0" role="listitem">{s}</li>'
-            for s in stages
+            '<li data-stage="unknown" tabindex="0" role="listitem">unknown</li>'
         ]
 
     timeline_html = "".join(node_items)
@@ -1646,9 +2050,10 @@ def _projects_main_panel_active(state: dict) -> str:
         f'<section data-testid="status-cockpit" data-project-id="{pid}">'
         # Active card
         f'<article data-testid="active-card" data-display-state="active" '
-        f'data-attempt-id="{active_attempt}">'
+        f'data-run-id="{run_id}">'
         f"<h2>Active: {active_stage}</h2>"
         f'<p data-testid="active-owner">Owner: {owner}</p>'
+        f'<p data-testid="active-run">Run: {run_id}</p>'
         f"<p>{ordinal_html} {elapsed_html}</p>"
         f"</article>"
         # Timeline
@@ -1822,13 +2227,91 @@ async def projects_new_compat(request: Request) -> HTMLResponse:
 
 
 async def project_detail_compat(request: Request) -> HTMLResponse:
-    """IF-COMPAT-01: ``/projects/{project_id}`` → Project Status for that id."""
+    """Resolve ``/projects/{project_id}`` to that exact Project Status.
+
+    Args:
+        request: Request carrying the legacy Project path identity.
+
+    Returns:
+        A 303 canonical redirect for a known Project, or a locatable 404 when
+        no persisted binding safely maps the requested identity.
+
+    Side Effects:
+        None.
+    """
     from starlette.responses import RedirectResponse as _Redirect
 
     project_id = request.path_params.get("project_id", "")
+    try:
+        state = _read_project_state(request)
+    except (KeyError, AttributeError):
+        return _Redirect(
+            url=f"/workbench?activity=projects&project={project_id}",
+            status_code=303,
+        )
+    known_ids = _project_ids_from_state(state)
+    service = getattr(request.app.state, "release_entry", None)
+    if service is not None and service.current_project(project_id) is not None:
+        known_ids.add(project_id)
+    if project_id not in known_ids:
+        return _identity_not_found("Project", project_id)
     return _Redirect(
         url=f"/workbench?activity=projects&project={project_id}",
         status_code=303,
+    )
+
+
+def _project_ids_from_state(state: dict) -> set[str]:
+    """Return explicit Project identities represented by persisted UI state.
+
+    Args:
+        state: Parsed ``project-state.json`` object.
+
+    Returns:
+        Non-empty Project ids from active, nested and conflict entries.
+    """
+    identities: set[str] = set()
+    direct = state.get("project_id")
+    if isinstance(direct, str) and direct:
+        identities.add(direct)
+    nested = state.get("project")
+    if isinstance(nested, dict):
+        nested_id = nested.get("project_id")
+        if isinstance(nested_id, str) and nested_id:
+            identities.add(nested_id)
+    conflicts = state.get("conflicts", [])
+    if isinstance(conflicts, list):
+        for conflict in conflicts:
+            if isinstance(conflict, dict):
+                conflict_id = conflict.get("project_id")
+                if isinstance(conflict_id, str) and conflict_id:
+                    identities.add(conflict_id)
+    return identities
+
+
+def _identity_not_found(resource: str, identity: str) -> HTMLResponse:
+    """Return a safely escaped, locatable missing-identity result.
+
+    Args:
+        resource: Human-readable resource kind.
+        identity: Untrusted identity supplied by the route.
+
+    Returns:
+        HTTP 404 HTML with recovery back to Projects.
+    """
+    safe_resource = escape(resource)
+    safe_identity = escape(identity)
+    return HTMLResponse(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        f"<title>Louke — {safe_resource} not found</title>"
+        f"<style>{_PROJECTS_STYLES}</style></head><body>"
+        '<main class="projects-card">'
+        f"<h1>{safe_resource} not found</h1>"
+        f"<p>The requested {safe_resource.lower()} <code>{safe_identity}</code> "
+        "has no safe workspace binding. It may require migration.</p>"
+        '<p><a href="/workbench?activity=projects">Back to Projects</a></p>'
+        "</main></body></html>",
+        status_code=404,
     )
 
 

@@ -107,6 +107,7 @@ def build_catalog(
         registry.register(build_entry_definition(bundle))
     else:
         registry.register(_host_compatibility_definition())
+        registry.register(_project_entry_definition())
     registry.register(_bug_fix_definition())
     return registry
 
@@ -150,6 +151,24 @@ def _host_compatibility_definition() -> WorkflowDefinition:
         version="1",
         start_step="start",
         steps=(start, req, design, m_lock, implementation, complete),
+    )
+
+
+def _project_entry_definition() -> WorkflowDefinition:
+    """Return the stable Project-creation entry flow for a host workspace."""
+    entry = Step(
+        step_id="M-START",
+        kind="program",
+        transitions=(Edge("entry-story", "M-START", "M-STORY", "done"),),
+        handler="project.start_story",
+        implemented=True,
+    )
+    story = Step(step_id="M-STORY", kind="program", implemented=True)
+    return WorkflowDefinition(
+        definition_id="project_entry",
+        version="1",
+        start_step=entry.step_id,
+        steps=(entry, story),
     )
 
 

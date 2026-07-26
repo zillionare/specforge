@@ -14,10 +14,10 @@ from louke.web.auth import (
 )
 from starlette.responses import Response
 from louke.web.app import _set_session_cookie
-from louke.web.api.v14_releases import _require_human as require_release_human
-from louke.web.api.v14_scribe import _require_human as require_scribe_human
+from louke.web.api.projects import _require_human as require_project_human
+from louke.web.api.scribe import _require_human as require_scribe_human
 from louke.web.store import ProjectStore
-from louke.web.api.v14_releases import _require_human
+from louke.web.api.projects import _require_human
 
 
 def _store(tmp_path: Path) -> ProjectStore:
@@ -59,9 +59,7 @@ def test_release_mutation_requires_header_even_when_csrf_cookie_exists(
     csrf = csrf_token_for_session(store, session)
     request = SimpleNamespace(
         app=SimpleNamespace(
-            state=SimpleNamespace(
-                store=store, v14_allowed_origin="https://louke.example"
-            )
+            state=SimpleNamespace(store=store, allowed_origin="https://louke.example")
         ),
         cookies={"louke_session": session, "louke_csrf": csrf},
         headers={"origin": "https://louke.example"},
@@ -90,7 +88,7 @@ def test_session_cookie_contract_is_strict_and_only_session_cookie_is_set(
     assert "louke_csrf=" not in cookies[0]
 
 
-@pytest.mark.parametrize("require_human", [require_release_human, require_scribe_human])
+@pytest.mark.parametrize("require_human", [require_project_human, require_scribe_human])
 @pytest.mark.parametrize("origin", [None, "https://foreign.example"])
 def test_v14_mutations_reject_missing_or_foreign_origin_without_state_change(
     tmp_path: Path, require_human, origin: str | None
@@ -101,9 +99,7 @@ def test_v14_mutations_reject_missing_or_foreign_origin_without_state_change(
     session = issue_session_cookie(store, "human")
     request = SimpleNamespace(
         app=SimpleNamespace(
-            state=SimpleNamespace(
-                store=store, v14_allowed_origin="https://louke.example"
-            )
+            state=SimpleNamespace(store=store, allowed_origin="https://louke.example")
         ),
         cookies={"louke_session": session},
         headers={"origin": origin} if origin else {},

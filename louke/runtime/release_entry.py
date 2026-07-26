@@ -1,17 +1,21 @@
-"""Runtime-owned v0.14 release preview, confirmation and status service."""
+"""Runtime-owned Project preview, confirmation, and status service."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
+import tempfile
 import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Protocol
+from pathlib import Path
 
 from louke.runtime.catalog import DefinitionNotFoundError, WorkflowDefinition
 from louke.runtime.release_request import _canonical_release_version
-from louke.runtime.store import WorkflowRunStore
+from louke.runtime.store import RunNotFoundError, WorkflowRunStore
 from louke.runtime.release_request import preview_release_request
 from louke.runtime.story_entry import StoryEntryService
 
@@ -57,6 +61,7 @@ class FoundationAdapter(Protocol):
         release_version: str,
         run_id: str,
         main_check: MainCheck,
+        spec_id: str,
     ) -> FoundationOutcome:
         """Query/reconcile Foundation resources and report uncertain effects explicitly."""
 
@@ -78,12 +83,13 @@ class ReleaseRequestStore:
         self._lock = threading.RLock()
         self._conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS v14_release_requests (
+            CREATE TABLE IF NOT EXISTS release_requests (
                 request_id TEXT PRIMARY KEY,
                 preview_id TEXT NOT NULL UNIQUE,
                 workspace_id TEXT NOT NULL,
                 request_digest TEXT NOT NULL UNIQUE,
-                preview_revision INTEGER NOT NULL,
+                 preview_revision INTEGER NOT NULL,
+                 revision INTEGER NOT NULL DEFAULT 0,
                 story TEXT NOT NULL,
                 release_version TEXT NOT NULL,
                 status TEXT NOT NULL,
@@ -94,15 +100,36 @@ class ReleaseRequestStore:
                 backlog TEXT,
                 project_id TEXT,
                 run_id TEXT,
+                spec_id TEXT UNIQUE,
+                readiness_identity TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
             """
         )
+        columns = {
+            str(row["name"])
+            for row in self._conn.execute("PRAGMA table_info(release_requests)")
+        }
+        if "spec_id" not in columns:
+            self._conn.execute("ALTER TABLE release_requests ADD COLUMN spec_id TEXT")
+            self._conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS release_requests_spec_id_unique "
+                "ON release_requests(spec_id)"
+            )
+        if "readiness_identity" not in columns:
+            self._conn.execute(
+                "ALTER TABLE release_requests ADD COLUMN readiness_identity TEXT"
+            )
         self._conn.commit()
 
     def create_preview(
-        self, workspace_id: str, story: str, release_version: str, digest: str
+        self,
+        workspace_id: str,
+        story: str,
+        release_version: str,
+        digest: str,
+        readiness_identity: dict[str, str],
     ) -> dict[str, Any]:
         """Persist or reuse a preview keyed by workspace and request digest."""
         now = _now()
@@ -111,11 +138,11 @@ class ReleaseRequestStore:
         with self._lock, self._conn:
             self._conn.execute(
                 """
-                INSERT OR IGNORE INTO v14_release_requests
+                INSERT OR IGNORE INTO release_requests
                 (request_id, preview_id, workspace_id, request_digest,
-                 preview_revision, story, release_version, status, created_at,
+                 preview_revision, story, release_version, readiness_identity, status, created_at,
                  updated_at)
-                VALUES (?, ?, ?, ?, 0, ?, ?, 'preview', ?, ?)
+                 VALUES (?, ?, ?, ?, 0, ?, ?, ?, 'preview', ?, ?)
                 """,
                 (
                     request_id,
@@ -124,11 +151,13 @@ class ReleaseRequestStore:
                     digest,
                     story,
                     release_version,
+                    _identity_json(readiness_identity),
                     now,
                     now,
                 ),
             )
-        return self.get(request_id)
+            record = self.get(request_id)
+        return record
 
     def claim(
         self,
@@ -137,6 +166,7 @@ class ReleaseRequestStore:
         request_digest: str,
         idempotency_key: str,
         actor: str,
+        spec_id: str,
     ) -> dict[str, Any]:
         """Atomically validate a preview and claim confirmation or backlog it."""
         with self._lock, self._conn:
@@ -144,7 +174,10 @@ class ReleaseRequestStore:
             record = self.get(request_id)
             _assert_preview(record, expected_revision, request_digest)
             if record["status"] != "preview":
-                if record.get("idempotency_key") != idempotency_key:
+                if (
+                    record.get("idempotency_key") != idempotency_key
+                    or record.get("actor") != actor
+                ):
                     raise ReleaseRequestConflictError(
                         "request already confirmed with another idempotency key"
                     )
@@ -174,6 +207,7 @@ class ReleaseRequestStore:
                 status="preflight",
                 idempotency_key=idempotency_key,
                 actor=actor,
+                spec_id=spec_id,
             )
             return self.get(request_id)
 
@@ -186,19 +220,24 @@ class ReleaseRequestStore:
     def get(self, request_id: str) -> dict[str, Any]:
         """Return one persisted request or raise ``KeyError``."""
         row = self._conn.execute(
-            "SELECT * FROM v14_release_requests WHERE request_id = ?", (request_id,)
+            "SELECT * FROM release_requests WHERE request_id = ?", (request_id,)
         ).fetchone()
         if row is None:
             raise KeyError(f"release request {request_id!r} not found")
         record = dict(row)
         for field in ("main_check", "foundation", "backlog"):
             record[field] = json.loads(record[field]) if record[field] else None
+        record["readiness_identity"] = (
+            json.loads(record["readiness_identity"])
+            if record.get("readiness_identity")
+            else {}
+        )
         return record
 
     def get_by_project(self, project_id: str) -> dict[str, Any] | None:
         """Return the exact persisted release request for one project identity."""
         row = self._conn.execute(
-            "SELECT request_id FROM v14_release_requests WHERE project_id = ?",
+            "SELECT request_id FROM release_requests WHERE project_id = ?",
             (project_id,),
         ).fetchone()
         return self.get(str(row["request_id"])) if row is not None else None
@@ -206,15 +245,22 @@ class ReleaseRequestStore:
     def get_by_run(self, run_id: str) -> dict[str, Any] | None:
         """Return the exact persisted release request for one Runtime run."""
         row = self._conn.execute(
-            "SELECT request_id FROM v14_release_requests WHERE run_id = ?",
+            "SELECT request_id FROM release_requests WHERE run_id = ?",
             (run_id,),
         ).fetchone()
         return self.get(str(row["request_id"])) if row is not None else None
 
+    def reserved_spec_ids(self) -> set[str]:
+        """Return every durable target-spec identity reserved by a request."""
+        rows = self._conn.execute(
+            "SELECT spec_id FROM release_requests WHERE spec_id IS NOT NULL"
+        ).fetchall()
+        return {str(row["spec_id"]) for row in rows}
+
     def _has_active_release(self, request_id: str) -> bool:
         placeholders = ",".join("?" for _ in self._ACTIVE_STATUSES)
         row = self._conn.execute(
-            f"SELECT 1 FROM v14_release_requests WHERE request_id != ? "
+            f"SELECT 1 FROM release_requests WHERE request_id != ? "
             f"AND status IN ({placeholders}) LIMIT 1",
             (request_id, *self._ACTIVE_STATUSES),
         ).fetchone()
@@ -230,6 +276,7 @@ class ReleaseRequestStore:
             "backlog",
             "project_id",
             "run_id",
+            "spec_id",
         }
         unknown = set(fields) - allowed
         if unknown:
@@ -241,9 +288,10 @@ class ReleaseRequestStore:
             values.append(_serialize_field(key, value))
         assignments.append("updated_at = ?")
         values.append(_now())
+        assignments.append("revision = revision + 1")
         values.append(request_id)
         self._conn.execute(
-            f"UPDATE v14_release_requests SET {', '.join(assignments)} WHERE request_id = ?",
+            f"UPDATE release_requests SET {', '.join(assignments)} WHERE request_id = ?",
             values,
         )
 
@@ -260,6 +308,7 @@ class ReleaseEntryService:
         definition_id: str = "new_feature",
         definition_version: str = "0.14.0",
         story_entry: StoryEntryService | None = None,
+        workspace_root: str | Path | None = None,
     ) -> None:
         self._run_store = run_store
         self._foundation = foundation
@@ -267,9 +316,17 @@ class ReleaseEntryService:
         self._definition_id = definition_id
         self._definition_version = definition_version
         self._story_entry = story_entry
+        self._workspace_root = (
+            Path(workspace_root).resolve() if workspace_root else None
+        )
         self._requests = ReleaseRequestStore(run_store)
 
-    def preview(self, story: str, release_version: str) -> dict[str, Any]:
+    def preview(
+        self,
+        story: str,
+        release_version: str,
+        readiness_identity: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Validate and persist a side-effect-free release preview read model."""
         preview = preview_release_request(
             workspace_id=self._workspace_id,
@@ -277,11 +334,14 @@ class ReleaseEntryService:
             release_version=release_version,
             active_main_release_present=False,
         )
+        identity = dict(readiness_identity or {})
+        digest = _preview_digest(preview.request_digest, identity)
         record = self._requests.create_preview(
             self._workspace_id,
             preview.story,
             preview.release_version,
-            preview.request_digest,
+            digest,
+            identity,
         )
         return {
             "preview_id": record["preview_id"],
@@ -289,9 +349,11 @@ class ReleaseEntryService:
             "request_id": record["request_id"],
             "request_digest": record["request_digest"],
             "workspace_id": self._workspace_id,
+            "workspace": {"workspace_id": self._workspace_id},
             "story": record["story"],
             "release": self._release_identity(record["release_version"]),
             "side_effects": [],
+            "actions": {"create": True, "cancel": True},
         }
 
     def confirm(
@@ -302,23 +364,65 @@ class ReleaseEntryService:
         request_digest: str,
         idempotency_key: str,
         actor: str,
+        readiness_identity: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Confirm a preview, run real Foundation checks, and persist recovery state."""
         request_id = self._request_id_for_preview(preview_id)
+        record = self._requests.get(request_id)
+        if dict(readiness_identity or {}) != record["readiness_identity"]:
+            raise StalePreviewError(
+                "repository identity or authoritative main changed; refresh the preview"
+            )
+        spec_id = str(record.get("spec_id") or "")
+        if not spec_id:
+            spec_id = self._allocate_spec_identity(
+                record["release_version"], record["story"]
+            )
         record = self._requests.claim(
             request_id,
             expected_preview_revision,
             request_digest,
             idempotency_key,
             actor,
+            spec_id,
         )
         if record["status"] != "preflight":
             return self._read_model(record)
         return self._run_preflight(record)
 
-    def recheck(self, request_id: str, *, actor: str) -> dict[str, Any]:
+    def replay_ready(
+        self,
+        preview_id: str,
+        *,
+        expected_preview_revision: int,
+        request_digest: str,
+        idempotency_key: str,
+        actor: str,
+    ) -> dict[str, Any] | None:
+        """Return an exact terminal-ready Confirm replay without new readiness work."""
+        record = self._requests.get(self._request_id_for_preview(preview_id))
+        _assert_preview(record, expected_preview_revision, request_digest)
+        if record["status"] != "ready":
+            return None
+        if (
+            record.get("idempotency_key") != idempotency_key
+            or record.get("actor") != actor
+        ):
+            raise ReleaseRequestConflictError(
+                "request already confirmed with another idempotency key or actor"
+            )
+        return self._read_model(record)
+
+    def recheck(
+        self, request_id: str, *, actor: str, expected_revision: int | None = None
+    ) -> dict[str, Any]:
         """Re-run a blocked or uncertain Foundation request without bypassing checks."""
         record = self._requests.get(request_id)
+        if (
+            expected_revision is not None
+            and record.get("revision") != expected_revision
+        ):
+            raise StalePreviewError("ProjectCreation revision is stale")
         if record["status"] not in {"blocked", "conflict"}:
             return self._read_model(record)
         self._requests.update(request_id, status="preflight", actor=actor)
@@ -360,7 +464,7 @@ class ReleaseEntryService:
             run_id=run_id,
         )
         outcome = self._foundation.provision(
-            record["story"], record["release_version"], run_id, check
+            record["story"], record["release_version"], run_id, check, record["spec_id"]
         )
         resources = dict(outcome.resources)
         resources.setdefault("local_project", {"id": project_id})
@@ -391,18 +495,57 @@ class ReleaseEntryService:
             if outcome.status == "conflict"
             else "blocked"
         )
-        return self._read_model(
-            self._requests.update(
-                record["request_id"],
-                status=status,
-                foundation=outcome,
-                project_id=project_id,
-            )
+        completed = self._requests.update(
+            record["request_id"],
+            status=status,
+            foundation=outcome,
+            project_id=project_id,
         )
+        if status == "ready":
+            self._persist_active_project_context(completed)
+        return self._read_model(completed)
 
     def _create_run(self):
         definition = self._definition()
         return self._run_store.create_run(definition)
+
+    def _persist_active_project_context(self, record: dict[str, Any]) -> None:
+        """Atomically publish a ready Project identity chain for Web read models.
+
+        Args:
+            record: Persisted ready release-request record with Foundation and
+                Story evidence.
+
+        Side Effects:
+            Replaces ``.louke/project-state.json`` when this service is bound
+            to a workspace root.
+        """
+        if self._workspace_root is None:
+            return
+        foundation = record.get("foundation") or {}
+        resources = foundation.get("resources") or {}
+        github_project = resources.get("github_project") or {}
+        story = _story_from_foundation(foundation) or {}
+        state_path = self._workspace_root / ".louke" / "project-state.json"
+        previous = _read_project_context_state(state_path)
+        project = {
+            "project_id": record["project_id"],
+            "request_id": record["request_id"],
+            "run_id": record["run_id"],
+            "release_version": record["release_version"],
+            "spec_id": record["spec_id"],
+            "github_project_node_id": github_project.get("node_id"),
+            "story_revision": story.get("revision"),
+        }
+        payload = {
+            "state": "active",
+            "revision": int(previous.get("revision", 0)) + 1,
+            "project_id": record["project_id"],
+            "spec_id": record["spec_id"],
+            "project": project,
+            "conflicts": [],
+        }
+        _atomic_json_write(state_path, payload)
 
     def _mark_run_foundation_pending(self, run_id: str) -> None:
         """Keep a failed Foundation run non-active until reconciliation succeeds."""
@@ -410,7 +553,8 @@ class ReleaseEntryService:
         if run.status == "foundation_pending":
             return
         self._run_store.update_run(
-            run.with_step("M-START", "foundation_pending"), run.revision
+            run.with_step(self._definition().start_step, "foundation_pending"),
+            run.revision,
         )
 
     def _activate_run_after_foundation(self, run_id: str) -> None:
@@ -418,7 +562,8 @@ class ReleaseEntryService:
         run = self._run_store.get_run(run_id)
         if run.status == "foundation_pending":
             self._run_store.update_run(
-                run.with_step("M-START", "waiting_human"), run.revision
+                run.with_step(self._definition().start_step, "waiting_human"),
+                run.revision,
             )
 
     def _definition(self) -> WorkflowDefinition:
@@ -431,7 +576,7 @@ class ReleaseEntryService:
         except DefinitionNotFoundError:
             if self._definition_id != "new_feature":
                 raise
-            return catalog.get("new_feature", "1")
+            return catalog.get("project_entry", "1")
 
     def _request_id_for_preview(self, preview_id: str) -> str:
         """Resolve the persisted request id for an opaque preview id."""
@@ -456,21 +601,86 @@ class ReleaseEntryService:
 
     def _read_model(self, record: dict[str, Any]) -> dict[str, Any]:
         """Convert a persisted request record into IF-API-03 response fields."""
+        foundation = record["foundation"]
+        resources = (foundation or {}).get("resources") or {}
+        try:
+            run = (
+                self._run_store.get_run(record["run_id"]) if record["run_id"] else None
+            )
+        except RunNotFoundError:
+            run = None
+        project = (
+            {
+                "project_id": record["project_id"],
+                "release_version": record["release_version"],
+                "spec_id": record["spec_id"],
+                "github_project_node_id": (resources.get("github_project") or {}).get(
+                    "node_id"
+                ),
+            }
+            if record["project_id"]
+            else None
+        )
         return {
             "request_id": record["request_id"],
+            "revision": int(record.get("revision", 0)),
+            "state": record["status"],
             "project_id": record["project_id"],
+            "spec_id": record["spec_id"],
+            "project": project,
             "status": record["status"],
             "backlog": record["backlog"],
             "main_check": record["main_check"],
-            "foundation": record["foundation"],
-            "story": _story_from_foundation(record["foundation"]),
+            "foundation": foundation,
+            "story": _story_from_foundation(foundation),
             "run_id": record["run_id"],
+            "run": (
+                {
+                    "run_id": run.run_id,
+                    "current_step": run.current_step,
+                    "runtime_revision": run.revision,
+                }
+                if run is not None
+                else None
+            ),
+            "primary_action": _primary_action(record["status"]),
             "continue_url": (
                 f"/projects/{record['project_id']}/requirements/story"
                 if record["project_id"]
                 else None
             ),
         }
+
+    def _allocate_spec_identity(self, release_version: str, story: str) -> str:
+        """Reserve the next stable release-series spec identity for a Story."""
+        canonical = _canonical_release_version(release_version) or release_version
+        parts = canonical.removeprefix("v").split(".")
+        if len(parts) < 2 or not all(part.isdigit() for part in parts[:2]):
+            raise ValueError("release version cannot form a target spec identity")
+        prefix = f"v{parts[0]}.{parts[1]}-"
+        reserved = self._requests.reserved_spec_ids()
+        names = set(reserved)
+        if self._workspace_root is not None:
+            specs = self._workspace_root / ".louke" / "project" / "specs"
+            if specs.is_dir():
+                names.update(path.name for path in specs.iterdir() if path.is_dir())
+        sequence = (
+            max(
+                (
+                    int(match.group(1))
+                    for name in names
+                    if (
+                        match := re.fullmatch(
+                            rf"{re.escape(prefix)}(\d{{3,}})-.+", name
+                        )
+                    )
+                ),
+                default=0,
+            )
+            + 1
+        )
+        slug = re.sub(r"[^a-z0-9]+", "-", story.lower()).strip("-")[:72]
+        return f"{prefix}{sequence:03d}-{slug or 'project'}"
 
     def _initialize_story(
         self, record: dict[str, Any], resources: dict[str, Any]
@@ -510,6 +720,21 @@ def _assert_preview(record: dict[str, Any], revision: int, digest: str) -> None:
         )
 
 
+def _identity_json(identity: dict[str, str]) -> str:
+    """Serialize a terminal readiness identity in deterministic key order."""
+    return json.dumps(identity, sort_keys=True, separators=(",", ":"))
+
+
+def _preview_digest(request_digest: str, readiness_identity: dict[str, str]) -> str:
+    """Bind the request digest to the exact terminal facts shown in Preview."""
+    payload = json.dumps(
+        {"request_digest": request_digest, "readiness_identity": readiness_identity},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+
+
 def _story_from_foundation(foundation: dict[str, Any] | None) -> dict[str, Any] | None:
     """Read Story evidence from the persisted Foundation resource bundle."""
     if not foundation:
@@ -525,6 +750,15 @@ def _foundation_identity(resources: dict[str, Any]) -> str:
     return f"foundation:{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]}"
 
 
+def _primary_action(status: str) -> str | None:
+    """Return the single recovery action appropriate to a creation state."""
+    if status in {"blocked", "conflict", "uncertain"}:
+        return "retry"
+    if status in {"foundation", "scribe", "preflight"}:
+        return "refresh"
+    return None
+
+
 def _serialize_field(field: str, value: Any) -> Any:
     """Serialize structured request fields while preserving scalar columns."""
     if value is None or field not in {"main_check", "foundation", "backlog"}:
@@ -532,6 +766,39 @@ def _serialize_field(field: str, value: Any) -> Any:
     if field in {"main_check", "foundation"}:
         value = asdict(value)
     return json.dumps(value, sort_keys=True)
+
+
+def _read_project_context_state(path: Path) -> dict[str, Any]:
+    """Read a Project context payload or return an empty safe baseline."""
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _atomic_json_write(path: Path, payload: dict[str, Any]) -> None:
+    """Atomically replace one JSON projection without leaving a partial file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = ""
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = handle.name
+            json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path:
+            Path(temporary_path).unlink(missing_ok=True)
 
 
 def _now() -> str:

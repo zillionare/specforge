@@ -49,7 +49,6 @@ def test_story_creation_without_preexisting_file_preserves_unrelated_state(
         monkeypatch.setenv(
             "PATH", f"{workspace.gh_bin.parent}{os.pathsep}{os.environ['PATH']}"
         )
-        monkeypatch.setenv("LOUKE_GH_LEDGER_PATH", str(workspace.gh_ledger))
         monkeypatch.setenv("LOUKE_GH_OWNER", "zillionare")
         adapter = ShellFoundationAdapter(workspace.root, spec_id=SPEC_ID)
         main_check = adapter.preflight(STORY, "0.14.0")
@@ -98,7 +97,6 @@ def test_story_creation_retry_reconciles_and_conflict_fails_closed(
         monkeypatch.setenv(
             "PATH", f"{workspace.gh_bin.parent}{os.pathsep}{os.environ['PATH']}"
         )
-        monkeypatch.setenv("LOUKE_GH_LEDGER_PATH", str(workspace.gh_ledger))
         monkeypatch.setenv("LOUKE_GH_OWNER", "zillionare")
         adapter = ShellFoundationAdapter(workspace.root, spec_id=SPEC_ID)
         main_check = adapter.preflight(STORY, "0.14.0")

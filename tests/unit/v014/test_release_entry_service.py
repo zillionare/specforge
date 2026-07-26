@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import json
+from pathlib import Path
 
 import pytest
 
@@ -56,6 +58,7 @@ class FakeFoundation:
     outcome: FoundationOutcome
     check_calls: int = 0
     provision_calls: int = 0
+    spec_ids: list[str] = field(default_factory=list)
 
     def preflight(self, story: str, release_version: str) -> MainCheck:
         self.check_calls += 1
@@ -67,9 +70,15 @@ class FakeFoundation:
         release_version: str,
         run_id: str,
         main_check: MainCheck,
+        spec_id: str,
     ) -> FoundationOutcome:
         self.provision_calls += 1
-        return self.outcome
+        self.spec_ids.append(spec_id)
+        resources = dict(self.outcome.resources)
+        resources["spec_directory"] = {"path": f".louke/project/specs/{spec_id}"}
+        return FoundationOutcome(
+            self.outcome.status, resources, self.outcome.remediation
+        )
 
 
 def _main_check(status: str = "pass") -> MainCheck:
@@ -197,6 +206,48 @@ def test_confirm_ready_persists_run_and_replays_idempotently() -> None:
     assert foundation.provision_calls == 1
 
 
+def test_confirm_reserves_a_canonical_spec_identity_and_reuses_it(
+    tmp_path: Path,
+) -> None:
+    """AC-FR1101-01: Confirm reserves one new target without touching an old Story."""
+    foundation = FakeFoundation(_main_check(), _ready_outcome())
+    (tmp_path / ".louke/project/specs/v0.15-007-existing").mkdir(parents=True)
+    old_story = tmp_path / ".louke/project/specs/v0.14-001-existing/story.md"
+    old_story.parent.mkdir(parents=True)
+    old_story.write_text(
+        "# Existing v0.14 Story\n\nDo not replace.\n", encoding="utf-8"
+    )
+    service = ReleaseEntryService(
+        _run_store(), foundation, workspace_id="ws-1", workspace_root=tmp_path
+    )
+    preview = service.preview("Ship the Reflow!", "v0.15.0")
+
+    confirmed = service.confirm(
+        preview["preview_id"],
+        expected_preview_revision=0,
+        request_digest=preview["request_digest"],
+        idempotency_key="idem-spec-id",
+        actor="human",
+    )
+    replay = service.confirm(
+        preview["preview_id"],
+        expected_preview_revision=0,
+        request_digest=preview["request_digest"],
+        idempotency_key="idem-spec-id",
+        actor="human",
+    )
+
+    assert confirmed["spec_id"] == "v0.15-008-ship-the-reflow"
+    assert replay["spec_id"] == confirmed["spec_id"]
+    assert replay["project_id"] == confirmed["project_id"]
+    assert replay["run_id"] == confirmed["run_id"]
+    assert foundation.spec_ids == [confirmed["spec_id"]]
+    assert (
+        old_story.read_text(encoding="utf-8")
+        == "# Existing v0.14 Story\n\nDo not replace.\n"
+    )
+
+
 def test_confirm_ready_initializes_story_and_enters_m_story() -> None:
     """AC-FR0500-01/03: ready Foundation confirmation creates Story revision."""
     store = _run_store()
@@ -223,6 +274,42 @@ def test_confirm_ready_initializes_story_and_enters_m_story() -> None:
     assert request["story"]["phase"] == "M-STORY"
     assert store.get_run(request["run_id"]).current_step == "M-STORY"
     assert writer.calls == 1
+
+
+def test_ready_creation_persists_the_authoritative_active_project_context(
+    tmp_path: Path,
+) -> None:
+    """IF-CREATE-01: ready Story evidence publishes the active Project chain."""
+    store = _run_store()
+    service = ReleaseEntryService(
+        store,
+        FakeFoundation(_main_check(), _ready_outcome()),
+        workspace_id="ws-1",
+        story_entry=StoryEntryService(store, FakeStoryWriter()),
+        workspace_root=tmp_path,
+    )
+    preview = service.preview("Ship the reflow", "v0.14.0")
+
+    creation = service.confirm(
+        preview["preview_id"],
+        expected_preview_revision=0,
+        request_digest=preview["request_digest"],
+        idempotency_key="idem-project-context",
+        actor="human:alice",
+    )
+
+    state = json.loads((tmp_path / ".louke" / "project-state.json").read_text())
+    assert state["state"] == "active"
+    assert state["project_id"] == creation["project_id"]
+    assert state["project"] == {
+        "project_id": creation["project_id"],
+        "request_id": creation["request_id"],
+        "run_id": creation["run_id"],
+        "release_version": "0.14.0",
+        "spec_id": creation["spec_id"],
+        "github_project_node_id": "PVT_1",
+        "story_revision": 1,
+    }
 
 
 def test_story_initialization_conflict_is_recoverable_and_not_ready() -> None:

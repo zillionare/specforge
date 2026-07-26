@@ -93,7 +93,7 @@ class StoryArtifactStore:
         self._lock = threading.RLock()
         self._conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS v14_story_artifacts (
+            CREATE TABLE IF NOT EXISTS story_artifacts (
                 run_id TEXT PRIMARY KEY,
                 spec_id TEXT NOT NULL,
                 body_md TEXT NOT NULL,
@@ -112,7 +112,7 @@ class StoryArtifactStore:
     def get(self, run_id: str) -> StoryArtifact | None:
         """Return the persisted initial Story for ``run_id``, if present."""
         row = self._conn.execute(
-            "SELECT * FROM v14_story_artifacts WHERE run_id = ?", (run_id,)
+            "SELECT * FROM story_artifacts WHERE run_id = ?", (run_id,)
         ).fetchone()
         return _row_to_artifact(row) if row is not None else None
 
@@ -150,7 +150,7 @@ class StoryArtifactStore:
             try:
                 self._conn.execute(
                     """
-                    INSERT INTO v14_story_artifacts
+                    INSERT INTO story_artifacts
                     (run_id, spec_id, body_md, revision, digest, input_digest,
                      actor, commit_sha, path, idempotency_key)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -235,14 +235,16 @@ class StoryEntryService:
                     workspace,
                 ),
             )
-        if run.current_step != "M-START":
+        entry_step = self._entry_step(run)
+        if run.current_step != entry_step.step_id:
             raise ValueError(
-                f"Story initialization requires M-START, got {run.current_step}"
+                "Story initialization requires the declared entry stage "
+                f"{entry_step.step_id}, got {run.current_step}"
             )
         registry = HandlerRegistry()
         failure: list[Exception] = []
         registry.register(
-            "v014.m_start",
+            entry_step.handler or f"runtime:{entry_step.step_id}",
             self._handler(
                 workspace=workspace,
                 spec_id=spec_id,
@@ -292,6 +294,17 @@ class StoryEntryService:
             foundation_manifest_identity=foundation_manifest_identity,
             workspace=workspace,
         )
+
+    def _entry_step(self, run: WorkflowRun):
+        """Return the declared initial program step for ``run``'s definition."""
+        catalog = self._run_store._catalog
+        if catalog is None:
+            raise ValueError("Runtime catalog is not configured")
+        definition = catalog.get(run.definition_id, run.definition_version)
+        for step in definition.steps:
+            if step.step_id == definition.start_step:
+                return step
+        raise ValueError("Workflow definition has no declared entry step")
 
     def _handler(
         self,

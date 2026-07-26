@@ -15,15 +15,16 @@ from louke.runtime.story_init import (
 from louke.runtime.scribe_entry import ScribeEntryService
 from louke.runtime.story_entry import StoryArtifactStore
 from louke.web.app import create_app
+from louke.web.environment_commands import CommandResult
 
 from tests.test_web_server import build_project
 
 
 def _client(tmp_path: Path) -> TestClient:
     """Build an authenticated live HTTP client with a configured origin."""
-    client = TestClient(
-        create_app(build_project(tmp_path), allowed_origin="https://louke.example")
-    )
+    app = create_app(build_project(tmp_path), allowed_origin="https://louke.example")
+    app.state.environment_executor = _PassingEnvironmentExecutor(tmp_path)
+    client = TestClient(app)
     assert (
         client.post(
             "/api/auth/register", json={"username": "human", "password": "secret"}
@@ -48,10 +49,10 @@ def _csrf(client: TestClient) -> str:
 
 
 def _release_request_count(client: TestClient) -> int:
-    """Return the number of persisted v0.14 release requests."""
-    connection = client.app.state.v14_release_entry._requests._conn
+    """Return the number of persisted Project creation requests."""
+    connection = client.app.state.release_entry._requests._conn
     row = connection.execute(
-        "SELECT COUNT(*) AS count FROM v14_release_requests"
+        "SELECT COUNT(*) AS count FROM release_requests"
     ).fetchone()
     return int(row["count"])
 
@@ -59,7 +60,7 @@ def _release_request_count(client: TestClient) -> int:
 def _preview(client: TestClient) -> dict[str, object]:
     """Create a valid release preview through the authenticated HTTP surface."""
     response = client.post(
-        "/api/v14/releases/preview",
+        "/api/projects/preview",
         headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
         json={"story": "Ship the reflow", "release_version": "0.14.0"},
     )
@@ -94,6 +95,39 @@ class _GateOpenCode:
         return []
 
 
+class _PassingEnvironmentExecutor:
+    """Return a valid bounded local Environment transcript for HTTP tests."""
+
+    def __init__(self, root: Path) -> None:
+        sha = "a" * 40
+        self.responses = {
+            ("gh", "--version"): CommandResult(0, "gh version 2.50.0\n"),
+            ("gh", "auth", "status"): CommandResult(
+                0,
+                "Logged in to github.com account human\n"
+                "Token scopes: 'gist', 'project', 'repo', 'workflow'\n",
+            ),
+            ("git", "rev-parse", "--is-inside-work-tree"): CommandResult(0, "true\n"),
+            ("git", "rev-parse", "--show-toplevel"): CommandResult(
+                0, f"{root.resolve()}\n"
+            ),
+            ("git", "remote", "get-url", "origin"): CommandResult(
+                0, "git@github.com:human/louke.git\n"
+            ),
+            ("git", "rev-parse", "--verify", "refs/heads/main"): CommandResult(
+                0, f"{sha}\n"
+            ),
+            ("git", "ls-remote", "--heads", "origin", "main"): CommandResult(
+                0, f"{sha}\trefs/heads/main\n"
+            ),
+        }
+
+    def run(self, argv, *, cwd: Path, timeout: float) -> CommandResult:
+        """Return the configured response without a shell or side effect."""
+        del cwd, timeout
+        return self.responses[tuple(argv)]
+
+
 def _gate_fixture(
     tmp_path: Path,
 ) -> tuple[TestClient, dict[str, object], dict[str, object]]:
@@ -126,16 +160,16 @@ def _gate_fixture(
         ),
         f"story-init:{run.run_id}",
     )
-    app.state.v14_scribe_entry = ScribeEntryService(run_store, _GateOpenCode())
-    task = app.state.v14_scribe_entry.ensure_task(
+    app.state.scribe_entry = ScribeEntryService(run_store, _GateOpenCode())
+    task = app.state.scribe_entry.ensure_task(
         run_id=run.run_id,
         artifact=artifact,
         human_request="Ship the reflow",
         foundation_manifest_identity="foundation:gate",
         workspace=str(tmp_path),
     )
-    preview = app.state.v14_release_entry.preview("Ship the reflow", "0.14.0")
-    app.state.v14_release_entry._requests.update(
+    preview = app.state.release_entry.preview("Ship the reflow", "0.14.0")
+    app.state.release_entry._requests.update(
         preview["request_id"], project_id="project-gate", run_id=run.run_id
     )
     payload = {
@@ -150,7 +184,7 @@ def _gate_fixture(
         "recommendation": "Go",
         "reason": "The bounded story is ready for Human choice.",
     }
-    app.state.v14_scribe_entry.submit_result(
+    app.state.scribe_entry.submit_result(
         run_id=run.run_id, task_id=task["task_id"], payload=payload
     )
     return client, {"run": run_store.get_run(run.run_id), "artifact": artifact}, task
@@ -164,7 +198,7 @@ def test_cross_origin_release_mutation_is_rejected_before_preview(
     client = _client(tmp_path)
 
     response = client.post(
-        "/api/v14/releases/preview",
+        "/api/projects/preview",
         headers={"Origin": "https://foreign.example", "X-Louke-CSRF": _csrf(client)},
         json={"story": "Ship the reflow", "release_version": "0.14.0"},
     )
@@ -192,7 +226,7 @@ def test_preview_invalid_release_values_fail_closed_without_advancement(
     before = _release_request_count(client)
 
     response = client.post(
-        "/api/v14/releases/preview",
+        "/api/projects/preview",
         headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
         json=payload,
     )
@@ -211,7 +245,7 @@ def test_preview_non_object_payload_fails_closed_without_advancement(
     before = _release_request_count(client)
 
     response = client.post(
-        "/api/v14/releases/preview",
+        "/api/projects/preview",
         headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
         json=["Ship the reflow", "0.14.0"],
     )
@@ -256,7 +290,7 @@ def test_story_gate_http_rejects_stale_agent_cross_project_and_invalid_candidate
     }
 
     stale = client.post(
-        f"/api/v14/runs/{run.run_id}/actions",
+        f"/api/runs/{run.run_id}/actions",
         headers=headers,
         json=_story_action_payload(
             run_revision=run.revision - 1,
@@ -274,7 +308,7 @@ def test_story_gate_http_rejects_stale_agent_cross_project_and_invalid_candidate
     )
     agent_payload["payload"]["actor_kind"] = "agent"
     agent = client.post(
-        f"/api/v14/runs/{run.run_id}/actions",
+        f"/api/runs/{run.run_id}/actions",
         headers=headers,
         json=agent_payload,
     )
@@ -282,7 +316,7 @@ def test_story_gate_http_rejects_stale_agent_cross_project_and_invalid_candidate
     assert agent.json()["error_code"] == "HUMAN_AUTHORITY_REQUIRED"
 
     outside = client.post(
-        f"/api/v14/runs/{run.run_id}/actions",
+        f"/api/runs/{run.run_id}/actions",
         headers=headers,
         json=_story_action_payload(
             run_revision=run.revision,
@@ -295,7 +329,7 @@ def test_story_gate_http_rejects_stale_agent_cross_project_and_invalid_candidate
     assert outside.json()["error_code"] == "NOT_FOUND"
 
     invalid = client.post(
-        f"/api/v14/runs/{run.run_id}/actions",
+        f"/api/runs/{run.run_id}/actions",
         headers=headers,
         json=_story_action_payload(
             run_revision=run.revision,
@@ -305,7 +339,7 @@ def test_story_gate_http_rejects_stale_agent_cross_project_and_invalid_candidate
     )
     assert invalid.status_code == 400
     assert invalid.json()["error_code"] == "VALIDATION_FAILED"
-    assert client.app.state.v14_scribe_entry.story_gate(run.run_id)["decision"] is None
+    assert client.app.state.scribe_entry.story_gate(run.run_id)["decision"] is None
     assert client.app.state.v12_run_store.get_run(run.run_id).current_step == "M-STORY"
 
 
@@ -317,7 +351,7 @@ def test_story_gate_http_accepts_authenticated_human_go_and_renders_gate_read_mo
     client, facts, _ = _gate_fixture(tmp_path)
     run = facts["run"]
     artifact = facts["artifact"]
-    pending = client.get("/api/v14/projects/project-gate/current")
+    pending = client.get("/api/projects/project-gate/current")
     assert pending.json()["story_gate"]["recommendation"] == "Go"
     assert pending.json()["story_gate"]["reason"]
     assert pending.json()["human_wait"] is True
@@ -330,7 +364,7 @@ def test_story_gate_http_accepts_authenticated_human_go_and_renders_gate_read_mo
         "X-Louke-CSRF": _csrf(client),
     }
     response = client.post(
-        f"/api/v14/runs/{run.run_id}/actions",
+        f"/api/runs/{run.run_id}/actions",
         headers=headers,
         json=_story_action_payload(
             run_revision=run.revision,
@@ -342,7 +376,7 @@ def test_story_gate_http_accepts_authenticated_human_go_and_renders_gate_read_mo
     assert response.status_code == 200
     assert response.json()["value"] == "Go"
     assert response.json()["actor"] == "human:human"
-    current = client.get("/api/v14/projects/project-gate/current")
+    current = client.get("/api/projects/project-gate/current")
     assert current.status_code == 200
     assert current.json()["story_gate"]["decision"]["value"] == "Go"
     assert current.json()["run"]["phase"] == "M-STORY"
@@ -359,7 +393,7 @@ def test_story_gate_http_park_creates_terminal_backlog_and_needs_attention(
     run = facts["run"]
     artifact = facts["artifact"]
     response = client.post(
-        f"/api/v14/runs/{run.run_id}/actions",
+        f"/api/runs/{run.run_id}/actions",
         headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
         json=_story_action_payload(
             run_revision=run.revision,
@@ -371,7 +405,7 @@ def test_story_gate_http_park_creates_terminal_backlog_and_needs_attention(
     assert response.status_code == 200
     assert response.json()["backlog_entry_count"] == 1
     assert response.json()["cleanup"]["status"] == "needs_attention"
-    current = client.get("/api/v14/projects/project-gate/current")
+    current = client.get("/api/projects/project-gate/current")
     assert current.json()["run"]["phase"] == "PARKED"
     assert current.json()["story_gate"]["m_spec_task_count"] == 0
 
@@ -411,17 +445,17 @@ def test_confirm_malformed_fields_fail_closed_without_advancement(
     client = _client(tmp_path)
     preview = _preview(client)
     request_id = preview["request_id"]
-    before = client.app.state.v14_release_entry.status(request_id)
+    before = client.app.state.release_entry.status(request_id)
 
     response = client.post(
-        "/api/v14/releases/confirm",
+        "/api/projects/confirm",
         headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
         json=payload,
     )
 
     assert response.status_code == 400
     assert response.json()["error_code"] == "VALIDATION_ERROR"
-    after = client.app.state.v14_release_entry.status(request_id)
+    after = client.app.state.release_entry.status(request_id)
     assert after["status"] == before["status"] == "preview"
 
 
@@ -435,14 +469,14 @@ def test_confirm_non_object_payload_fails_closed_without_advancement(
     request_id = preview["request_id"]
 
     response = client.post(
-        "/api/v14/releases/confirm",
+        "/api/projects/confirm",
         headers={"Origin": "https://louke.example", "X-Louke-CSRF": _csrf(client)},
         json=["not", "an", "object"],
     )
 
     assert response.status_code == 400
     assert response.json()["error_code"] == "VALIDATION_ERROR"
-    assert client.app.state.v14_release_entry.status(request_id)["status"] == "preview"
+    assert client.app.state.release_entry.status(request_id)["status"] == "preview"
 
 
 def test_cross_origin_scribe_mutation_is_rejected_before_task_access(
@@ -453,7 +487,7 @@ def test_cross_origin_scribe_mutation_is_rejected_before_task_access(
     client = _client(tmp_path)
 
     response = client.post(
-        "/api/v14/runs/run-1/tasks/task-1/messages",
+        "/api/runs/run-1/tasks/task-1/messages",
         headers={"Origin": "https://foreign.example", "X-Louke-CSRF": _csrf(client)},
         json={
             "client_message_id": "message-1",
@@ -474,19 +508,19 @@ def test_story_page_renders_task_bound_chat_over_live_http(
     """AC-FR0700-01: Story page exposes persisted Scribe facts and Chat controls."""
     client = _client(tmp_path)
     app = client.app
-    app.state.v14_release_entry.current_project = lambda project_id: {
+    app.state.release_entry.current_project = lambda project_id: {
         "project_id": project_id,
         "run_id": "run-1",
     }
     app.state.v12_run_store.get_run = lambda run_id: SimpleNamespace(
         run_id=run_id, current_step="M-STORY", revision=2, status="waiting_human"
     )
-    app.state.v14_story_entry.artifact = lambda run_id: SimpleNamespace(
+    app.state.story_entry.artifact = lambda run_id: SimpleNamespace(
         run_id=run_id,
         body_md="# Story\n\nShip the reflow",
         revision=1,
     )
-    app.state.v14_scribe_entry.task_for_run = lambda run_id: {"task_id": "task-1"}
+    app.state.scribe_entry.task_for_run = lambda run_id: {"task_id": "task-1"}
 
     response = client.get("/projects/project-1/requirements/story")
 
@@ -511,14 +545,14 @@ def test_project_path_cannot_borrow_another_project_or_wrong_run(
 ) -> None:
     """AC-FR0600-01: project current lookup requires exact project/run binding."""
     client = _client(tmp_path)
-    service = client.app.state.v14_release_entry
+    service = client.app.state.release_entry
     preview = service.preview("Ship the reflow", "v0.14.0")
     service._requests.update(
         preview["request_id"], project_id="project-a", run_id="run-a"
     )
 
-    cross_project = client.get("/api/v14/projects/project-b/current")
-    wrong_run = client.get("/api/v14/projects/project-a/current")
+    cross_project = client.get("/api/projects/project-b/current")
+    wrong_run = client.get("/api/projects/project-a/current")
 
     assert cross_project.status_code == 404
     assert wrong_run.status_code == 404

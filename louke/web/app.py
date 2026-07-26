@@ -46,7 +46,6 @@ from .events import EventBroker
 from .store import ConflictError, ProjectStore, ValidationError
 from .setup_gate import SetupGateMiddleware
 
-from .api.projects import create_app as _create_projects_app
 from .api.runtime import create_app as _create_runtime_app
 from .api.gates import create_app as _create_gates_app
 from .api.bindings import create_app as _create_bindings_app
@@ -57,14 +56,13 @@ from .api.setup import create_app as _create_setup_app
 from .api.migration import create_app as _create_migration_app
 from .api.security import create_app as _create_security_app
 from .api.discussions import create_app as _create_discussions_app
-from .api.v14_releases import (
-    confirm_release,
-    foundation_status,
-    preview_release,
-    recheck_release,
-    release_status,
+from .api.projects import (
+    confirm_project,
+    preview_project,
+    project_creation_status,
 )
-from .api.v14_scribe import (
+from .api.environment_checks import check_environment
+from .api.scribe import (
     current_project,
     run_action,
     story_artifact,
@@ -100,7 +98,6 @@ from .pages.workbench import (
 from .api.files import files as end_user_files
 from .runs.badges import status_badge
 
-projects_app = _create_projects_app()
 runtime_app = _create_runtime_app()
 gates_app = _create_gates_app()
 bindings_app = _create_bindings_app()
@@ -146,7 +143,7 @@ def create_app(
         workspace_root=project_root,
         mode=mode,
     )
-    for sub_app in (projects_app, runtime_app, gates_app, bindings_app):
+    for sub_app in (runtime_app, gates_app, bindings_app):
         sub_app.state._state.clear()
         sub_app.state.runtime_run_store = project_runtime_store
         sub_app.state.v12_run_store = project_runtime_store
@@ -166,70 +163,49 @@ def create_app(
             Route("/api/auth/register", endpoint=api_auth_register, methods=["POST"]),
             Route("/api/auth/login", endpoint=api_auth_login, methods=["POST"]),
             Route("/api/auth/logout", endpoint=api_auth_logout, methods=["POST"]),
+            Route("/api/projects/preview", endpoint=preview_project, methods=["POST"]),
             Route(
-                "/api/v14/releases/preview", endpoint=preview_release, methods=["POST"]
-            ),
-            Route("/api/releases/preview", endpoint=preview_release, methods=["POST"]),
-            Route(
-                "/api/v14/releases/confirm", endpoint=confirm_release, methods=["POST"]
-            ),
-            Route("/api/releases/confirm", endpoint=confirm_release, methods=["POST"]),
-            Route(
-                "/api/v14/releases/requests/{request_id}/foundation",
-                endpoint=foundation_status,
-            ),
-            Route(
-                "/api/releases/requests/{request_id}/foundation",
-                endpoint=foundation_status,
-            ),
-            Route(
-                "/api/v14/releases/requests/{request_id}/recheck",
-                endpoint=recheck_release,
+                "/api/projects/environment-checks",
+                endpoint=check_environment,
                 methods=["POST"],
             ),
+            Route("/api/projects/confirm", endpoint=confirm_project, methods=["POST"]),
             Route(
-                "/api/releases/requests/{request_id}/recheck",
-                endpoint=recheck_release,
-                methods=["POST"],
+                "/api/projects/requests/{request_id}", endpoint=project_creation_status
             ),
             Route(
-                "/api/v14/releases/requests/{request_id}",
-                endpoint=release_status,
-            ),
-            Route("/api/releases/requests/{request_id}", endpoint=release_status),
-            Route(
-                "/api/v14/projects/{project_id}/current",
+                "/api/projects/{project_id}/current",
                 endpoint=current_project,
             ),
             Route(
-                "/api/v14/runs/{run_id}/actions",
+                "/api/runs/{run_id}/actions",
                 endpoint=run_action,
                 methods=["POST"],
             ),
             Route(
-                "/api/v14/runs/{run_id}/artifacts/{kind}",
+                "/api/runs/{run_id}/artifacts/{kind}",
                 endpoint=story_artifact,
             ),
             Route(
-                "/api/v14/runs/{run_id}/tasks/{task_id}",
+                "/api/runs/{run_id}/tasks/{task_id}",
                 endpoint=task_read,
             ),
             Route(
-                "/api/v14/runs/{run_id}/tasks/{task_id}/messages",
+                "/api/runs/{run_id}/tasks/{task_id}/messages",
                 endpoint=task_messages,
             ),
             Route(
-                "/api/v14/runs/{run_id}/tasks/{task_id}/messages",
+                "/api/runs/{run_id}/tasks/{task_id}/messages",
                 endpoint=task_reply,
                 methods=["POST"],
             ),
             Route(
-                "/api/v14/runs/{run_id}/tasks/{task_id}/reconcile",
+                "/api/runs/{run_id}/tasks/{task_id}/reconcile",
                 endpoint=task_reconcile,
                 methods=["POST"],
             ),
             Route(
-                "/api/v14/runs/{run_id}/tasks/{task_id}/retry",
+                "/api/runs/{run_id}/tasks/{task_id}/retry",
                 endpoint=task_retry,
                 methods=["POST"],
             ),
@@ -301,7 +277,6 @@ def create_app(
             # ``/api/runtime/bindings`` MUST precede ``/api/runtime`` or every
             # bindings request is handed to the runtime sub-app (which has no
             # ``bindings`` internal route) and returns 404. See #176.
-            Mount("/api/projects", app=projects_app),
             Mount("/api/runtime/bindings", app=bindings_app),
             Mount("/api/runtime", app=runtime_app),
             Mount("/api/gates", app=gates_app),
@@ -362,10 +337,11 @@ def create_app(
     )
     app.state.store = store
     app.state.v12_run_store = project_runtime_store
-    app.state.v14_allowed_origin = allowed_origin or os.environ.get(
+    app.state.allowed_origin = allowed_origin or os.environ.get(
         "LOUKE_ALLOWED_ORIGIN", ""
     )
     app.state.workspace_root = Path(project_root).resolve()
+    app.state.environment_executor = None
     app.add_middleware(SetupGateMiddleware, workspace_root=Path(project_root).resolve())
     from louke.runtime.foundation_adapter import ShellFoundationAdapter
     from louke.runtime.release_entry import ReleaseEntryService
@@ -374,13 +350,8 @@ def create_app(
 
     project_info = store.project_info().get("project", {})
     workspace_id = str(project_info.get("project") or project_info.get("repo") or "")
-    foundation_adapter = ShellFoundationAdapter(
-        project_root,
-        spec_id=str(
-            project_info.get("contract_bundle_entry_spec")
-            or "v0.14-001-workflow-reflow-spec"
-        ),
-    )
+    app.state.workspace_id = workspace_id
+    foundation_adapter = ShellFoundationAdapter(project_root)
     scribe_entry = ScribeEntryService(
         project_runtime_store,
         workspace_root=project_root,
@@ -390,14 +361,15 @@ def create_app(
         foundation_adapter,
         scribe_entry=scribe_entry,
     )
-    app.state.v14_release_entry = ReleaseEntryService(
+    app.state.release_entry = ReleaseEntryService(
         project_runtime_store,
         foundation_adapter,
         workspace_id=workspace_id,
         story_entry=story_entry,
+        workspace_root=project_root,
     )
-    app.state.v14_story_entry = story_entry
-    app.state.v14_scribe_entry = scribe_entry
+    app.state.story_entry = story_entry
+    app.state.scribe_entry = scribe_entry
     app.state.broker = broker
     app.state.setup_only = setup_only
     return app

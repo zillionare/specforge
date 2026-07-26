@@ -21,9 +21,11 @@ from louke.runtime.story_init import (
 class ShellFoundationAdapter:
     """Reconcile Foundation through safe, explicit ``git`` and ``gh`` commands."""
 
-    def __init__(self, workspace_root: str | Path, *, spec_id: str) -> None:
+    def __init__(
+        self, workspace_root: str | Path, *, spec_id: str | None = None
+    ) -> None:
         self._root = Path(workspace_root).resolve()
-        self._spec_id = spec_id
+        self._configured_spec_id = spec_id
 
     def preflight(self, story: str, release_version: str) -> MainCheck:
         """Refresh origin/main and return full Git identity and relation evidence.
@@ -131,6 +133,7 @@ class ShellFoundationAdapter:
         release_version: str,
         run_id: str,
         main_check: MainCheck,
+        spec_id: str | None = None,
     ) -> FoundationOutcome:
         """Create or reconcile branch, worktree, spec directory and GitHub Project."""
         if main_check.status != "pass":
@@ -162,7 +165,14 @@ class ShellFoundationAdapter:
                 "head_sha": worktree["head_sha"],
             }
         )
-        spec, spec_error = self._ensure_spec_directory(Path(worktree["path"]))
+        target_spec_id = spec_id or self._configured_spec_id
+        if not target_spec_id:
+            return FoundationOutcome(
+                "blocked", resources, "confirmed request has no target spec identity"
+            )
+        spec, spec_error = self._ensure_spec_directory(
+            Path(worktree["path"]), target_spec_id
+        )
         resources["spec_directory"] = spec
         if spec_error:
             return self._uncertain(resources, spec_error)
@@ -333,14 +343,21 @@ class ShellFoundationAdapter:
             "" if head else head_error
         )
 
-    def _ensure_spec_directory(self, worktree: Path) -> tuple[dict[str, str], str]:
-        """Require the locked spec directory in the controlled release worktree."""
-        relative = Path(".louke/project/specs") / self._spec_id
+    def _ensure_spec_directory(
+        self, worktree: Path, spec_id: str
+    ) -> tuple[dict[str, str], str]:
+        """Create the reserved target spec directory in the controlled worktree."""
+        try:
+            relative = Path(".louke/project/specs") / _safe_relative_spec(spec_id)
+        except ValueError as exc:
+            return {"path": spec_id}, str(exc)
         target = worktree / relative
-        if not target.is_dir():
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
             return {
                 "path": relative.as_posix()
-            }, "locked spec directory is absent on release branch"
+            }, f"target spec directory unavailable: {exc}"
         digest = _directory_digest(target)
         return {"path": relative.as_posix(), "digest": digest}, ""
 

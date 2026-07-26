@@ -21,10 +21,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from tests.fixtures.v014_workflow_reflow.harness import (
-    CANONICAL_HUMAN_STORY,
-    read_gh_ledger,
-)
+from tests.fixtures.v014_workflow_reflow.harness import CANONICAL_HUMAN_STORY
 
 
 # ---------------------------------------------------------------------------
@@ -310,10 +307,6 @@ class TestEntrySliceGoldenPath:
         )
         assert replay["run"]["revision"] == decision["run"]["revision"]
 
-        # AC-FR0400-03: GitHub Project ledger.
-        gh = read_gh_ledger(workspace.gh_ledger)
-        assert any(e.kind == "project_create" for e in gh)
-
 
 # ---------------------------------------------------------------------------
 # Fail-closed: malformed / wrong-role / stale-artifact provider results
@@ -595,7 +588,6 @@ class TestFixtureGitIdentity:
         clean_env["HOME"] = str(tmp_path / "empty-home")
         Path(clean_env["HOME"]).mkdir(exist_ok=True)
         clean_env["PATH"] = str(ws.gh_bin.parent) + ":/usr/bin:/bin"
-        clean_env["LOUKE_GH_LEDGER_PATH"] = str(ws.gh_ledger)
         clean_env["LOUKE_GH_OWNER"] = "zillionare"
         clean_env["LOUKE_OPENCODE_BASE_URL"] = oc.base_url
         clean_env["LOUKE_OPENCODE_BACKEND"] = "real"

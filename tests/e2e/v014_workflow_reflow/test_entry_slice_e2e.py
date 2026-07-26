@@ -19,10 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.fixtures.v014_workflow_reflow.harness import (
-    CANONICAL_HUMAN_STORY,
-    read_gh_ledger,
-)
+from tests.fixtures.v014_workflow_reflow.harness import CANONICAL_HUMAN_STORY
 
 
 def _chromium_installed() -> bool:
@@ -218,10 +215,6 @@ def test_v014_entry_slice_golden_journey(live_server, browser_page):
     assert after["run"]["phase"] == "M-STORY"
     assert after["run"]["status"] == "running"
     assert after["artifact"]["digest"] == artifact["digest"]
-
-    # AC-FR0400-03: GitHub Project ledger
-    gh = read_gh_ledger(workspace.gh_ledger)
-    assert any(e.kind == "project_create" for e in gh)
 
 
 @pytest.mark.v014_entry_e2e
