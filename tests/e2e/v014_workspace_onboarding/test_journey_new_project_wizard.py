@@ -162,6 +162,13 @@ def test_journey_full_happy_path_keyboard_only(browser_page, live_server):
         encoding="utf-8",
     )
 
+    register_response = page.request.post(
+        f"{base_url}/api/auth/register",
+        data={"username": "human", "password": "secret"},
+    )
+    assert register_response.ok, (
+        "AC-NFR0301-01: keyboard journey must authenticate before readiness"
+    )
     page.goto(f"{base_url}/workbench?activity=projects", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
 
@@ -180,6 +187,27 @@ def test_journey_full_happy_path_keyboard_only(browser_page, live_server):
     page.keyboard.press("Enter")
     page.wait_for_load_state("networkidle")
     page.wait_for_selector('form[name="new_project_story"]', timeout=15_000)
+    page.wait_for_function(
+        """() => {
+            const card = document.querySelector('[data-projects-state="new_project"]');
+            const step = document.querySelector('[data-testid="env-step-canonical_main"]');
+            return card?.dataset.envPassed === 'true' && step?.dataset.state === 'passed';
+        }""",
+        timeout=15_000,
+    )
+    for step_id in (
+        "gh_executable",
+        "gh_auth_scopes",
+        "repository_binding",
+        "canonical_main",
+    ):
+        step = page.locator(f'[data-testid="env-step-{step_id}"]')
+        assert step.get_attribute("data-state") == "passed", (
+            f"AC-NFR0301-01: readiness step {step_id} must be terminal passed"
+        )
+    assert page.locator('textarea[name="story"]').is_enabled(), (
+        "AC-NFR0301-01: Story input must be enabled after terminal readiness"
+    )
 
     # Tab to the Story textarea and type.
     for _ in range(15):
@@ -203,7 +231,7 @@ def test_journey_full_happy_path_keyboard_only(browser_page, live_server):
         raise AssertionError(
             "AC-NFR0301-01: Release version input was not keyboard reachable"
         )
-    page.keyboard.type("0.14")
+    page.keyboard.type("0.15.0")
 
     # Move focus to Preview and press Enter.
     page.keyboard.press("Tab")

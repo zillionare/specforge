@@ -38,12 +38,49 @@ def _goto_projects(page, base_url: str) -> None:
     page.wait_for_load_state("networkidle")
 
 
+def _register_human(page, base_url: str) -> None:
+    """Authenticate the browser before the readiness API is started."""
+    response = page.request.post(
+        f"{base_url}/api/auth/register",
+        data={"username": "human", "password": "secret"},
+    )
+    assert response.ok, response.text()
+
+
+def _wait_for_terminal_readiness(page) -> None:
+    """Wait for the real bounded GitHub/Git readiness projection to pass."""
+    page.wait_for_selector('form[name="new_project_story"]')
+    page.wait_for_function(
+        """() => {
+            const card = document.querySelector('[data-projects-state="new_project"]');
+            const step = document.querySelector('[data-testid="env-step-canonical_main"]');
+            return card?.dataset.envPassed === 'true' && step?.dataset.state === 'passed';
+        }""",
+        timeout=15_000,
+    )
+    for step_id in (
+        "gh_executable",
+        "gh_auth_scopes",
+        "repository_binding",
+        "canonical_main",
+    ):
+        step = page.locator(f'[data-testid="env-step-{step_id}"]')
+        assert step.get_attribute("data-state") == "passed", (
+            f"AC-NFR0301-02: readiness step {step_id} must be terminal passed"
+        )
+    story_input = page.get_by_label("Story", exact=False).first
+    assert story_input.is_enabled(), (
+        "AC-NFR0301-02: Story input must be enabled only after terminal readiness"
+    )
+
+
 def test_ac_nfr0301_02_unsent_input_and_focus_preserved_across_background_events(
     browser_page, live_server
 ):
     """AC-NFR0301-02: background events preserve unsent Story input and focus."""
     # AC-NFR0301-02
     page, base_url = browser_page
+    _register_human(page, base_url)
     _goto_projects(page, base_url)
 
     # The Projects context is shown (empty state offers the New Project action).
@@ -53,6 +90,7 @@ def test_ac_nfr0301_02_unsent_input_and_focus_preserved_across_background_events
     )
     new_project.first.click()
     page.wait_for_load_state("networkidle")
+    _wait_for_terminal_readiness(page)
 
     # Enter unsent Story/version input in the New Project flow.
     story_input = page.get_by_label("Story", exact=False)
@@ -62,7 +100,7 @@ def test_ac_nfr0301_02_unsent_input_and_focus_preserved_across_background_events
     story_input.first.fill("incremental story not yet submitted")
     version_input = page.get_by_label("Version", exact=False)
     if version_input.count() >= 1:
-        version_input.first.fill("0.14.0")
+        version_input.first.fill("0.15.0")
 
     # Record the focused element before any background event.
     focus_before = page.evaluate(

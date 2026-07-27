@@ -9,6 +9,7 @@ import socket
 import subprocess
 import time
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -156,6 +157,93 @@ def _complete_setup(page, base_url: str) -> None:
     page.wait_for_url("**/workbench?activity=projects")
 
 
+def _create_project_from_empty_projects(page, base_url: str) -> tuple[str, dict]:
+    """Complete the current user-visible empty-Projects journey.
+
+    The historical v0.13 journey used the legacy Dev Docs sidebar as its first
+    activity after Setup.  Current Louke keeps that sidebar project-owned, so
+    the supported route is: empty Projects -> readiness -> Story/Preview/Create
+    -> the canonical Project Story document -> Project Status.
+    """
+    register = page.request.post(
+        f"{base_url}/api/auth/register",
+        data={"username": "human", "password": "secret"},
+    )
+    assert register.ok, register.text()
+
+    page.goto(f"{base_url}/workbench?activity=projects", wait_until="domcontentloaded")
+    page.wait_for_load_state("networkidle")
+    new_project = page.get_by_role("button", name="New Project")
+    assert new_project.is_visible(), (
+        "AC-FR1317-01: empty Projects must expose the New Project action"
+    )
+    new_project.click()
+    page.wait_for_load_state("networkidle")
+    page.wait_for_selector('form[name="new_project_story"]')
+
+    # The form is intentionally disabled until the real bounded GitHub/Git
+    # readiness check reaches its terminal passed state.  Do not enable it from
+    # browser-owned state or skip the gate.
+    page.wait_for_function(
+        """() => {
+            const card = document.querySelector('[data-projects-state="new_project"]');
+            const step = document.querySelector('[data-testid="env-step-canonical_main"]');
+            return card?.dataset.envPassed === 'true' && step?.dataset.state === 'passed';
+        }""",
+        timeout=15_000,
+    )
+    for step_id in (
+        "gh_executable",
+        "gh_auth_scopes",
+        "repository_binding",
+        "canonical_main",
+    ):
+        step = page.locator(f'[data-testid="env-step-{step_id}"]')
+        assert step.get_attribute("data-state") == "passed", (
+            f"AC-FR1317-01: readiness step {step_id} must be terminal passed"
+        )
+
+    story = "Initial Story for v0.15"
+    page.locator('textarea[name="story"]').fill(story)
+    page.locator('input[name="release_version"]').fill("0.15.0")
+    page.get_by_test_id("preview").click()
+    page.wait_for_selector('[data-testid="project-preview"]:not([hidden])')
+    preview_body = page.inner_text("body")
+    assert story in preview_body
+    assert "0.15.0" in preview_body
+    assert page.get_by_test_id("create-project").is_visible()
+
+    page.get_by_test_id("create-project").click()
+    page.wait_for_url(f"{base_url}/workbench?activity=dev-docs*")
+    story_view = page.get_by_test_id("dev-docs-story")
+    story_view.wait_for()
+    story_body = story_view.inner_text()
+    assert story in story_body
+    assert "Revision: 1" in story_body
+
+    query = parse_qs(urlparse(page.url).query)
+    project_id = query["project"][0]
+    current_response = page.request.get(f"{base_url}/api/projects/{project_id}/current")
+    assert current_response.ok, current_response.text()
+    current = current_response.json()
+    assert current["project"]["project_id"] == project_id
+    assert current["project"]["spec_id"].startswith("v0.15-")
+    assert current["run"]["run_id"]
+    assert current["run"]["phase"] == "M-STORY"
+    assert current["artifact"]["kind"] == "story"
+    assert current["artifact"]["revision"] == 1
+    assert current["artifact"]["digest"].startswith("sha256:")
+
+    page.get_by_role("link", name="Back to Project Status").click()
+    page.wait_for_url(f"{base_url}/workbench?activity=projects&project={project_id}")
+    status = page.get_by_test_id("status-cockpit")
+    status.wait_for()
+    assert status.get_attribute("data-project-id") == project_id
+    assert current["run"]["run_id"] in status.inner_text()
+    assert "Active: M-STORY" in status.inner_text()
+    return project_id, current
+
+
 @pytest.mark.chromium_e2e
 @pytest.mark.skipif(
     not _chromium_available(),
@@ -262,70 +350,7 @@ def test_v013_chromium_main_journey(tmp_path: Path) -> None:
                     entry["kind"] == "run" and "--model" in entry["argv"]
                     for entry in ledger
                 ), "Setup must execute the real model-probe command boundary"
-                page.goto(f"{base_url}/workbench", wait_until="domcontentloaded")
-                expect = page.get_by_test_id
-                assert expect("workbench-toolbar").is_visible()
-                assert expect("workbench-sidebar").is_visible()
-                assert expect("workbench-main").is_visible()
-
-                expect("toolbar-dev-docs").click()
-                assert expect("devdocs-tree").is_visible()
-                page.locator('[data-testid^="devdocs-spec-"]').first.click()
-                expect("devdocs-file-spec").first.click()
-                page.wait_for_url("**/workbench?spec=*&doc=spec")
-                page.wait_for_load_state("domcontentloaded")
-                expect("devdocs-pane-container").locator(".doc-pane").first.wait_for()
-                assert expect("devdocs-cross-ref-US-1301").is_visible()
-                expect("devdocs-cross-ref-US-1301").click()
-                assert "#us-1301" in page.url
-
-                expect("toolbar-end-user-docs").click()
-                assert expect("enduserdocs-tree").is_visible()
-                expect("enduserdocs-file-guide").click()
-                assert expect("enduserdocs-editor").is_visible()
-                # loadDoc is async (fetches /api/files); wait for content.
-                page.wait_for_function(
-                    """() => {
-                        const el = document.querySelector('[data-testid="enduserdocs-editor"]');
-                        return el && el.value && el.value.includes('User Guide');
-                    }""",
-                    timeout=5000,
-                )
-                assert "User Guide" in expect("enduserdocs-editor").input_value()
-
-                expect("toolbar-wiki").click()
-                assert expect("wiki-tree").is_visible()
-                expect("wiki-page-README").click()
-                assert page.get_by_text("README", exact=True).last.is_visible()
-
-                expect("toolbar-runs").click()
-                assert expect("runs-sidebar").is_visible()
-                # The Runs sidebar is populated from the Runtime store via
-                # /api/ui/runs.  Fetch the actual run_id rather than hardcoding.
-                runs_response = page.request.get(f"{base_url}/api/ui/runs")
-                assert runs_response.ok
-                runs_json = runs_response.json()
-                assert runs_json["current"], "at least one current run must exist"
-                run_id = runs_json["current"][0]["run_id"]
-                run_button = page.locator(f'[data-testid="runs-project-{run_id}"]')
-                run_button.wait_for()
-                run_button.click()
-                # Click the design stage node (from the host compatibility
-                # definition graph) to load the artifact detail.
-                design_node = page.locator('[data-testid="runs-node-design"]')
-                design_node.wait_for()
-                design_node.click()
-                detail = expect("stage-artifact-detail")
-                detail.wait_for()
-                assert detail.is_visible()
-                for value in ("abc123", "PASS", "Prism", "Looks good"):
-                    assert value in detail.inner_text()
-
-                open_tabs = page.locator('[data-testid="workbench-tab"]:not([hidden])')
-                keys = open_tabs.evaluate_all(
-                    "nodes => nodes.map(node => node.dataset.tabKey)"
-                )
-                assert {"dev-docs", "end-user-docs", "wiki", "runs"}.issubset(set(keys))
+                _create_project_from_empty_projects(page, base_url)
                 assert not errors
                 assert not failed_requests
             finally:
