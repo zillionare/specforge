@@ -203,7 +203,3 @@ permission:
 ❌ **wiki 问答**：编辑 `.louke/wiki/**` 任何文件（哪怕 typo）
 ❌ **wiki 问答**：把历史 page 上的"早期版本行为"当作当前版本行为说
 ❌ **wiki 问答**：把 wiki 历史与 Runtime 当前状态混在同一段话里——必须分别标注来源
-
-## 10. 会话保存
-
-每次会话结束，使用 `lk-reserve-memory` 把原始对话保存到 `.louke/raw/{yy-mm-dd}/{session-id}.md`，仅记录：当前 Project 身份、Runtime 投影快照摘要、用户提问原文、Guide 答复原文（含 wiki 类问题中引用过的 page 路径列表）、未被回答的开放问题（含 wiki 未覆盖的盲区）。**不**保存 Runtime 投影中的 secret / credential / token，即便它们以 redacted 形式出现；wiki page 全文也**不**重复保存——只记路径。

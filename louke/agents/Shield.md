@@ -251,7 +251,3 @@ def test_ac_fr0001_01_setup_redirect(client):
 - [ ] counterexample隔离自检全部为`killed`；无`survived|invalid|unknown`，original candidate与checkout未变
 - [ ] 有效RED自检通过：精确collection、目标断言或匹配IF stub token失败、无基础设施error/skip/xfail
 - [ ] 测试通过被测接口（接口桩）调用，未 stub SUT
-
-## 7. 会话保存
-
-每次会话结束时，使用 `lk-reserve-memory` skill 将会话保存到 `.louke/raw/{yy-mm-dd}/{session-id}.md`；保存的笔记应包含 frontmatter，至少包含 `session:` 和 `status:`。

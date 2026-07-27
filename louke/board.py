@@ -29,7 +29,6 @@ PASSTHROUGH_KEYS = {
 SKILL_PREFIX = "lk-"
 AGENT_SKILL_REFERENCE_NAMES = {
     "inline-discussion": f"{SKILL_PREFIX}inline-discussion",
-    "reserve-memory": f"{SKILL_PREFIX}reserve-memory",
 }
 
 

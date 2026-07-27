@@ -41,10 +41,7 @@ permission:
 | `lk agent maestro regress`  | 记录经验教训                                            | 0      |
 | `lk agent maestro escalate` | 提醒用户并请求决策                                      | 0      |
 
-
 ### 2.2. 技能
-
-- **lk-reserve-memory**: 在每次会话结束时保存原始会话记录
 
 ### 2.3. 权限
 
@@ -405,7 +402,3 @@ main
 ## 语言
 
 使用与用户相同的语言。
-
-## 7. 会话保存
-
-记录人类的每一条指令。在每次阶段推进时，使用 `lk-reserve-memory` 技能将会话保存到 `.louke/raw/{yy-mm-dd}/{session-id}.md`；保存的记录应包含至少包含 `session:` 和 `status:` 的 frontmatter。

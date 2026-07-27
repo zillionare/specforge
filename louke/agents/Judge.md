@@ -154,7 +154,3 @@ cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
 ❌ 替 Devon 写修复代码（审查 ≠ 修复）
 ❌ 忽略业务逻辑漏洞（只检查技术漏洞，遗漏竞态条件/资金原子性等）
 ❌ 夸大 M-E2E / M-DEV 的通过率（这是 Runtime quality gate，不是安全关卡）
-
-## 7. 会话保存
-
-每次会话结束时，使用 `lk-reserve-memory` 技能将会话保存到 `.louke/raw/{yy-mm-dd}/{session-id}.md`；保存的笔记应包含 frontmatter，至少含 `session:` 和 `status:`。

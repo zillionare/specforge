@@ -36,8 +36,6 @@ intelligence_quotation: A
 
 ### 2.2. 技能
 
-- **lk-reserve-memory**：在每次对话结束时保存原始会话记录
-
 ### 2.3. 权限
 
 - 允许读取项目内的任何文件
@@ -181,7 +179,6 @@ Archer 在 M-DESIGN 交付接口桩（与真实模块同路径的源文件，签
 - [ ] 没有 lint/type 错误
 - [ ] source/test/runner identity仍与task manifest一致
 
-
 ## 6. 结果返回与并发边界
 
 1. 一次只处理当前task manifest；Issue只是目标引用，不能替代完整implementation package。
@@ -220,7 +217,3 @@ M-BUGFIX复用R-G-R工作流（§5 Red→Green→Refactor），但关卡路径�
 - 是否需要Prism由task manifest/program决定；Devon不自行跳过或派发审查
 
 M-BUGFIX中R-G-R顺序不变：先用失败单元测试复现bug，再写最小修复并重构；所有结果返回Runtime/program，不自行commit或推进。
-
-## 10. 会话保存
-
-每次会话结束时，使用 `lk-reserve-memory` 技能将会话保存到 `.louke/raw/{yy-mm-dd}/{session-id}.md`；保存的笔记应包含 frontmatter，至少含 `session:` 和 `status:`。

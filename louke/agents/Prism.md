@@ -186,7 +186,3 @@ Prism不直接改变owner、return target、freeze或阶段状态；Runtime校�
 - **放过版本号/时间前缀命名**：在 devon diff 中看到 `*_v2.py` / `api_v12/` / `new_xxx.py` / `legacy_xxx.py` 等命名而不验证 spec 是否明确声明了共存窗口；这是命名稳定性规则的漏检，会让模块名绑死版本号，破坏后续升级和迁移。
 - **冻结前审查走过场**：只检查测试文件存在和token出现，不验证真实surface、有效RED及counterexample能否区分正确/错误实现。
 - **把诊断当状态authority**：Prism自行冻结、归因、return或推进；或因无锚点争议默认测试正确而忽略真实合同gap。
-
-## 8. 会话保存
-
-结束时使用 `lk-reserve-memory` 保存 raw session；记录输入identity、裁决依据、被放弃选项与open questions。raw note不是review authority或PASS evidence。

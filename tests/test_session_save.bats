@@ -1,80 +1,39 @@
 #!/usr/bin/env bats
 
+# v0.6+ reverse contract (UT-010): lk-reserve-memory is removed; no agent
+# may reference it, no agent may carry a "会话保存" / "Session save"
+# section, the skill directory must not exist, no agent may prescribe
+# .louke/raw/ as a save target.
+
 AGENTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/louke/agents"
 
-@test "UT-010-01: Scout has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Scout.md"
-    [ "$status" -eq 0 ]
+@test "session-save: lk-reserve-memory skill directory is removed" {
+    [ ! -d "$AGENTS_DIR/_skills/reserve-memory" ]
 }
 
-@test "UT-010-01: Warden has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Warden.md"
-    [ "$status" -eq 0 ]
+@test "session-save: no agent references lk-reserve-memory" {
+    for agent in Archer Devon Judge Maestro Prism Sage Scout Scribe Shield Librarian Lex Keeper Warden; do
+        f="$AGENTS_DIR/$agent.md"
+        [ -f "$f" ] || continue
+        run grep -q "lk-reserve-memory" "$f"
+        [ "$status" -ne 0 ] || { echo "FAIL: $agent.md still references lk-reserve-memory"; false; }
+    done
 }
 
-@test "UT-010-01: Sage does not perform artifact persistence" {
-    run grep -q "lk-reserve-memory" "$AGENTS_DIR/Sage.md"
-    [ "$status" -ne 0 ]
-    run grep -Eq "lk agent sage (commit-spec|quote-check|create-issues|record-lock)" "$AGENTS_DIR/Sage.md"
-    [ "$status" -ne 0 ]
+@test "session-save: no agent has a 会话保存 / Session save section" {
+    for agent in Archer Devon Judge Maestro Prism Scout Shield Librarian Keeper Warden; do
+        f="$AGENTS_DIR/$agent.md"
+        [ -f "$f" ] || continue
+        run grep -qE "## .*[Ss]ession [Ss]av(e|ing)|## .*会话保存" "$f"
+        [ "$status" -ne 0 ] || { echo "FAIL: $agent.md still has a session save section"; false; }
+    done
 }
 
-@test "UT-010-01: Lex does not perform review persistence" {
-    run grep -q "lk-reserve-memory" "$AGENTS_DIR/Lex.md"
-    [ "$status" -ne 0 ]
-    run grep -Eq "lk agent lex (verify-acceptance|verify-issue|verify-project|quote-check)" "$AGENTS_DIR/Lex.md"
-    [ "$status" -ne 0 ]
-}
-
-@test "UT-010-01: Judge has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Judge.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Archer has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Archer.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Devon has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Devon.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Prism has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Prism.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Keeper has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Keeper.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Shield has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Shield.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Maestro has session save instructions" {
-    run grep -qE "Session [Ss]av(e|ing)|会话保存" "$AGENTS_DIR/Maestro.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-01: Librarian has session save instructions" {
-    # v0.6+ revision: Librarian is the wiki engine; its artifacts are wiki/pages (already structured memory).
-    # It no longer writes raw sessions (design intent: avoid wiki distillation loop — Librarian
-    # distilling its own raw). If a "Librarian decision tracking" requirement is introduced later,
-    # add a separate .louke/wiki/decisions/librarian/ directory rather than raw/sources/.
-    skip "Librarian intentionally does not write raw sessions — wiki/pages is its memory carrier"
-}
-
-@test "UT-010-02: session frontmatter fields are documented" {
-    run grep -qE "(status:|session:)" "$AGENTS_DIR/Devon.md"
-    [ "$status" -eq 0 ]
-}
-
-@test "UT-010-03: raw path documented" {
-    run grep -q ".louke/raw/" "$AGENTS_DIR/Devon.md"
-    [ "$status" -eq 0 ]
+@test "session-save: no agent references .louke/raw/ as a save target" {
+    for agent in Archer Devon Judge Maestro Prism Sage Scout Scribe Shield Librarian Lex Keeper Warden; do
+        f="$AGENTS_DIR/$agent.md"
+        [ -f "$f" ] || continue
+        run grep -qE "\.louke/raw/\{yy-mm-dd\}" "$f"
+        [ "$status" -ne 0 ] || { echo "FAIL: $agent.md still prescribes .louke/raw/ save path"; false; }
+    done
 }

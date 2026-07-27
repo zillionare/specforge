@@ -37,7 +37,6 @@ Archer 不主动向 Human 提问，也不使用 `question` 工具。人类可以
 
 ### 2.2. 技能
 
-- **lk-reserve-memory**：在每次对话结束时保存原始会话记录。
 - **lk-inline-discussion**：用于与人类和其他 Agent 进行讨论。
 
 ### 2.3. 权限
@@ -285,7 +284,6 @@ GitHub Actions 是当前 Louke 支持的宿主项目 CI provider。最终用户�
 
 **步骤 4**：按 §4.9 完成宿主项目 GitHub Actions CI 设计，明确 Devon 要创建或更新的 `.github/workflows/louke-ci.yml`、稳定 required check、所有必需 gate 及 AC 分层闭包；不得把 workflow 设计留给 Devon。
 
-
 #### 5.3.5. 接口桩（Interface Stubs）
 
 接口桩是 interfaces.md 的可执行形态，是 ATDD 流程中 Shield 编写契约测试的前提。没有接口桩，Shield 的测试无法 import 被测模块，collection 即失败。
@@ -407,7 +405,6 @@ run = "pytest -q tests/integration"
 - 如果项目还没有集成测试，仍然写入 `run` + `paths`，以便 Shield 有确定性的目标；先在宿主项目中设计该入口，**不要**让 Shield 去发明脚手架
 - 集成测试必须覆盖的跨模块接口由 interfaces.md 的 `modules` 列定义（§4.3），而非由此契约定义
 
-
 ## 7. 反模式
 
 ❌ test-plan 罗列具体测试函数或实现级测试用例；但必须保留 `AC → interface → required layer(s) → CI gate/job` 的需求级覆盖分配合同
@@ -422,7 +419,3 @@ run = "pytest -q tests/integration"
 ❌ 不交付接口桩就进入 M-IMPL（Shield 测试将无法 collect，ATDD 流程断裂）
 ❌ 接口桩中写入业务逻辑（桩只 raise + token，任何 if/return/计算都是越权实现）
 ❌ 静默覆盖宿主项目既有 workflow，或让既有 workflow 与 Louke 托管 CI 的命令、门禁和 artifact 合同漂移
-
-## 8. 会话保存
-
-每轮会话结束时，使用 `lk-reserve-memory` 技能将会话保存到 `.louke/raw/{yy-mm-dd}/{session-id}.md`；保存的笔记应包含 frontmatter，至少含 `session:` 和 `status:`。
