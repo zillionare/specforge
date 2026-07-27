@@ -40,7 +40,13 @@ def _ready_responses(root: Path) -> dict[tuple[str, ...], CommandResult]:
         ("gh", "--version"): CommandResult(0, "gh version 2.65.0\n"),
         ("gh", "auth", "status"): CommandResult(
             0,
-            "github.com\naccount: zillionare\ntoken scopes: gist, project, repo, workflow\n",
+            "github.com\n"
+            "  ✓ Logged in to github.com account fixture-login "
+            "(/Users/openclaw/.config/gh/hosts.yml)\n"
+            "  - Active account: true\n"
+            "  - Git operations protocol: https\n"
+            "  - Token: gho_************************************\n"
+            "  - Token scopes: 'gist', 'project', 'repo', 'workflow'\n",
         ),
         ("git", "rev-parse", "--is-inside-work-tree"): CommandResult(0, "true\n"),
         ("git", "rev-parse", "--show-toplevel"): CommandResult(
@@ -78,6 +84,11 @@ def test_ac_fr0601_01_terminal_ready_projection_is_read_only(tmp_path: Path) -> 
         is True
     )
     assert [step["id"] for step in result["steps"]] == list(CANONICAL_STEPS)
+    auth = result["steps"][1]["observed"]
+    assert auth["host"] == "github.com"
+    assert isinstance(auth["identity"], str) and auth["identity"].strip()
+    assert auth["identity"].lower() not in {"true", "false"}
+    assert set(REQUIRED_SCOPES).issubset(auth["scopes"])
     repository = result["steps"][2]["observed"]
     assert repository == {"host": "github.com", "owner": "zillionare", "name": "louke"}
     assert result["steps"][3]["observed"]["main_sha"] == "a" * 40
@@ -92,7 +103,14 @@ def test_ac_fr0601_02_blocked_diagnosis_exposes_repair_action(tmp_path: Path) ->
     """AC-FR0601-02/AC-FR0701-02: missing scope is terminal and actionable."""
     responses = _ready_responses(tmp_path)
     responses[("gh", "auth", "status")] = CommandResult(
-        0, "github.com\naccount: zillionare\ntoken scopes: gist, project, repo\n"
+        0,
+        "github.com\n"
+        "  ✓ Logged in to github.com account fixture-login "
+        "(/Users/openclaw/.config/gh/hosts.yml)\n"
+        "  - Active account: true\n"
+        "  - Git operations protocol: https\n"
+        "  - Token: gho_************************************\n"
+        "  - Token scopes: 'gist', 'project', 'repo'\n",
     )
 
     result = EnvironmentService(

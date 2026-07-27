@@ -87,7 +87,11 @@ def parse_auth_status(stdout: str, stderr: str) -> dict[str, set[str]]:
     text = "\n".join(value for value in (stdout, stderr) if value)
     hosts = {"github.com"} if "github.com" in text.lower() else set()
     identities = set(
-        re.findall(r"(?:account|user|identity)[:\s]+([A-Za-z0-9._-]+)", text, re.I)
+        re.findall(
+            r"logged\s+in\s+to\s+github\.com\s+(?:account|as)\s+([A-Za-z0-9._-]+)",
+            text,
+            re.I,
+        )
     )
     scopes: set[str] = set()
     for value in re.findall(r"token scopes?\s*:\s*([^\n]+)", text, re.I):
