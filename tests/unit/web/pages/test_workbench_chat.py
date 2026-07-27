@@ -7,50 +7,36 @@ from pathlib import Path
 from starlette.testclient import TestClient
 
 from louke.web.app import create_app
-from louke.web.setup_state import SetupManifest, SetupStatus, write_manifest
 
 
 def _complete_workspace(tmp_path: Path) -> Path:
-    """Build a workspace with a v2 complete Setup manifest."""
+    """Build a workspace with the minimum Web metadata."""
     (tmp_path / ".louke" / "project" / "specs" / "demo").mkdir(parents=True)
     (tmp_path / ".louke" / "wiki" / "pages").mkdir(parents=True)
     (tmp_path / ".louke" / "wiki" / "pages" / "guides").mkdir(parents=True)
     (tmp_path / ".louke" / "project" / "project.toml").write_text(
         '[project]\nversion = "0.8"\nspec_id = "demo"\n', encoding="utf-8"
     )
-    manifest = (
-        SetupManifest(
-            workspace_id="ws_test",
-            revision=0,
-            status=SetupStatus.PENDING_USER,
-        )
-        .advance_to_pending_model(
-            first_principal_id="prin_test",
-            expected_revision=0,
-        )
-        .complete(
-            model_check_state="passed",
-            model_check_id="chk_test",
-            model_check_revision=1,
-            model_id="minimax/m2",
-            diagnosis=None,
-            observed_at="2026-07-24T00:00:00Z",
-            expected_revision=1,
-        )
-    )
-    write_manifest(tmp_path, manifest)
     return tmp_path
+
+
+def _client(tmp_path: Path) -> TestClient:
+    """Return an authenticated client for the protected Workbench page."""
+    client = TestClient(create_app(_complete_workspace(tmp_path)))
+    response = client.post(
+        "/api/auth/register", json={"username": "human", "password": "secret"}
+    )
+    assert response.status_code == 200
+    return client
 
 
 def _select_agent_source(tmp_path: Path) -> str:
     """Return the generated client-side Agent selection function.
 
     The caller must pass a workspace whose ``.louke/`` layout already
-    includes a v2 complete Setup manifest (see :func:`_complete_workspace`).
+    includes the minimum project metadata.
     """
-    response = TestClient(create_app(_complete_workspace(tmp_path))).get(
-        "/workbench?activity=chat"
-    )
+    response = _client(tmp_path).get("/workbench?activity=chat")
 
     assert response.status_code == 200
     html = response.text
@@ -63,9 +49,7 @@ def test_chat_delta_registers_message_id_before_transcript_refresh(
     tmp_path: Path,
 ) -> None:
     """An SSE-rendered assistant id must be known to refresh deduplication."""
-    response = TestClient(create_app(_complete_workspace(tmp_path))).get(
-        "/workbench?activity=chat"
-    )
+    response = _client(tmp_path).get("/workbench?activity=chat")
 
     assert response.status_code == 200
     html = response.text
@@ -88,9 +72,7 @@ def test_chat_uses_normalized_agent_ids_and_inflight_submit_guard(
     tmp_path: Path,
 ) -> None:
     """Chat setup targets the selected Agent and admits one in-flight submit."""
-    response = TestClient(create_app(_complete_workspace(tmp_path))).get(
-        "/workbench?activity=chat"
-    )
+    response = _client(tmp_path).get("/workbench?activity=chat")
 
     assert response.status_code == 200
     html = response.text

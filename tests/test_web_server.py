@@ -95,32 +95,6 @@ print("hello")
         encoding="utf-8",
     )
 
-    # Write a v2 Setup manifest so the SetupGateMiddleware (v0.14-004)
-    # does not block the running app for tests that pre-date the gate.
-    from louke.web.setup_state import SetupManifest, SetupStatus, write_manifest
-
-    manifest = (
-        SetupManifest(
-            workspace_id="ws_test",
-            revision=0,
-            status=SetupStatus.PENDING_USER,
-        )
-        .advance_to_pending_model(
-            first_principal_id="prin_test",
-            expected_revision=0,
-        )
-        .complete(
-            model_check_state="passed",
-            model_check_id="chk_test",
-            model_check_revision=1,
-            model_id="minimax/m2",
-            diagnosis=None,
-            observed_at="2026-07-24T00:00:00Z",
-            expected_revision=1,
-        )
-    )
-    write_manifest(root, manifest)
-
     return root
 
 
@@ -151,31 +125,23 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     asset = client.get("/assets/min-square_97-snk-X32c8tE-unsplash.jpg")
     assert asset.status_code == 200
     guest = client.get("/", follow_redirects=False)
-    # v0.14: Setup-complete workspace redirects anonymous visitors to
-    # ``/workbench?activity=projects``; following the redirect lands on
-    # the workbench chrome.
+    # Unauthenticated visitors always start at Login.
     assert guest.status_code == 303
-    assert guest.headers["location"].startswith("/workbench?activity=projects")
+    assert guest.headers["location"].startswith("/login")
     guest_chrome = client.get("/")
     assert guest_chrome.status_code == 200
-    assert 'data-louke-region="toolbar"' in guest_chrome.text
+    assert 'id="tab-register"' in guest_chrome.text
     legacy_guest = client.get("/?legacy=1", follow_redirects=False)
     assert legacy_guest.status_code == 303
     assert legacy_guest.headers["location"].startswith("/login")
     authenticate(client)
-    home = client.get("/?legacy=1")
+    home = client.get("/")
     assert home.status_code == 200
-    # No header -> English fallback
-    assert "Model Bindings" in home.text
-    assert "Design Docs" in home.text
-    assert "wiki" in home.text
-    assert "Aaron" in home.text
+    assert 'data-testid="workbench-toolbar"' in home.text
 
-    home_en = client.get("/?legacy=1", headers={"accept-language": "en-US,en;q=0.9"})
+    home_en = client.get("/", headers={"accept-language": "en-US,en;q=0.9"})
     assert home_en.status_code == 200
-    assert "Model Bindings" in home_en.text
-    assert "Design Docs" in home_en.text
-    assert "Log Out" in home_en.text
+    assert 'data-testid="workbench-toolbar"' in home_en.text
 
     login_en = TestClient(create_app(root)).get(
         "/login", headers={"accept-language": "en-US,en;q=0.9"}
@@ -185,11 +151,9 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     assert "Register &amp; Sign In" in login_en.text
 
     # Explicit Chinese
-    home_zh = client.get("/?legacy=1", headers={"accept-language": "zh-CN,zh;q=0.9"})
+    home_zh = client.get("/", headers={"accept-language": "zh-CN,zh;q=0.9"})
     assert home_zh.status_code == 200
-    assert "模型绑定" in home_zh.text
-    assert "设计文档" in home_zh.text
-    assert "退出" in home_zh.text
+    assert 'data-testid="workbench-toolbar"' in home_zh.text
 
     login_zh = TestClient(create_app(root)).get(
         "/login", headers={"accept-language": "zh-CN,zh;q=0.9"}
@@ -199,54 +163,9 @@ def test_health_and_home_page(tmp_path: Path) -> None:
     assert "注册并登录" in login_zh.text
 
     # Unsupported language (French) -> fall back to English
-    home_fr = client.get("/?legacy=1", headers={"accept-language": "fr-FR,fr;q=0.9"})
+    home_fr = client.get("/", headers={"accept-language": "fr-FR,fr;q=0.9"})
     assert home_fr.status_code == 200
-    assert "Model Bindings" in home_fr.text
-    assert "模型绑定" not in home_fr.text
-
-
-def test_setup_only_root_exits_setup_after_first_user(tmp_path: Path) -> None:
-    """A first user created after startup can reach the login landing page."""
-    root = tmp_path
-    (root / ".louke" / "project" / "specs" / "demo").mkdir(parents=True)
-    (root / ".louke" / "wiki" / "pages").mkdir(parents=True)
-    (root / ".louke" / "wiki" / "pages" / "guides").mkdir(parents=True)
-    (root / ".louke" / "project" / "project.toml").write_text(
-        """
-[project]
-version = "0.8"
-spec_id = "demo"
-release_branch = "releases/v0.8"
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
-    client = TestClient(create_app(root, setup_only=True))
-
-    setup = client.get("/", follow_redirects=False)
-    assert setup.status_code == 303
-    assert setup.headers["location"] == "/setup"
-
-    # Fetch a CSRF token from the v2 status endpoint, then use it
-    # when posting the first user.
-    status_resp = client.get("/api/setup/status")
-    assert status_resp.status_code == 200
-    csrf_token = status_resp.json()["csrf_token"]
-
-    created = client.post(
-        "/api/setup/first-user",
-        json={"name": "Alice", "credential": "secret"},
-        headers={"X-Louke-CSRF": csrf_token},
-    )
-    assert created.status_code == 201
-
-    # After first-user creation, the manifest advances to
-    # ``pending_model``. The gate still blocks ``/`` because Setup
-    # is not yet complete; the user is sent back to ``/setup`` to
-    # finish the model-probe step.
-    home = client.get("/", follow_redirects=False)
-    assert home.status_code == 303
-    assert home.headers["location"] == "/setup"
+    assert 'data-testid="workbench-toolbar"' in home_fr.text
 
 
 def test_register_login_logout_flow(tmp_path: Path) -> None:
@@ -839,23 +758,16 @@ def test_wiki_refresh_surfaces_compact_bundle_hint(tmp_path: Path, monkeypatch) 
     assert "lk agent librarian compact" in data["hint"]
 
 
-def test_wiki_menu_has_refresh_icon(tmp_path: Path) -> None:
-    """The wiki nav link should have a refresh icon next to it that
-    triggers the librarian via /api/wiki/refresh."""
+def test_workbench_exposes_wiki_activity(tmp_path: Path) -> None:
+    """The authenticated Workbench keeps Wiki reachable from its toolbar."""
     root = build_project(tmp_path)
     client = TestClient(create_app(root))
     client.post("/api/auth/register", json={"username": "Aaron", "password": "secret"})
 
-    # The refresh button is in the sidebar on every page, not just /wiki.
-    # ``?legacy=1`` opts into the v0.12 shell where the wiki refresh icon
-    # is exposed in the sidebar.
-    home = client.get("/?legacy=1")
+    home = client.get("/workbench?activity=projects")
     assert home.status_code == 200
     body = home.text
-    assert 'id="wiki-refresh"' in body
-    assert 'class="wiki-refresh-btn"' in body
-    # The click handler is wired to the /api/wiki/refresh endpoint.
-    assert "/api/wiki/refresh" in body
+    assert 'data-activity="wiki"' in body
 
 
 def test_wiki_index_renders_double_bracket_links(tmp_path: Path) -> None:

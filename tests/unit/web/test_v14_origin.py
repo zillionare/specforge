@@ -16,6 +16,7 @@ from louke.runtime.scribe_entry import ScribeEntryService
 from louke.runtime.story_entry import StoryArtifactStore
 from louke.web.app import create_app
 from louke.web.environment_commands import CommandResult
+from louke.web.opencode_probe import ModelCheckResult
 
 from tests.test_web_server import build_project
 
@@ -24,6 +25,7 @@ def _client(tmp_path: Path) -> TestClient:
     """Build an authenticated live HTTP client with a configured origin."""
     app = create_app(build_project(tmp_path), allowed_origin="https://louke.example")
     app.state.environment_executor = _PassingEnvironmentExecutor(tmp_path)
+    app.state.readiness_model_checker = _passed_model
     client = TestClient(app)
     assert (
         client.post(
@@ -32,6 +34,16 @@ def _client(tmp_path: Path) -> TestClient:
         == 200
     )
     return client
+
+
+def _passed_model(_: Path) -> ModelCheckResult:
+    """Return explicit selected-model evidence for the controlled host."""
+    return ModelCheckResult(
+        check_id="chk_origin",
+        revision=1,
+        state="passed",
+        current_model_id="fixture/model",
+    )
 
 
 def _csrf(client: TestClient) -> str:

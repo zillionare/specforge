@@ -132,9 +132,14 @@ def _role_assignment(quotation: str, root: Path) -> str:
 
 
 def opencode_models() -> list[str]:
+    """Return model identifiers from a bounded, non-interactive OpenCode call."""
     try:
         out = subprocess.check_output(
-            ["opencode", "models"], text=True, stderr=subprocess.DEVNULL
+            ["opencode", "models"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            timeout=5,
         )
     except Exception:
         return []

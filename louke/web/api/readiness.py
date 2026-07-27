@@ -32,6 +32,7 @@ from louke.runtime.workspace_init import (
 )
 
 from ._common import install_error_handlers
+from ..login_readiness import check_login_readiness_async
 
 _COMMAND_TIMEOUT_SECONDS = 5
 _CREDENTIALS_RE = re.compile(r"\b(\d+)\s+credentials?\b")
@@ -267,6 +268,16 @@ async def get_readiness(request: Request) -> JSONResponse:
     """
     report = _build_report(request.app.state.workspace_root)
     return JSONResponse({"items": [_check_to_dict(c) for c in report.items]})
+
+
+async def get_login_readiness(request: Request) -> JSONResponse:
+    """Return fresh aggregate OpenCode and GitHub/Git readiness for Login."""
+    result = await check_login_readiness_async(
+        request.app.state.workspace_root,
+        executor=getattr(request.app.state, "environment_executor", None),
+        model_checker=getattr(request.app.state, "readiness_model_checker", None),
+    )
+    return JSONResponse(result)
 
 
 def _check_to_dict(check: ReadinessCheck) -> dict[str, str]:

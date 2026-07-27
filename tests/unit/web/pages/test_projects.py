@@ -10,7 +10,7 @@ Verifies the projects HTML page sub-app:
 
 The page talks to the upstream ``/api/projects/*`` and ``/api/runtime/*`` sub-apps
 via module-level seams (``_fetch_*`` / ``_post_*``) so tests can patch them
-without a live server, mirroring the ``/setup`` page test pattern.
+without a live server, mirroring the Workbench page test pattern.
 """
 
 from __future__ import annotations

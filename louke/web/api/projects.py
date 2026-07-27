@@ -17,7 +17,8 @@ from louke.runtime.release_entry import (
     StalePreviewError,
 )
 from louke.runtime.release_request import PreviewError
-from louke.web.environment_service import EnvironmentService
+from louke.web.login_readiness import check_login_readiness_async
+from louke.web.workspace_identity import workspace_label
 
 
 def _service(request: Request) -> ReleaseEntryService:
@@ -102,6 +103,7 @@ def _preview_environment_identity(
     return {
         "workspace": {
             "workspace_id": str(getattr(request.app.state, "workspace_id", "")),
+            "label": workspace_label(request.app.state.workspace_root),
         },
         "repository": {
             "host": repository.get("host"),
@@ -134,9 +136,8 @@ def _project_context_state(request: Request) -> str:
     """Return the persisted project context state (empty/active/conflict).
 
     Reads ``.louke/project-state.json`` from the workspace root.
-    Missing or unreadable files default to ``empty`` (fail-open for
-    context, because the environment gate is the authority on creation
-    readiness).
+    Only a missing file means an empty context. Corrupt, unreadable, non-object,
+    and unknown-state files fail closed as ``conflict``.
     """
     workspace_root = Path(request.app.state.workspace_root)
     state_path = workspace_root / ".louke" / "project-state.json"
@@ -145,18 +146,22 @@ def _project_context_state(request: Request) -> str:
     try:
         raw = json.loads(state_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return "empty"
-    return str(raw.get("state", "empty")) if isinstance(raw, dict) else "empty"
+        return "conflict"
+    if not isinstance(raw, dict):
+        return "conflict"
+    state = raw.get("state")
+    return str(state) if state in {"empty", "active", "conflict"} else "conflict"
 
 
-def _readiness_for_creation(
+async def _readiness_for_creation(
     request: Request, *, require_empty_context: bool = True
 ) -> dict[str, Any] | JSONResponse:
     """Run current readiness and optionally require an empty Project context."""
-    env = EnvironmentService(
+    env = await check_login_readiness_async(
         request.app.state.workspace_root,
         executor=getattr(request.app.state, "environment_executor", None),
-    ).check()
+        model_checker=getattr(request.app.state, "readiness_model_checker", None),
+    )
     if env["state"] != "passed":
         return JSONResponse(
             _error(
@@ -197,7 +202,7 @@ async def preview_project(request: Request) -> JSONResponse:
         payload = await request.json()
         story = _required_string(payload, "story")
         release_version = _required_string(payload, "release_version")
-        gate = _readiness_for_creation(request)
+        gate = await _readiness_for_creation(request)
         if isinstance(gate, JSONResponse):
             return gate
         readiness_identity = _readiness_identity(request, gate)
@@ -245,7 +250,7 @@ async def confirm_project(request: Request) -> JSONResponse:
         )
         if replay is not None:
             return JSONResponse(replay, status_code=202)
-        gate = _readiness_for_creation(request, require_empty_context=False)
+        gate = await _readiness_for_creation(request)
         if isinstance(gate, JSONResponse):
             return gate
         readiness_identity = _readiness_identity(request, gate)

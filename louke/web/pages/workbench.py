@@ -35,21 +35,20 @@ async def workbench(request: Request) -> HTMLResponse:
     - ``projects`` (default after Setup) → Projects activity (IF-PROJECT-01).
     - ``chat`` / ``dev-docs`` / ``runs`` / … → legacy v0.13 panels.
 
-    When Setup is complete and no ``?activity`` is given, redirect to
-    ``?activity=projects`` (IF-PROJECT-01 canonical landing).
+    When no ``?activity`` is given, redirect to the Projects activity.
     """
     from starlette.responses import RedirectResponse as _Redirect
+    from ..auth import SESSION_COOKIE, current_user
+
+    if (
+        current_user(request.app.state.store, request.cookies.get(SESSION_COOKIE))
+        is None
+    ):
+        return _Redirect(url="/login?next=/workbench", status_code=303)
 
     activity = request.query_params.get("activity")
     if activity is None:
-        # Default landing: Projects when Setup is complete, else legacy Chat.
-        from ..setup_state import try_read_manifest
-
-        workspace_root = Path(request.app.state.workspace_root)
-        manifest = try_read_manifest(workspace_root)
-        if manifest is not None and manifest.is_complete:
-            return _Redirect(url="/workbench?activity=projects", status_code=303)
-        activity = "chat"
+        return _Redirect(url="/workbench?activity=projects", status_code=303)
     if activity == "projects":
         return await _render_projects_activity(request)
     if (
@@ -1535,8 +1534,8 @@ async def _render_projects_activity(request: Request) -> HTMLResponse:
     else:
         main = _projects_main_panel(resolved)
     # I-15 / AC-FR1512-01/02: the Projects activity is the canonical
-    # ``/workbench`` landing once Setup is complete, so it must itself
-    # surface the Settings read-model runtime identity alongside the
+    # ``/workbench`` landing, so it must itself surface the Settings
+    # read-model runtime identity alongside the
     # project directory and ``.venv`` path metadata on every render.
     workspace_root = Path(request.app.state.workspace_root)
     settings = _settings(workspace_root)
@@ -1689,6 +1688,7 @@ def _projects_new_project_wizard(request: Request | None = None) -> str:
         ("gh_auth_scopes", "GitHub auth & scopes"),
         ("repository_binding", "Repository binding"),
         ("canonical_main", "Canonical main branch"),
+        ("opencode_model", "Selected OpenCode model"),
     )
     env_check = {
         "state": "blocked",
@@ -1940,7 +1940,7 @@ def _new_project_script(csrf_token: str, draft_key: str = "") -> str:
     document.querySelector('[data-testid="preview-story"]').textContent = body.story;
     document.querySelector('[data-testid="preview-version"]').textContent = body.release.canonical;
     document.querySelector('[data-testid="preview-workspace"]').textContent =
-      body.workspace && body.workspace.workspace_id || body.workspace_id || '';
+      body.workspace && (body.workspace.label || body.workspace.workspace_id) || body.workspace_id || '';
     const repository = body.repository || {};
     document.querySelector('[data-testid="preview-repository"]').textContent =
       repository.display_url || [repository.owner, repository.name].filter(Boolean).join('/') || '';

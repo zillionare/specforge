@@ -4,7 +4,7 @@ Covers the minimal public surface of each new module:
 projects_context, guide_session, environment_gate, draft_storage,
 document_surface, compatibility_router, csrf_middleware,
 projection, return_application, foundation_scribe, project_identity,
-attempt_detail, setup_projection, first_user, opencode_probe.
+attempt_detail, opencode_probe.
 """
 
 from __future__ import annotations
@@ -33,16 +33,6 @@ from louke.web.compatibility_router import (
     resolve as resolve_compat,
 )
 from louke.web.csrf_middleware import issue_for_session
-from louke.web.setup_projection import (
-    SCHEMA_VERSION,
-    STATUS_COMPLETE,
-    STATUS_PENDING_MODEL,
-    STATUS_PENDING_USER,
-    read as read_projection,
-)
-from louke.web.first_user import (
-    principal_id_for,
-)
 from louke.web.opencode_probe import PROBE_PROMPT, is_available, run_minimal
 from louke.runtime.projection import CANONICAL_STAGES, project_status
 from louke.runtime.return_application import cancel, confirm, preview
@@ -167,35 +157,6 @@ class TestCsrfMiddleware:
         t1 = issue_for_session(session_id="sess_1")
         t2 = issue_for_session(session_id="sess_2")
         assert t1 != t2
-
-
-class TestSetupProjection:
-    """IF-SETUP-01: manifest projection."""
-
-    def test_schema_version_is_two(self) -> None:
-        assert SCHEMA_VERSION == 2
-
-    def test_status_constants(self) -> None:
-        assert STATUS_PENDING_USER == "pending_user"
-        assert STATUS_PENDING_MODEL == "pending_model"
-        assert STATUS_COMPLETE == "complete"
-
-    def test_read_returns_pending_user_for_missing_manifest(
-        self, tmp_path: Path
-    ) -> None:
-        result = read_projection(tmp_path, workspace_id="ws_1")
-        assert result["status"] == "pending_user"
-        assert "create_first_user" in result["available_actions"]
-
-
-class TestFirstUser:
-    """IF-SETUP-02: first-user creation."""
-
-    def test_principal_id_is_stable(self) -> None:
-        assert principal_id_for("alice") == principal_id_for("alice")
-
-    def test_principal_id_differs_for_different_names(self) -> None:
-        assert principal_id_for("alice") != principal_id_for("bob")
 
 
 class TestOpencodeProbe:

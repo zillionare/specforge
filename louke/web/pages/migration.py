@@ -14,7 +14,7 @@ Single inline-HTML page (no Jinja2). Renders four sections:
 
 Upstream HTTP calls go through module-level seams (``_fetch_preview``,
 ``_post_confirm``, ``_post_rollback``) so tests can patch them without a live
-server, mirroring ``/setup`` and ``/projects``.
+    server, mirroring the Login and Workbench surfaces.
 
 Routes (relative to the sub-app mount root)::
 

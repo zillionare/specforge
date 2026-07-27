@@ -1,4 +1,4 @@
-"""OpenCode real model probe for Setup verification.
+"""OpenCode real model probe for Login readiness verification.
 
 AC-FR0201-01, AC-FR0201-02, AC-FR0301-01
 
@@ -20,8 +20,8 @@ PROBE_PROMPT = "please echo hi"
 SINGLE_TIMEOUT_SECONDS = 15
 TOTAL_DEADLINE_SECONDS = 60
 
-#: Canonical recovery surface for every Setup model-check diagnosis.
-RECOVERY_URL = "/setup"
+#: Canonical recovery surface for every Login model-check diagnosis.
+RECOVERY_URL = "/login"
 
 
 def _actionable_diagnosis(
@@ -35,7 +35,7 @@ def _actionable_diagnosis(
 
     The diagnosis carries the four contract fields ``object``,
     ``known_facts``, ``impact`` and ``recovery_url`` (acceptance
-    AC-NFR0201-02) plus the stable ``reason`` discriminator the Setup
+    AC-NFR0201-02) plus the stable ``reason`` discriminator the readiness
     projection relies on. Provider output (subprocess stderr) is
     deliberately *never* embedded here so a credential printed by the
     provider cannot leak into the manifest, the API, the Guide, or
@@ -46,7 +46,7 @@ def _actionable_diagnosis(
             ``nonzero_exit``, ``executable_not_found``).
         object_name: What failed, in human terms.
         known_facts: Non-secret observed facts (exit code, deadline).
-        impact: The consequence for Setup.
+        impact: The consequence for Login readiness.
 
     Returns:
         A redacted diagnosis dict with the four actionable fields.
@@ -142,7 +142,7 @@ def run_minimal(
                     f"opencode run --model {model_id} did not finish "
                     f"within {deadline_seconds}s"
                 ),
-                impact="Setup cannot verify a working OpenCode model",
+                impact="Login readiness cannot verify a working OpenCode model",
             ),
         )
     except FileNotFoundError:
@@ -153,7 +153,18 @@ def run_minimal(
                 reason="executable_not_found",
                 object_name="opencode executable",
                 known_facts="the opencode executable was not found on PATH",
-                impact="Setup cannot run a model check",
+                impact="Login readiness cannot run a model check",
+            ),
+        )
+    except OSError:
+        return ProbeResult(
+            model_id=model_id,
+            state="failed",
+            diagnosis=_actionable_diagnosis(
+                reason="executable_unavailable",
+                object_name="opencode executable",
+                known_facts="the opencode executable could not be executed",
+                impact="Login readiness cannot run a model check",
             ),
         )
     if proc.returncode == 0:
@@ -167,10 +178,9 @@ def run_minimal(
             reason="nonzero_exit",
             object_name="opencode model check",
             known_facts=(
-                f"opencode run --model {model_id} exited with code "
-                f"{proc.returncode}"
+                f"opencode run --model {model_id} exited with code {proc.returncode}"
             ),
-            impact="Setup cannot verify a working OpenCode model",
+            impact="Login readiness cannot verify a working OpenCode model",
         ),
     )
 
@@ -230,7 +240,7 @@ def run_check(
             reason="no_candidates",
             object_name="opencode model check",
             known_facts="no configured OpenCode models were discovered",
-            impact="Setup cannot verify a working OpenCode model",
+            impact="Login readiness cannot verify a working OpenCode model",
         )
         return result
 
@@ -242,10 +252,8 @@ def run_check(
             result.diagnosis = _actionable_diagnosis(
                 reason="timeout",
                 object_name="opencode model check",
-                known_facts=(
-                    f"no model succeeded within {total_deadline_seconds}s"
-                ),
-                impact="Setup cannot verify a working OpenCode model",
+                known_facts=(f"no model succeeded within {total_deadline_seconds}s"),
+                impact="Login readiness cannot verify a working OpenCode model",
             )
             break
         result.current_model_id = model_id

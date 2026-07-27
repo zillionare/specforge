@@ -30,6 +30,7 @@ from louke.runtime.story_init import (
 from louke.web.app import create_app
 from louke.web.csrf_middleware import issue_for_session
 from louke.web.environment_commands import CommandResult
+from louke.web.opencode_probe import ModelCheckResult
 from louke.web.pages.workbench import (
     _projects_main_panel_active,
     _runtime_active_project_state,
@@ -40,6 +41,16 @@ from tests.test_web_server import authenticate, build_project
 
 ORIGIN = "https://louke.example"
 SHA = "a" * 40
+
+
+def _passed_model(_: Path) -> ModelCheckResult:
+    """Return explicit selected-model evidence for the controlled host."""
+    return ModelCheckResult(
+        check_id="chk_projects",
+        revision=1,
+        state="passed",
+        current_model_id="fixture/model",
+    )
 
 
 class ReadOnlyExecutor:
@@ -184,6 +195,7 @@ def _client_with_ready_runtime(
     foundation = ReadyFoundation()
     writer = StoryWriter()
     app.state.environment_executor = executor
+    app.state.readiness_model_checker = _passed_model
     app.state.release_entry = ReleaseEntryService(
         app.state.v12_run_store,
         foundation,

@@ -9,11 +9,22 @@ from starlette.testclient import TestClient
 from louke.web.app import create_app
 from louke.web.csrf_middleware import issue_for_session
 from louke.web.environment_commands import CommandResult
+from louke.web.opencode_probe import ModelCheckResult
 
 from tests.test_web_server import authenticate, build_project
 
 
 ORIGIN = "https://louke.example"
+
+
+def _passed_model(_: Path) -> ModelCheckResult:
+    """Return explicit selected-model evidence for the controlled host."""
+    return ModelCheckResult(
+        check_id="chk_environment",
+        revision=1,
+        state="passed",
+        current_model_id="fixture/model",
+    )
 
 
 class RecordingExecutor:
@@ -65,6 +76,7 @@ def test_environment_entry_is_authenticated_and_terminal(tmp_path: Path) -> None
     app = create_app(tmp_path, allowed_origin=ORIGIN)
     executor = RecordingExecutor(tmp_path)
     app.state.environment_executor = executor
+    app.state.readiness_model_checker = _passed_model
     client = TestClient(app)
 
     assert client.post("/api/projects/environment-checks").status_code == 401

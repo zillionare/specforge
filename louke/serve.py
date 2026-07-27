@@ -1,11 +1,9 @@
-"""lk serve - run louke web server with v0.12 init-wizard and runtime selection.
+"""lk serve - run the louke Web server with runtime selection.
 
 Behavior:
 - Resolve project root by walking up for `.louke/project/project.toml`.
 - If project.toml is missing or its current_stage is unrecognized, auto-create a
-  minimal v0.12 project.toml and start in setup-only mode.
-- If project.toml exists but no first principal is initialized, start in
-  setup-only mode.
+  minimal project.toml before starting the Login/Workbench app.
 - If everything is ready, resolve RuntimeSelector and fail-closed on any
   integrity/version/runtime error (never silently fall back to global).
 - Always start uvicorn unless --dry-run is set (for tests).
@@ -40,11 +38,10 @@ uvicorn_run: Any = None
 def create_app(
     project_root: str | Path | None = None,
     *,
-    setup_only: bool = False,
     mode: str | None = None,
     allowed_origin: str | None = None,
 ):
-    """Create the Starlette app, recording setup_only on app.state.
+    """Create the Starlette app through the Web composition root.
 
     This is a thin seam over louke.web.app.create_app so tests can patch it.
     """
@@ -52,7 +49,6 @@ def create_app(
 
     return _create_app(
         project_root,
-        setup_only=setup_only,
         mode=mode,
         allowed_origin=allowed_origin,
     )
@@ -119,7 +115,6 @@ def register(parser: argparse.ArgumentParser) -> None:
 def run(args: argparse.Namespace) -> int:
     root = _resolve_project_root(args.project_root)
     project_toml = root / ".louke" / "project" / "project.toml"
-    setup_url = f"http://{args.host}:{args.port}/setup"
     print(f"lk serve: opencode backend = {args.opencode_backend}")
 
     if not project_toml.exists() or not _current_stage_valid(project_toml):
@@ -129,18 +124,10 @@ def run(args: argparse.Namespace) -> int:
             if created
             else f"{project_toml} has unrecognized current_stage"
         )
-        _setup_only(f"{detail}. Visit {setup_url} to complete init.")
-        return _start_or_dry_run(args, root, setup_only=True)
-
-    if not _has_first_principal(root):
-        _setup_only(f"readiness incomplete; visiting {setup_url} completes init.")
-        return _start_or_dry_run(args, root, setup_only=True)
+        print(f"lk serve: {detail}; starting Login/Workbench app")
+        return _start_or_dry_run(args, root)
 
     return _serve_ready(args, root)
-
-
-def _setup_only(message: str) -> None:
-    print(f"lk serve: setup-only mode; {message}", file=sys.stderr)
 
 
 def _fail(message: str) -> int:
@@ -248,8 +235,9 @@ def _serve_ready(args: argparse.Namespace, root: Path) -> int:
     print(f"lk serve: effective root = {identity.effective_root}")
     print(f"lk serve: listening on http://{args.host}:{args.port}")
     if args.dry_run:
+        _create_served_app(root)
         return 0
-    return _run_uvicorn(args, root, setup_only=False)
+    return _run_uvicorn(args, root)
 
 
 def _has_local_runtime(root: Path) -> bool:
@@ -274,14 +262,14 @@ def _project_venv_python(root: Path) -> Path | None:
     return next((path for path in candidates if path.is_file()), None)
 
 
-def _start_or_dry_run(args: argparse.Namespace, root: Path, *, setup_only: bool) -> int:
+def _start_or_dry_run(args: argparse.Namespace, root: Path) -> int:
     if args.dry_run:
-        _create_served_app(root, setup_only=setup_only)
+        _create_served_app(root)
         return 0
-    return _run_uvicorn(args, root, setup_only=setup_only)
+    return _run_uvicorn(args, root)
 
 
-def _run_uvicorn(args: argparse.Namespace, root: Path, *, setup_only: bool) -> int:
+def _run_uvicorn(args: argparse.Namespace, root: Path) -> int:
     runner = uvicorn_run
     if runner is None:
         try:
@@ -293,7 +281,7 @@ def _run_uvicorn(args: argparse.Namespace, root: Path, *, setup_only: bool) -> i
                 f"lk serve: missing runtime dependency uvicorn ({exc})", file=sys.stderr
             )
             return 1
-    app = _create_served_app(root, setup_only=setup_only)
+    app = _create_served_app(root)
     runner(app, host=args.host, port=args.port, log_level="info")
     return 0
 
@@ -310,12 +298,12 @@ def _runtime_mode_for_root(root: Path) -> str | None:
     return None
 
 
-def _create_served_app(root: Path, *, setup_only: bool):
+def _create_served_app(root: Path):
     """Create a served app with bootstrap mode only for Louke itself."""
     mode = _runtime_mode_for_root(root)
     if mode is None:
-        return create_app(root, setup_only=setup_only)
-    return create_app(root, setup_only=setup_only, mode=mode)
+        return create_app(root)
+    return create_app(root, mode=mode)
 
 
 def _resolve_project_root(explicit: str) -> Path:
@@ -361,19 +349,3 @@ def _ensure_minimal_project_toml(project_toml: Path) -> bool:
         encoding="utf-8",
     )
     return True
-
-
-def _has_first_principal(root: Path) -> bool:
-    """Return whether the workspace has a persisted first human principal.
-
-    The principal is persisted as a user in `.louke/web-users.json`, which is
-    the same store the Web auth layer reads. This keeps the readiness signal
-    observable on disk rather than tied to an in-memory wizard instance.
-    """
-    try:
-        from .web.store import ProjectStore
-
-        store = ProjectStore(root)
-        return bool(store.list_users())
-    except Exception:
-        return False

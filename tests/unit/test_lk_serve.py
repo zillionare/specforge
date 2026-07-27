@@ -1,9 +1,9 @@
-"""B2: lk serve integration with v0.12 init-wizard flow and RuntimeSelector.
+"""B2: lk serve integration with Login/Workbench and RuntimeSelector.
 
 AC references:
-- AC-FR1801-01: `lk serve` in a git repo without Louke metadata starts a
-  setup-only init wizard instead of exiting; wizard succeeds without another CLI.
-- AC-FR1801-03: until a local human principal exists, the server runs setup-only.
+- AC-FR1801-01: `lk serve` in a git repo without Louke metadata starts Login
+  instead of exiting.
+- AC-FR1801-03: the server starts Login even when no principal exists.
 - AC-FR2401-02: lk serve selects the nearest workspace root and local runtime.
 - AC-FR2401-04: local runtime missing/corrupt fails before state writes; no
   silent fallback to global.
@@ -81,7 +81,7 @@ def _ready_workspace(tmp_path: Path, *, current_stage: str = "M-DEV") -> None:
     (runtime / "lk").touch()
 
 
-# -- AC-FR1801-01: setup-only mode when project.toml missing -----------------
+# -- AC-FR1801-01: Login when project.toml is missing -------------------------
 
 
 def test_serve_creates_minimal_project_toml_when_missing(
@@ -99,18 +99,21 @@ def test_serve_creates_minimal_project_toml_when_missing(
     assert toml_path.exists(), "serve must auto-create a minimal project.toml"
 
     captured = capsys.readouterr()
-    assert "setup-only mode" in captured.err
-    assert str(toml_path) in captured.err
+    assert "starting Login/Workbench app" in captured.out
+    assert str(toml_path) in captured.out
 
 
-# -- AC-FR1801-03: setup-only when no first principal ------------------------
+# -- AC-FR1801-03: Login when no first principal ------------------------------
 
 
-def test_serve_setup_only_when_no_first_principal(
+def test_serve_starts_login_when_no_first_principal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AC-FR1801-03: project.toml present but no principal -> setup_only True."""
+    """AC-FR1801-03: project.toml present but no principal still starts Login."""
     _write_project_toml(tmp_path, current_stage="M-FOUND")
+    runtime = tmp_path / ".louke" / "runtime"
+    runtime.mkdir()
+    (runtime / "lk").touch()
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("louke.serve.uvicorn_run", lambda *a, **kw: None, raising=False)
 
@@ -118,8 +121,8 @@ def test_serve_setup_only_when_no_first_principal(
 
     real_create_app = serve.create_app
 
-    def capture_app(project_root=None, setup_only: bool = False):
-        app = real_create_app(project_root, setup_only=setup_only)
+    def capture_app(project_root=None):
+        app = real_create_app(project_root)
         app_holder["app"] = app
         return app
 
@@ -130,9 +133,9 @@ def test_serve_setup_only_when_no_first_principal(
 
     assert rc == 0
     captured = capsys.readouterr()
-    assert "readiness incomplete" in captured.err
+    assert "Login/Workbench" not in captured.out
     app = app_holder["app"]
-    assert getattr(app.state, "setup_only", False) is True
+    assert not hasattr(app.state, "setup_only")
 
 
 # -- AC-FR2401-04: fail-closed on missing local runtime ---------------------

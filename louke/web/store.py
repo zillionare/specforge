@@ -149,47 +149,6 @@ class ProjectStore:
         payload = {"version": 1, "users": users}
         self._atomic_write_text(self.users_path, self._stable_json(payload) + "\n")
 
-    @property
-    def setup_state_path(self) -> Path:
-        """Path to the persisted Setup Wizard state file."""
-        return self.louke_dir / "web-setup-state.json"
-
-    def read_setup_state(self) -> dict[str, Any] | None:
-        """Return the persisted Setup Wizard state, or None if absent.
-
-        Returns:
-            A dict with keys ``current_step``, ``completed_steps``,
-            ``selections`` and ``blocking_items``; or ``None`` if the
-            workspace has not yet started the wizard.
-        """
-        if not self.setup_state_path.exists():
-            return None
-        try:
-            payload = json.loads(self.setup_state_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            raise ValidationError(
-                f"invalid setup state file: {self.setup_state_path}"
-            ) from exc
-        if not isinstance(payload, dict):
-            raise ValidationError("setup state payload must be an object")
-        return payload
-
-    def write_setup_state(self, payload: dict[str, Any]) -> None:
-        """Persist the Setup Wizard state atomically.
-
-        Args:
-            payload: A state dict with non-secret step progress fields.
-        """
-        if not isinstance(payload, dict):
-            raise ValidationError("setup state payload must be an object")
-        body = {"version": 1, **payload}
-        self._atomic_write_text(self.setup_state_path, self._stable_json(body) + "\n")
-
-    def clear_setup_state(self) -> None:
-        """Remove the persisted Setup Wizard state if it exists."""
-        if self.setup_state_path.exists():
-            self.setup_state_path.unlink()
-
     def verify_user(self, username: str, password: str) -> bool:
         for user in self.list_users():
             if user["username"] != username:

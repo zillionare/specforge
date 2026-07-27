@@ -3,7 +3,7 @@
 Single inline-HTML page (no Jinja2). The sub-app talks to the upstream
 ``/api/projects/*`` and ``/api/runtime/*`` sub-apps via :mod:`httpx`. All
 upstream calls go through module-level seams (``_fetch_*`` / ``_post_*``) so
-tests can patch them without a live server, mirroring the ``/setup`` page.
+tests can patch them without a live server, mirroring the Workbench page.
 
 Routes (relative to the mount path ``/projects``):
 

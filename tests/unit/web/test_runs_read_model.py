@@ -28,12 +28,22 @@ def _create_runtime_run(client: TestClient) -> dict[str, object]:
     return response.json()
 
 
+def _authenticated_client(root: Path) -> TestClient:
+    """Return an authenticated client for protected Workbench pages."""
+    client = TestClient(create_app(root))
+    response = client.post(
+        "/api/auth/register", json={"username": "human", "password": "secret"}
+    )
+    assert response.status_code == 200
+    return client
+
+
 def test_runtime_run_is_visible_in_ui_projection_and_workbench(
     tmp_path: Path, setup_complete: Path
 ) -> None:
     """A Runtime-created run is visible without a legacy runs.json file."""
     _workspace(tmp_path)
-    client = TestClient(create_app(tmp_path))
+    client = _authenticated_client(tmp_path)
 
     run = _create_runtime_run(client)
     projection = client.get("/api/ui/runs")
@@ -68,7 +78,7 @@ def test_runs_read_model_has_an_explicit_empty_state_without_legacy_file(
 ) -> None:
     """An empty Runtime store is safe when the legacy read-model file is absent."""
     _workspace(tmp_path)
-    client = TestClient(create_app(tmp_path))
+    client = _authenticated_client(tmp_path)
 
     assert not (tmp_path / ".louke" / "project" / "runs.json").exists()
     assert client.get("/api/ui/runs").json()["current"] == []

@@ -5,7 +5,7 @@ from __future__ import annotations
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from louke.web.environment_service import EnvironmentService
+from louke.web.login_readiness import check_login_readiness_async
 
 from .projects import _require_human
 
@@ -15,8 +15,9 @@ async def check_environment(request: Request) -> JSONResponse:
     user_or_response = _require_human(request, csrf_required=True)
     if isinstance(user_or_response, JSONResponse):
         return user_or_response
-    service = EnvironmentService(
+    result = await check_login_readiness_async(
         request.app.state.workspace_root,
         executor=getattr(request.app.state, "environment_executor", None),
+        model_checker=getattr(request.app.state, "readiness_model_checker", None),
     )
-    return JSONResponse(service.check())
+    return JSONResponse(result)

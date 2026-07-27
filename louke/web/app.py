@@ -44,7 +44,6 @@ from .documents import (
 )
 from .events import EventBroker
 from .store import ConflictError, ProjectStore, ValidationError
-from .setup_gate import SetupGateMiddleware
 
 from .api.runtime import create_app as _create_runtime_app
 from .api.gates import create_app as _create_gates_app
@@ -52,7 +51,7 @@ from .api.bindings import create_app as _create_bindings_app
 from .api.opencode import create_app as _create_opencode_app
 from .api.project_status import checkpoint_action, checkpoint_detail, project_status
 from .api.readiness import create_app as _create_readiness_app
-from .api.setup import create_app as _create_setup_app
+from .api.readiness import get_login_readiness
 from .api.migration import create_app as _create_migration_app
 from .api.security import create_app as _create_security_app
 from .api.discussions import create_app as _create_discussions_app
@@ -77,7 +76,6 @@ from .api._runtime_store import build_run_store
 from louke.runtime.workflow_graph import WorkflowGraphBuilder
 from louke.runtime.store import RunNotFoundError, WorkflowRun, WorkflowRunStore
 
-from .pages.setup import setup_root as _setup_page_root
 from .pages.projects import create_app as _create_projects_page_app
 from .pages.gates import (
     gate_decide as gates_page_decide,
@@ -97,6 +95,7 @@ from .pages.workbench import (
 )
 from .api.files import files as end_user_files
 from .runs.badges import status_badge
+from .workspace_identity import canonical_workspace_id
 
 runtime_app = _create_runtime_app()
 gates_app = _create_gates_app()
@@ -113,7 +112,6 @@ migration_page_app = _create_migration_page_app()
 def create_app(
     project_root: str | Path | None = None,
     *,
-    setup_only: bool = False,
     mode: str | None = None,
     allowed_origin: str | None = None,
 ) -> Starlette:
@@ -121,7 +119,6 @@ def create_app(
 
     Args:
         project_root: Workspace root. Defaults to the current directory.
-        setup_only: Whether the root route should redirect to setup.
         mode: Explicit Runtime mode, including Louke-only
             ``development_bootstrap``.
         allowed_origin: Trusted v0.14 mutation origin. If omitted, the
@@ -136,7 +133,6 @@ def create_app(
     if project_root is None:
         project_root = Path.cwd()
     readiness_app = _create_readiness_app(project_root)
-    setup_app = _create_setup_app(project_root)
     store = ProjectStore(Path(project_root))
     project_runtime_store = build_run_store(
         str(Path(project_root) / ".louke" / "project" / "runtime.sqlite3"),
@@ -163,6 +159,11 @@ def create_app(
             Route("/api/auth/register", endpoint=api_auth_register, methods=["POST"]),
             Route("/api/auth/login", endpoint=api_auth_login, methods=["POST"]),
             Route("/api/auth/logout", endpoint=api_auth_logout, methods=["POST"]),
+            Route(
+                "/api/readiness/login",
+                endpoint=get_login_readiness,
+                methods=["GET"],
+            ),
             Route("/api/projects/preview", endpoint=preview_project, methods=["POST"]),
             Route(
                 "/api/projects/environment-checks",
@@ -282,7 +283,6 @@ def create_app(
             Mount("/api/gates", app=gates_app),
             Mount("/api/opencode", app=opencode_app),
             Mount("/api/readiness", app=readiness_app),
-            Mount("/api/setup", app=setup_app),
             Mount("/api/migration", app=migration_app),
             Mount("/api/security", app=security_app),
             Mount("/api/v12/discussions", app=discussions_app),
@@ -325,12 +325,6 @@ def create_app(
                 endpoint=runs_page_command,
                 methods=["POST"],
             ),
-            # The Setup page is wired as a plain Route (not a Mount) so the
-            # canonical ``/setup`` URL resolves without a trailing-slash
-            # redirect; the Setup journeys assert ``/setup`` exactly. It handles
-            # GET (render) and POST (server-driven first-user / model-check
-            # forms). ``setup_root`` reads ``app.state.workspace_root``.
-            Route("/setup", endpoint=_setup_page_root, methods=["GET", "POST"]),
             Mount("/projects", app=projects_page_app),
             Mount("/migration", app=migration_page_app),
         ],
@@ -342,14 +336,13 @@ def create_app(
     )
     app.state.workspace_root = Path(project_root).resolve()
     app.state.environment_executor = None
-    app.add_middleware(SetupGateMiddleware, workspace_root=Path(project_root).resolve())
     from louke.runtime.foundation_adapter import ShellFoundationAdapter
     from louke.runtime.release_entry import ReleaseEntryService
     from louke.runtime.scribe_entry import ScribeEntryService
     from louke.runtime.story_entry import StoryEntryService
 
     project_info = store.project_info().get("project", {})
-    workspace_id = str(project_info.get("project") or project_info.get("repo") or "")
+    workspace_id = canonical_workspace_id(project_info)
     app.state.workspace_id = workspace_id
     foundation_adapter = ShellFoundationAdapter(project_root)
     scribe_entry = ScribeEntryService(
@@ -371,7 +364,6 @@ def create_app(
     app.state.story_entry = story_entry
     app.state.scribe_entry = scribe_entry
     app.state.broker = broker
-    app.state.setup_only = setup_only
     return app
 
 
@@ -408,7 +400,6 @@ async def asset_file(request: Request) -> Response:
 
 
 async def login_page(request: Request) -> HTMLResponse | RedirectResponse:
-    store: ProjectStore = request.app.state.store
     user = _current_user(request)
     if user is not None:
         return RedirectResponse(url="/", status_code=303)
@@ -417,42 +408,25 @@ async def login_page(request: Request) -> HTMLResponse | RedirectResponse:
         _login_shell(
             lang=_ui_language(request),
             next_path=next_path,
-            has_users=bool(store.list_users()),
         )
     )
 
 
 async def setup_home_redirect(request: Request) -> Response:
-    """GET /: redirect to Setup, active Project, or Projects activity.
-
-    v0.14-004: uses the v2 Setup manifest and ``entry_resolver`` to
-    pick the canonical destination. When Setup is incomplete, the
-    user is redirected to ``/setup``. When Setup is complete, the
-    user lands on the active Project Status (if one exists) or the
-    Projects activity (empty).
-
-    The legacy ``?legacy=1`` query parameter is retained for
-    backward compatibility with older workspaces that have a v2
-    ``complete`` manifest but still want the v0.12 home page.
+    """GET /: route an unauthenticated Human to Login, otherwise Projects.
 
     Args:
         request: The incoming Starlette request.
 
     Returns:
-        A 303 redirect to ``/setup``, an active Project URL, or
+        A 303 redirect to Login, an active Project URL, or
         ``/workbench?activity=projects``.
     """
-    from .entry_resolver import EntryFacts, resolve_entry
-    from .setup_state import try_read_manifest
 
     workspace_root = Path(getattr(request.app.state, "workspace_root", ".")).resolve()
-    manifest = try_read_manifest(workspace_root)
-    setup_complete = manifest is not None and manifest.is_complete
+    if _current_user(request) is None:
+        return RedirectResponse(url="/login?next=/", status_code=303)
 
-    if not setup_complete:
-        return RedirectResponse(url="/setup", status_code=303)
-
-    # Setup is complete -- resolve the active project URL.
     # The v0.14-004 project-state.json (IF-PROJECT-01) is the authoritative
     # source.  When absent the workspace is treated as "empty" (no project
     # parameter) so the Human lands on the bare Projects activity.
@@ -470,20 +444,9 @@ async def setup_home_redirect(request: Request) -> Response:
         except (OSError, _json.JSONDecodeError, KeyError):
             pass
 
-    facts = EntryFacts(
-        setup_complete=True,
-        active_project_url=active_project_url,
-    )
-    resolution = resolve_entry(facts)
-
-    if request.query_params.get("legacy") == "1" and resolution.destination != "setup":
-        return await home_page(request)
-
-    if resolution.destination == "active_project":
-        return RedirectResponse(url=resolution.url, status_code=303)
-    if resolution.destination == "projects":
-        return RedirectResponse(url=resolution.url, status_code=303)
-    return RedirectResponse(url=resolution.url, status_code=303)
+    if active_project_url is not None:
+        return RedirectResponse(url=active_project_url, status_code=303)
+    return RedirectResponse(url="/workbench?activity=projects", status_code=303)
 
 
 async def home_page(request: Request) -> HTMLResponse:
@@ -759,18 +722,6 @@ async def api_auth_login(request: Request) -> JSONResponse:
     payload = await request.json()
     username = str(payload.get("username") or "")
     password = str(payload.get("password") or "")
-    # First-run: when no users exist yet (e.g. Setup manifest was seeded
-    # directly), the first login attempt auto-registers the principal so
-    # the frozen e2e contract ``input[name="name"]`` → login → Projects
-    # works without a separate register step.
-    if not store.list_users() and username:
-        try:
-            user = register_user(store, username=username, password=password)
-        except ValidationError as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-        response = JSONResponse({"ok": True, "username": user.username})
-        _set_session_cookie(response, store, user.username)
-        return response
     try:
         user = authenticate_user(
             store,
@@ -3278,7 +3229,7 @@ def _script_strings(lang: str, scope: str) -> dict[str, str]:
     }
 
 
-def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
+def _login_shell(lang: str, next_path: str) -> str:
     next_json = json.dumps(next_path, ensure_ascii=False)
     hero_image = "/assets/min-square_97-snk-X32c8tE-unsplash.jpg"
     return f"""<!DOCTYPE html>
@@ -3466,6 +3417,19 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
       color: var(--danger);
       font-size: 14px;
     }}
+    .readiness-panel {{
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid #f59e0b;
+      border-radius: 11px;
+      background: #fffbeb;
+      color: #78350f;
+      font-size: 14px;
+    }}
+    .readiness-panel h3, .readiness-panel p {{ margin: 0; }}
+    .readiness-warning {{ display: grid; gap: 8px; }}
+    .readiness-warning[hidden] {{ display: none; }}
     @media (max-width: 860px) {{
       .auth-shell {{ grid-template-columns: 1fr; }}
       .auth-hero {{ border-right: 0; border-bottom: 1px solid var(--border); }}
@@ -3511,6 +3475,15 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
         </div>
         <button id="register-submit" class="secondary">{_escape(_t(lang, "login.register_button"))}</button>
       </div>
+      <section id="readiness-panel" class="readiness-panel" aria-live="polite">
+        <h3>Environment readiness</h3>
+        <p id="readiness-status">Checking readiness…</p>
+        <div id="readiness-warning" class="readiness-warning" hidden>
+          <strong>Readiness warning</strong>
+          <div id="readiness-warnings"></div>
+          <button id="readiness-retry" class="secondary" type="button">Retry</button>
+        </div>
+      </section>
       <div id="banner" class="banner" hidden></div>
     </section>
   </main>
@@ -3522,6 +3495,10 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
     const tabRegister = document.getElementById('tab-register');
     const panelLogin = document.getElementById('panel-login');
     const panelRegister = document.getElementById('panel-register');
+    const readinessStatus = document.getElementById('readiness-status');
+    const readinessWarning = document.getElementById('readiness-warning');
+    const readinessWarnings = document.getElementById('readiness-warnings');
+    const readinessRetry = document.getElementById('readiness-retry');
     function showBanner(message) {{
       banner.hidden = false;
       banner.textContent = message;
@@ -3535,6 +3512,54 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
       panelLogin.hidden = !loginActive;
       panelRegister.hidden = loginActive;
       banner.hidden = true;
+    }}
+    function renderReadiness(body) {{
+      const failures = body.steps.filter(function(step) {{ return step.state !== 'passed'; }});
+      if (!failures.length) {{
+        readinessStatus.textContent = 'Environment readiness passed.';
+        readinessWarning.hidden = true;
+        return;
+      }}
+      readinessStatus.textContent = 'Some required dependencies need attention.';
+      readinessWarnings.replaceChildren();
+      failures.forEach(function(failure) {{
+        const diagnosis = failure.diagnosis || {{}};
+        const action = Array.isArray(failure.actions) && failure.actions.length
+          ? failure.actions.join(', ') : 'Resolve the warning and retry.';
+        const item = document.createElement('p');
+        item.textContent = String(failure.id || 'readiness') + ': ' +
+          String(diagnosis.impact || diagnosis.known_facts || 'Readiness is not complete.') +
+          ' Repair: ' + action + '.';
+        readinessWarnings.append(item);
+      }});
+      readinessWarning.hidden = false;
+    }}
+    function showReadinessWarning(message) {{
+      readinessStatus.textContent = 'Readiness could not be verified.';
+      readinessWarnings.replaceChildren();
+      const item = document.createElement('p');
+      item.textContent = message;
+      readinessWarnings.append(item);
+      readinessWarning.hidden = false;
+    }}
+    async function loadReadiness() {{
+      readinessStatus.textContent = 'Checking readiness…';
+      try {{
+        const response = await fetch('/api/readiness/login');
+        if (!response.ok) {{
+          showReadinessWarning('Readiness request failed. Retry before creating a Project.');
+          return;
+        }}
+        const body = await response.json();
+        if (!body || typeof body !== 'object' || !Array.isArray(body.steps) ||
+            typeof body.state !== 'string') {{
+          showReadinessWarning('invalid readiness response. Retry before creating a Project.');
+          return;
+        }}
+        renderReadiness(body);
+      }} catch (_) {{
+        showReadinessWarning('Readiness request could not be completed. Retry before creating a Project.');
+      }}
     }}
     async function submit(path, payload) {{
       banner.hidden = true;
@@ -3552,6 +3577,7 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
     }}
     tabLogin.addEventListener('click', () => switchTab('login'));
     tabRegister.addEventListener('click', () => switchTab('register'));
+    readinessRetry.addEventListener('click', loadReadiness);
     document.getElementById('login-submit').addEventListener('click', async () => {{
       await submit('/api/auth/login', {{
         username: document.getElementById('login-username').value.trim(),
@@ -3564,6 +3590,7 @@ def _login_shell(lang: str, next_path: str, has_users: bool) -> str:
         password: document.getElementById('register-password').value
       }});
     }});
+    loadReadiness();
   </script>
 </body>
 </html>"""
