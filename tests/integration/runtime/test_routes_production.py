@@ -61,11 +61,10 @@ def _write_project_toml(root: Any) -> None:
 
 
 def _v12_subapps() -> tuple[Any, ...]:
-    """Return the four module-level v0.12 sub-apps that share the run store."""
+    """Return the mounted runtime sub-apps that share the run store."""
     import louke.web.app as appmod
 
     return (
-        appmod.projects_app,
         appmod.runtime_app,
         appmod.gates_app,
         appmod.bindings_app,
@@ -110,40 +109,17 @@ def client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClien
     exercises the real production routing tree (not a sub-app import).
     """
     from louke.web.app import create_app
-    from louke.web.setup_state import (
-        SetupManifest,
-        SetupStatus,
-        write_manifest,
-    )
 
     _write_project_toml(tmp_path)
     monkeypatch.setenv("LOUKE_E2E_STATE", str(tmp_path / ".louke" / "server"))
     _reset_subapp_state()
-    # v2 complete Setup manifest so the gate does not block
-    # the runtime/bindings endpoints under test.
-    manifest = (
-        SetupManifest(
-            workspace_id="ws_test",
-            revision=0,
-            status=SetupStatus.PENDING_USER,
-        )
-        .advance_to_pending_model(
-            first_principal_id="prin_test",
-            expected_revision=0,
-        )
-        .complete(
-            model_check_state="passed",
-            model_check_id="chk_test",
-            model_check_revision=1,
-            model_id="minimax/m2",
-            diagnosis=None,
-            observed_at="2026-07-24T00:00:00Z",
-            expected_revision=1,
-        )
-    )
-    write_manifest(tmp_path, manifest)
     app = create_app(tmp_path)
     with TestClient(app) as c:
+        registered = c.post(
+            "/api/auth/register",
+            json={"username": "fixture-human", "password": "secret"},
+        )
+        assert registered.status_code == 200
         _inject_shared_store(c)
         yield c
 

@@ -66,19 +66,31 @@ def test_synthetic_host_project_does_not_leak_louke_registry() -> None:
             )
 
 
-def test_setup_state_api_does_not_mutate_synthetic_host() -> None:
-    """AC-FR0001-01: reading the Setup manifest does not touch the host ``.louke/``.
-
-    The ``.louke/project/project.toml`` is the only file the runtime
-    reads; calling the Setup projection must not write back into it.
-    """
+def test_login_readiness_does_not_mutate_synthetic_host() -> None:
+    """AC-FR0001-01: readiness reads do not touch the host ``.louke/``."""
     # AC-FR0001-01
-    from louke.web.setup_projection import read as read_projection
+    from louke.web.environment_commands import CommandResult
+    from louke.web.login_readiness import LoginReadinessService
+    from louke.web.opencode_probe import ModelCheckResult
+
+    class BlockedExecutor:
+        def run(self, argv, *, cwd, timeout):
+            del argv, cwd, timeout
+            return CommandResult(1, "", "not available")
 
     with synthetic_host_project(marker="status") as synth:
         before = (synth / ".louke" / "project" / "project.toml").read_bytes()
-        body = read_projection(synth, workspace_id="synthetic")
-        assert body["status"] == "pending_user"
+        body = LoginReadinessService(
+            synth,
+            executor=BlockedExecutor(),
+            model_checker=lambda _: ModelCheckResult(
+                check_id="fixture-check",
+                revision=1,
+                state="failed",
+                current_model_id="fixture/model",
+            ),
+        ).check()
+        assert body["state"] == "blocked"
         after = (synth / ".louke" / "project" / "project.toml").read_bytes()
         assert before == after, "synthetic host file was unexpectedly mutated"
 
@@ -87,7 +99,7 @@ def test_canonical_path_uses_semantic_namespace_not_release_number() -> None:
     """AC-NFR0401-01: API paths must not embed release/Spec/workflow version.
 
     Interfaces.md §1 mandates that canonical routes use semantic
-    namespaces (``/api/setup``, ``/api/projects``, ``/api/guide``,
+    namespaces (``/api/readiness``, ``/api/projects``, ``/api/guide``,
     ``/api/runs``, ``/api/releases``) and never embed ``v14``,
     ``v0.14`` or any release/Spec identifier.
     """

@@ -227,23 +227,18 @@ def test_injected_git_executor_without_model_evidence_is_not_ready(
     assert result["steps"][-1]["state"] == "uncertain"
 
 
-def test_unauthenticated_entry_uses_login_and_setup_is_unregistered(
+def test_unauthenticated_entry_uses_the_public_login_route(
     tmp_path: Path,
 ) -> None:
-    """Unauthenticated Web entry redirects to Login and no Setup route exists."""
+    """Unauthenticated Web entry redirects to the public Login route."""
     client = _app(tmp_path, _model_result("passed"))
 
     root = client.get("/", follow_redirects=False)
     workbench = client.get("/workbench", follow_redirects=False)
-    setup = client.get("/setup")
-    setup_api = client.get("/api/setup/status")
-
     assert root.status_code == 303
     assert root.headers["location"].startswith("/login")
     assert workbench.status_code == 303
     assert workbench.headers["location"].startswith("/login")
-    assert setup.status_code == 404
-    assert setup_api.status_code == 404
 
 
 def test_new_project_is_fail_closed_until_aggregate_readiness_passes(

@@ -206,28 +206,20 @@ def _seed_runtime_run(root: Path) -> None:
     store.append_event(event)
 
 
-def _complete_setup(page, base_url: str) -> None:
-    """Drive the public first-user and model-probe journey to Workbench."""
-    page.goto(f"{base_url}/setup", wait_until="domcontentloaded")
+def _register_from_login(page, base_url: str) -> None:
+    """Drive public Login readiness and Register to the Projects workbench."""
+    page.goto(f"{base_url}/login", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
-    name_input = page.locator('input[name="name"]')
-    name_input.wait_for(state="visible")
-    name_input.fill("owner")
-    assert name_input.input_value() == "owner"
-    credential_input = page.locator('input[name="credential"]')
-    credential_input.wait_for(state="visible")
-    credential_input.fill("secret")
-    assert credential_input.input_value() == "secret"
-    page.click('button[type="submit"]')
-    page.wait_for_load_state("networkidle")
-    body = page.inner_text("body").lower()
-    assert "model" in body or "opencode" in body
-    trigger = page.query_selector('button[name="retry"]') or page.query_selector(
-        'button[name="start"]'
+    page.wait_for_function(
+        "() => document.querySelector('#readiness-status')?.textContent.includes('passed')"
     )
-    if trigger is not None:
-        trigger.click()
-        page.wait_for_load_state("networkidle")
+    page.locator("#tab-register").click()
+    username = page.locator("#register-username")
+    password = page.locator("#register-password")
+    username.fill("owner")
+    password.fill("secret")
+    assert username.input_value() == "owner"
+    page.locator("#register-submit").click()
     page.wait_for_url("**/workbench?activity=projects")
 
 
@@ -239,12 +231,6 @@ def _create_project_from_empty_projects(page, base_url: str) -> tuple[str, dict]
     the supported route is: empty Projects -> readiness -> Story/Preview/Create
     -> the canonical Project Story document -> Project Status.
     """
-    register = page.request.post(
-        f"{base_url}/api/auth/register",
-        data={"username": "human", "password": "secret"},
-    )
-    assert register.ok, register.text()
-
     page.goto(f"{base_url}/workbench?activity=projects", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
     new_project = page.get_by_role("button", name="New Project")
@@ -413,7 +399,7 @@ def test_v013_chromium_main_journey(tmp_path: Path) -> None:
                         else None
                     ),
                 )
-                _complete_setup(page, base_url)
+                _register_from_login(page, base_url)
                 ledger = [
                     json.loads(line)
                     for line in boundary.opencode_ledger.read_text(
@@ -423,7 +409,7 @@ def test_v013_chromium_main_journey(tmp_path: Path) -> None:
                 assert any(
                     entry["kind"] == "run" and "--model" in entry["argv"]
                     for entry in ledger
-                ), "Setup must execute the real model-probe command boundary"
+                ), "Login readiness must execute the real model-probe command boundary"
                 _create_project_from_empty_projects(page, base_url)
                 assert not errors
                 assert not failed_requests

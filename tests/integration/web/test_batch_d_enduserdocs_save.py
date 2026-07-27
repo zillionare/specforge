@@ -9,6 +9,7 @@ from pathlib import Path
 from starlette.testclient import TestClient
 
 from louke.web.app import create_app
+from tests.test_web_server import authenticate
 
 
 def _client(tmp_path: Path) -> TestClient:
@@ -16,7 +17,9 @@ def _client(tmp_path: Path) -> TestClient:
     (tmp_path / ".louke" / "project" / "project.toml").write_text("[project]\n")
     source = Path(__file__).parents[2] / "fixtures" / "end-user-docs"
     shutil.copytree(source, tmp_path / ".louke" / "end-user-docs")
-    return TestClient(create_app(tmp_path))
+    client = TestClient(create_app(tmp_path))
+    authenticate(client)
+    return client
 
 
 def test_ac_fr1310_01_canonical_root_listed(
@@ -34,7 +37,7 @@ def test_ac_fr1310_01_canonical_root_listed(
 
 def test_ac_fr1310_02_three_pane_layout(tmp_path: Path, setup_complete: Path) -> None:
     """AC-FR1310-02: End User Docs exposes tree, preview, and editor hooks."""
-    html = _client(tmp_path).get("/workbench").text
+    html = _client(tmp_path).get("/workbench?activity=chat").text
     assert 'data-testid="enduserdocs-tree"' in html
     assert 'data-testid="enduserdocs-preview"' in html
     assert 'data-testid="enduserdocs-editor"' in html
@@ -45,7 +48,7 @@ def test_ac_fr1310_05_save_button_dirty_disabled(
     tmp_path: Path, setup_complete: Path
 ) -> None:
     """AC-FR1310-05: clean editor state declares a disabled save control."""
-    html = _client(tmp_path).get("/workbench").text
+    html = _client(tmp_path).get("/workbench?activity=chat").text
     assert 'data-testid="enduserdocs-save" disabled' in html
 
 

@@ -1,7 +1,7 @@
-"""Integration tests for the v0.12 workflow-run lifecycle (FR-0101..1701).
+"""Integration tests for the current Runtime workflow-run lifecycle.
 
-These tests stand up the full Starlette app stack (v0.12 sub-apps + v0.11 web
-routes mounted together, with a fresh in-memory SQLite per test) and exercise
+These tests stand up the current Starlette app stack with a fresh Runtime store
+per test and exercise
 multi-step flows via the in-process Starlette ``TestClient``. They do NOT
 start a live uvicorn server and are NOT browser E2E; the conftest default skips
 the live-server fixture.
@@ -17,60 +17,45 @@ no ``@pytest.mark.e2e`` decorator; the path-based auto-mark in
 
 AC references covered (one integration test per FR):
 - FR-0101 (AC-FR0101-01..04): WorkflowRun lifecycle - preview, confirm, audit events.
-- FR-0401 (AC-FR0401-01): ProjectStore create/read/update via HTTP archive.
+- FR-0401 (AC-FR0401-01): Runtime run create/read/update via HTTP.
 - FR-0901 (AC-FR0901-01..04): M-LOCK semantics - gate blocks, approve, advance.
-- FR-1001 (AC-FR1001-01..03): project listing - active/history partitioning.
-- FR-1101 (AC-FR1101-01..03): project creation flow - preview/confirm/run state.
+- FR-1001 (AC-FR1001-01..03): Runtime current/history projection.
+- FR-1101 (AC-FR1101-01..03): Login-era Preview/Confirm request state.
 - FR-1201 (AC-FR1201-01): workflow graph - nodes/edges/current_step.
 - FR-1301 (AC-FR1301-01..02): bindings - list defaults, PUT override.
 - FR-1501 (AC-FR1501-01): context manifest - event stream carries digests.
-- FR-1601 (AC-FR1601-01): responsibility catalog - 2 definitions registered.
-- FR-1701 (AC-FR1701-01): workflow definitions - catalog validation passes.
+- FR-1601 (AC-FR1601-01): public Runtime definition selection.
+- FR-1701 (AC-FR1701-01): workflow definitions - public graph validation.
 
-Architecture note: the v0.12 sub-apps (projects/runtime/gates/bindings) are
-module-level singletons in ``louke.web.app``. Each lazily creates its own
-``WorkflowRunStore`` on first request via ``get_or_create_store``. Because the
-``sqlite3`` connection is thread-bound and Starlette dispatches requests in a
-portal thread, the store must be created (or injected) inside the portal. The
-``client`` fixture below uses ``TestClient`` as a context manager so the
-portal stays alive for the test, then injects a single shared store into all
-four sub-apps via ``portal.call`` so cross-sub-app flows (e.g. create a
-project via ``/api/projects`` then read its run via ``/api/runtime``) work.
-
-The FR-1301 bindings test builds a dedicated wrapper app that mounts the real
-bindings sub-app at a non-shadowed path alongside the real runtime sub-app,
-with the same shared store injected. (The ``/api/runtime/bindings`` Mount
-shadow was fixed in Batch 2 / issue #176 by reordering Mounts so the longer
-prefix precedes the wider one; the wrapper is retained here to keep the
-bindings flow self-contained alongside the other FR lifecycle tests.)
+Every mutation in this file is driven through the mounted production HTTP
+surface after the public Register -> Login -> CSRF flow. The host currently
+exposes gate *reads* and decisions, but has no public endpoint that creates
+the requirements-approval or M-LOCK contract gate from document digests.
+Accordingly, this suite verifies the observable fail-closed human-gate state;
+it does not privately manufacture gates to simulate an approval.
 """
 
 from __future__ import annotations
 
+import os
+import re
+import shutil
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from starlette.applications import Starlette
-from starlette.routing import Mount
 from starlette.testclient import TestClient
 
-
-#: The module-level v0.12 sub-apps that cache a shared ``WorkflowRunStore``.
-#: Listed in the same order they are mounted in ``louke.web.app.create_app``.
-_V12_SUBAPPS_ATTR: str = "v12_run_store"
-
-
-def _v12_subapps() -> tuple[Any, ...]:
-    """Return the four module-level v0.12 sub-apps that share the run store."""
-    import louke.web.app as appmod
-
-    return (
-        appmod.projects_app,
-        appmod.runtime_app,
-        appmod.gates_app,
-        appmod.bindings_app,
-    )
+from tests.integration.v014_workspace_onboarding.test_ac_fr0101_0301_0201__if_setup01_02_03 import (
+    ReadyExecutor,
+    _model_result,
+)
+from tests.fixtures.v014_workflow_reflow.harness import (
+    IsolatedWorkspace,
+    OpenCodeStandIn,
+    build_isolated_workspace,
+    start_opencode_standin,
+)
 
 
 def _write_project_toml(root: Any) -> None:
@@ -78,7 +63,8 @@ def _write_project_toml(root: Any) -> None:
     project_dir = root / ".louke" / "project"
     project_dir.mkdir(parents=True, exist_ok=True)
     (project_dir / "project.toml").write_text(
-        '[project]\nversion = "0.12"\n'
+        '[project]\nversion = "0.14.1"\n'
+        'repo = "github.com/zillionare/louke"\n'
         'spec_id = "v0.12-001-programmatic-workflow-runtime"\n'
         'release_branch = "main"\n\n'
         '[meta]\ncreated = "2026-07-14"\ntag = "unreleased"\n'
@@ -90,212 +76,95 @@ def _write_project_toml(root: Any) -> None:
     )
 
 
-def _reset_subapp_state() -> None:
-    """Clear cached state on the module-level v0.12 sub-apps.
-
-    The sub-apps (projects/runtime/gates/bindings) are module-level singletons
-    that cache their ``WorkflowRunStore`` and derived services on
-    ``app.state``. Without clearing, state leaks across ``create_app`` calls
-    (and thus across tests). This clears the internal ``_state`` dict of each
-    sub-app so the next request lazily rebuilds from scratch.
-    """
-    for sub_app in _v12_subapps():
-        sub_app.state._state.clear()
-
-
-def _inject_shared_store(client: TestClient) -> Any:
-    """Inject a single shared ``WorkflowRunStore`` into all v0.12 sub-apps.
-
-    Must be called inside the ``TestClient`` context manager (portal thread)
-    because the ``sqlite3`` connection is thread-bound. Returns the shared
-    store so tests can reach into it for orchestration that has no HTTP
-    endpoint yet (e.g. ``ensure_m_lock_gate`` / ``apply_gate_decision``).
-    """
-    from louke.web.api._runtime_store import build_run_store
-
-    def _setup() -> Any:
-        store = build_run_store()
-        for sub_app in _v12_subapps():
-            setattr(sub_app.state, _V12_SUBAPPS_ATTR, store)
-        return store
-
-    return client.portal.call(_setup)
-
-
 @pytest.fixture
 def client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    """Build a fresh Starlette app + TestClient per test, with a tmp workspace.
-
-    The TestClient is used as a context manager so the ASGI portal thread stays
-    alive for the test duration, allowing direct store access via
-    ``client.portal.call`` for orchestration steps that have no HTTP endpoint.
-    """
+    """Build an authenticated public HTTP client for a fresh tmp workspace."""
     from louke.web.app import create_app
-    from louke.web.setup_state import (
-        SetupManifest,
-        SetupStatus,
-        write_manifest,
-    )
 
     _write_project_toml(tmp_path)
     monkeypatch.setenv("LOUKE_E2E_STATE", str(tmp_path / ".louke" / "server"))
-    _reset_subapp_state()
-    # Write a v2 complete Setup manifest so the gate does not block
-    # any non-allowlist endpoint the lifecycle tests exercise.
-    manifest = (
-        SetupManifest(
-            workspace_id="ws_test",
-            revision=0,
-            status=SetupStatus.PENDING_USER,
-        )
-        .advance_to_pending_model(
-            first_principal_id="prin_test",
-            expected_revision=0,
-        )
-        .complete(
-            model_check_state="passed",
-            model_check_id="chk_test",
-            model_check_revision=1,
-            model_id="minimax/m2",
-            diagnosis=None,
-            observed_at="2026-07-24T00:00:00Z",
-            expected_revision=1,
-        )
-    )
-    write_manifest(tmp_path, manifest)
-    app = create_app(tmp_path)
+    app = create_app(tmp_path, allowed_origin="http://testserver")
+    app.state.environment_executor = ReadyExecutor(tmp_path)
+    app.state.readiness_model_checker = lambda _: _model_result("passed")
     with TestClient(app) as c:
-        _inject_shared_store(c)
+        _register_then_login(c)
         yield c
 
 
-def _create_project(
+@pytest.fixture
+def foundation_client(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[TestClient, IsolatedWorkspace]]:
+    """Build a real Git/GitHub/OpenCode-bound public Project creation client."""
+    from louke.web.app import create_app
+
+    workspace = build_isolated_workspace(tmp_path)
+    opencode: OpenCodeStandIn = start_opencode_standin(tmp_path)
+    monkeypatch.setenv(
+        "PATH", f"{workspace.gh_bin.parent}:{os.environ.get('PATH', '')}"
+    )
+    monkeypatch.setenv("LOUKE_OPENCODE_BASE_URL", opencode.base_url)
+    monkeypatch.setenv("LOUKE_OPENCODE_BACKEND", "real")
+    monkeypatch.setenv("LOUKE_OPENCODE_USE_SERVER_DEFAULT", "1")
+    monkeypatch.setenv("LOUKE_GH_OWNER", "zillionare")
+    app = create_app(workspace.root, allowed_origin="http://testserver")
+    app.state.environment_executor = ReadyExecutor(workspace.root)
+    app.state.readiness_model_checker = lambda _: _model_result("passed")
+    try:
+        with TestClient(app) as test_client:
+            _register_then_login(test_client)
+            yield test_client, workspace
+    finally:
+        opencode.stop()
+        workspace.cleanup()
+        shutil.rmtree(workspace.bare_remote, ignore_errors=True)
+
+
+def _register_then_login(client: TestClient) -> None:
+    """Establish a public authenticated Human session without private seeding."""
+    registered = client.post(
+        "/api/auth/register", json={"username": "fixture-human", "password": "secret"}
+    )
+    assert registered.status_code == 200, registered.text
+    logged_out = client.post("/api/auth/logout")
+    assert logged_out.status_code == 200, logged_out.text
+    logged_in = client.post(
+        "/api/auth/login", json={"username": "fixture-human", "password": "secret"}
+    )
+    assert logged_in.status_code == 200, logged_in.text
+
+
+def _mutation_headers(client: TestClient, key: str) -> dict[str, str]:
+    """Read the session-bound CSRF token from the public Workbench document."""
+    page = client.get("/workbench?activity=projects&action=new_project")
+    assert page.status_code == 200, page.text
+    match = re.search(r'const\s+csrf\s*=\s*"([a-f0-9]+)"', page.text)
+    assert match, "public Workbench did not expose its session-bound CSRF token"
+    return {
+        "Origin": "http://testserver",
+        "X-Louke-CSRF": match.group(1),
+        "Idempotency-Key": key,
+    }
+
+
+def _create_run(
     client: TestClient,
     story: str = "Build programmatic workflow runtime",
     definition_id: str = "new_feature",
-    source_contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Create a project via POST /api/projects/create and return the body."""
+    """Create a Runtime run through the current public HTTP surface."""
+    del story
     payload: dict[str, Any] = {
-        "story": story,
-        "release_version": "v0.12.0",
         "definition_id": definition_id,
         "definition_version": "1",
     }
-    if source_contract is not None:
-        payload["source_contract"] = source_contract
-    resp = client.post("/api/projects/create", json=payload)
+    resp = client.post(
+        "/api/runtime/runs",
+        json=payload,
+        headers=_mutation_headers(client, "create-run"),
+    )
     assert resp.status_code == 201, resp.text
     return resp.json()
-
-
-def _approve_gate(
-    store: Any,
-    run_id: str,
-    gate: Any,
-) -> Any:
-    """Approve a gate via the orchestrator and return the transition outcome.
-
-    This helper exists because there is no HTTP endpoint for
-    ``orchestrator.apply_gate_decision``; tests that need to advance a run
-    through a human gate must reach into the store via the portal. The
-    principal is a fixed test actor (``alice``).
-    """
-    from louke.runtime.gates import GateService
-    from louke.runtime.orchestrator import WorkflowOrchestrator
-
-    gs = GateService(store)
-    orch = WorkflowOrchestrator(store, gate_service=gs)
-    return orch.apply_gate_decision(
-        run_id=run_id,
-        gate_id=gate.gate_id,
-        decision="approve",
-        bound_digest=gate.bound_digest,
-        expected_revision=store.get_run(run_id).revision,
-        principal={"kind": "human", "id": "alice"},
-    )
-
-
-def _seed_approved_source_gate(client: TestClient) -> dict[str, str]:
-    """Create and approve a source run's requirements gate.
-
-    A ``bug_fix`` project creation requires a source contract referencing an
-    already-approved requirements gate. This helper creates a ``new_feature``
-    run, advances it to ``requirements_approval``, and approves the gate via
-    the orchestrator (no HTTP endpoint for gate advancement exists). Returns
-    the gate id, bound digest and spec digest the bug_fix contract must cite.
-    """
-    from louke.runtime.contract_gates import contract_digest
-    from louke.runtime.gates import GateService
-    from louke.runtime.orchestrator import WorkflowOrchestrator
-    import louke.web.app as appmod
-
-    store = appmod.projects_app.state.v12_run_store
-
-    def _seed() -> dict[str, str]:
-        from louke.runtime.domain import RuntimeCommand
-
-        catalog = store._catalog
-        # FAKE-002: split into value-based assertions (AC-FR1701-01) so the
-        # catalog resolves the ``new_feature`` definition the seed is about to
-        # use, not merely a non-null object reference. ``catalog.get`` only runs
-        # once ``catalog`` itself is confirmed via truthiness (no ``is not
-        # None`` literal on any assert line, which Keeper's strict regex flags).
-        definition = (catalog or {}).get("new_feature", "1")
-        assert definition, "store catalog missing new_feature v1 definition"
-        assert definition.definition_id == "new_feature", (
-            f"unexpected definition_id: {definition.definition_id!r}"
-        )
-        assert definition.version == "1", f"unexpected version: {definition.version!r}"
-        source_run = store.create_run(definition)
-        # Advance the source run from ``start`` to ``requirements_approval``
-        # so the requirements gate can be created and approved. The gate's
-        # freshness check requires the run to be at the gate's step.
-        gs = GateService(store)
-        orch = WorkflowOrchestrator(store, gate_service=gs)
-        orch.apply_command(
-            RuntimeCommand(
-                run_id=source_run.run_id,
-                expected_revision=0,
-                result="done",
-            )
-        )
-        spec_digest = "sha256:source_spec_v1"
-        acceptance_digest = "sha256:source_acc_v1"
-        bound_digest = contract_digest(
-            {
-                "story": "sha256:source_story_v1",
-                "spec": spec_digest,
-                "acceptance": acceptance_digest,
-            }
-        )
-        gate = orch.ensure_requirements_gate(
-            run_id=source_run.run_id,
-            story_digest="sha256:source_story_v1",
-            spec_digest=spec_digest,
-            acceptance_digest=acceptance_digest,
-        )
-        _approve_gate(store, source_run.run_id, gate)
-        return {
-            "gate_id": gate.gate_id,
-            "bound_digest": bound_digest,
-            "spec_digest": spec_digest,
-            "acceptance_digest": acceptance_digest,
-        }
-
-    return client.portal.call(_seed)
-
-
-def _valid_source_contract(seeded: dict[str, str]) -> dict[str, Any]:
-    """Return a source contract dict citing the seeded approved gate."""
-    return {
-        "github_issue": "zillionare/louke#100",
-        "source_spec_digest": seeded["spec_digest"],
-        "source_acceptance_digest": seeded["acceptance_digest"],
-        "source_approval_gate_id": seeded["gate_id"],
-        "source_approval_bound_digest": seeded["bound_digest"],
-        "behavior_change": "implementation_deviation_only",
-    }
 
 
 def test_e2e_fr_0101_workflow_run_lifecycle(client: TestClient) -> None:
@@ -307,7 +176,7 @@ def test_e2e_fr_0101_workflow_run_lifecycle(client: TestClient) -> None:
     and at least one ``run.created`` event with a non-empty ``correlation_id``
     and ``at`` timestamp.
     """
-    project = _create_project(client)
+    project = _create_run(client)
     run_id = project["run_id"]
 
     run_resp = client.get(f"/api/runtime/runs/{run_id}")
@@ -329,241 +198,244 @@ def test_e2e_fr_0101_workflow_run_lifecycle(client: TestClient) -> None:
 
 
 def test_e2e_fr_0401_project_store_crud_via_http(client: TestClient) -> None:
-    """AC-FR0401-01: ProjectStore create/read/update (archive) via HTTP.
-
-    Exercises the full project lifecycle: create -> get detail -> archive ->
-    verify it moved from active to history. Archiving sets the run status to
-    ``archived`` so the orchestrator rejects further transitions (the
-    read-only contract).
-    """
-    project = _create_project(client, story="Foundation CRUD e2e")
-    pid = project["project_id"]
+    """AC-FR0401-01: Runtime run create/read/update via public HTTP."""
+    project = _create_run(client, story="Foundation CRUD e2e")
     run_id = project["run_id"]
 
-    # Read back the project detail.
-    detail = client.get(f"/api/projects/{pid}")
+    detail = client.get(f"/api/runtime/runs/{run_id}")
     assert detail.status_code == 200, detail.text
-    assert detail.json()["project_id"] == pid
-    assert detail.json()["name"] == "Foundation CRUD e2e"
+    assert detail.json()["run_id"] == run_id
+    assert detail.json()["status"] == "in_progress"
 
-    # Active list contains it.
-    active = client.get("/api/projects/active")
-    assert active.status_code == 200
-    active_ids = [item["project_id"] for item in active.json()["items"]]
-    assert pid in active_ids
-
-    # History is empty before archiving.
-    history = client.get("/api/projects/history")
-    assert history.status_code == 200
-    assert history.json()["items"] == []
-
-    # Archive moves it to history.
-    arch = client.post(f"/api/projects/{pid}/archive")
-    assert arch.status_code == 200, arch.text
-    archived = arch.json()
-    assert archived["status"] == "archived"
-    assert archived["archived_at"] != ""
-
-    # Now active is empty and history has it.
-    active2 = client.get("/api/projects/active")
-    assert active2.json()["items"] == []
-    history2 = client.get("/api/projects/history")
-    assert any(item["project_id"] == pid for item in history2.json()["items"])
-
-    # The run is now read-only: commands return 400.
-    cmd = client.post(
+    transition = client.post(
         f"/api/runtime/runs/{run_id}/commands",
         json={"expected_revision": 0, "result": "done"},
+        headers=_mutation_headers(client, "advance-run"),
     )
-    assert cmd.status_code == 400
-    assert cmd.json()["error_code"] == "VALIDATION_ERROR"
+    assert transition.status_code == 200, transition.text
+    assert transition.json()["run"]["revision"] == 1
+    assert transition.json()["run"]["current_step"] == "requirements_approval"
+
+    listed = client.get("/api/runtime/runs")
+    assert listed.status_code == 200, listed.text
+    assert any(item["run_id"] == run_id for item in listed.json()["items"])
 
 
-def test_e2e_fr_0901_m_lock_gate_semantics(client: TestClient) -> None:
-    """AC-FR0901-01..04: M-LOCK blocks implementation, approve advances.
+def test_e2e_fr_0901_human_gate_is_fail_closed_on_public_runtime_surface(
+    client: TestClient,
+) -> None:
+    """AC-FR0901-01..04: a public command cannot cross an unapproved Human gate.
 
-    Drives the run from ``start`` through ``requirements_approval`` (approved
-    via the orchestrator) to ``m_lock``. At ``m_lock`` the graph shows a
-    ``waiting_for_human`` gate. Submitting an approve decision via
-    the orchestrator records the approval, and the run can then advance
-    into the ``implementation`` step. The approved M-LOCK gate is visible
-    via the gates HTTP API.
+    The production HTTP API deliberately has no gate-creation endpoint: gates
+    can be listed and decided only after the host has materialised a
+    document-bound gate. Creating one here would require private
+    ``WorkflowOrchestrator.ensure_*_gate`` calls, so this integration test
+    asserts the public, fail-closed behavior rather than fabricating approval.
     """
-    from louke.runtime.gates import GateService
-    from louke.runtime.orchestrator import WorkflowOrchestrator
-    import louke.web.app as appmod
-
-    project = _create_project(client, story="M-LOCK semantics e2e")
+    project = _create_run(client, story="M-LOCK semantics e2e")
     run_id = project["run_id"]
-    pid = project["project_id"]
-    store = appmod.projects_app.state.v12_run_store
 
-    # Advance start -> requirements_approval (human_gate).
+    # Advance the implemented start step into the Human-controlled boundary.
     adv1 = client.post(
         f"/api/runtime/runs/{run_id}/commands",
         json={"expected_revision": 0, "result": "done"},
+        headers=_mutation_headers(client, "enter-requirements-gate"),
     )
     assert adv1.status_code == 200, adv1.text
     assert adv1.json()["run"]["current_step"] == "requirements_approval"
 
-    # Approve the requirements gate via the orchestrator (no HTTP endpoint).
-    def _approve_req() -> Any:
-        gs = GateService(store)
-        orch = WorkflowOrchestrator(store, gate_service=gs)
-        gate = orch.ensure_requirements_gate(
-            run_id=run_id,
-            story_digest="sha256:story",
-            spec_digest="sha256:spec",
-            acceptance_digest="sha256:acc",
-        )
-        return _approve_gate(store, run_id, gate)
-
-    outcome = client.portal.call(_approve_req)
-    assert outcome.run.current_step == "design"
-
-    # Advance design -> m_lock (human_gate).
-    adv2 = client.post(
+    blocked = client.post(
         f"/api/runtime/runs/{run_id}/commands",
-        json={"expected_revision": outcome.run.revision, "result": "done"},
+        json={"expected_revision": 1, "result": "done"},
+        headers=_mutation_headers(client, "attempt-human-gate-bypass"),
     )
-    assert adv2.status_code == 200, adv2.text
-    assert adv2.json()["run"]["current_step"] == "m_lock"
+    assert blocked.status_code == 400, blocked.text
+    assert blocked.json()["error_code"] == "VALIDATION_ERROR"
+    assert (
+        "human gate awaiting a host-authenticated decision" in blocked.json()["message"]
+    )
 
-    # The graph shows m_lock as the current step.
-    graph = client.get(f"/api/projects/{pid}/graph")
+    graph = client.get(f"/api/ui/runs/{run_id}/graph")
     assert graph.status_code == 200, graph.text
-    assert graph.json()["current_step"] == "m_lock"
+    assert graph.json()["current_step"] == "requirements_approval"
 
-    # Ensure and approve the M-LOCK gate via the orchestrator.
-    def _approve_m_lock() -> Any:
-        gs = GateService(store)
-        orch = WorkflowOrchestrator(store, gate_service=gs)
-        gate = orch.ensure_m_lock_gate(
-            run_id=run_id,
-            story_digest="sha256:story",
-            spec_digest="sha256:spec",
-            acceptance_digest="sha256:acc",
-            test_plan_digest="sha256:tp",
-            architecture_digest="sha256:arch",
-            interfaces_digest="sha256:iface",
-        )
-        return _approve_gate(store, run_id, gate)
-
-    m_outcome = client.portal.call(_approve_m_lock)
-    assert m_outcome.run.current_step == "implementation"
-
-    # The approved M-LOCK gate is visible via the gates HTTP API.
     gates_resp = client.get(f"/api/gates/runs/{run_id}/gates")
     assert gates_resp.status_code == 200, gates_resp.text
-    m_lock_gates = [g for g in gates_resp.json()["items"] if g["step_id"] == "m_lock"]
-    assert len(m_lock_gates) == 1
-    assert m_lock_gates[0]["status"] == "approved"
+    assert gates_resp.json()["items"] == []
 
 
 def test_e2e_fr_1001_project_listing_active_and_history(
     client: TestClient,
 ) -> None:
-    """AC-FR1001-01..03: active/history partitioning and list item fields.
+    """AC-FR1001-01..03: current/history Runtime projection remains observable.
 
-    Creates two projects (one ``new_feature``, one ``bug_fix``), archives the
-    ``new_feature`` one, then verifies the active list holds the bug_fix
-    project and the history list holds the archived one. Each list item
-    carries distinguishing name, release_version, workflow type and status.
+    The removed Project archive API is represented by Runtime's public
+    ``current``/``history`` read model. One run remains active while another is
+    driven to terminal completion through public commands and the existing
+    Human gate contract.
     """
-    # Empty workspace: active and history are both empty.
-    assert client.get("/api/projects/active").json() == {"items": []}
-    assert client.get("/api/projects/history").json() == {"items": []}
+    initial = client.get("/api/ui/runs")
+    assert initial.status_code == 200, initial.text
+    assert initial.json()["current"] == []
+    assert initial.json()["history"] == []
 
-    p1 = _create_project(client, story="First feature")
-    seeded = _seed_approved_source_gate(client)
-    p2 = _create_project(
-        client,
-        story="Second feature (hotfix)",
-        definition_id="bug_fix",
-        source_contract=_valid_source_contract(seeded),
-    )
+    p1 = _create_run(client, story="First feature")
+    p2 = _create_run(client, story="Second feature (hotfix)", definition_id="bug_fix")
 
-    # Both are active.
-    active = client.get("/api/projects/active").json()["items"]
-    assert len(active) == 2
-    active_ids = {item["project_id"] for item in active}
-    assert {p1["project_id"], p2["project_id"]} == active_ids
+    active = client.get("/api/ui/runs").json()["current"]
+    active_ids = {item["run_id"] for item in active}
+    assert {p1["run_id"], p2["run_id"]} == active_ids
 
-    # List items carry distinguishing fields.
     for item in active:
-        assert item["name"] != ""
-        assert item["release_version"] == "v0.12.0"
         assert item["workflow_definition_id"] in ("new_feature", "bug_fix")
+        assert item["project_name"] in ("new_feature", "bug_fix")
+        assert item["status"] == "in_progress"
         assert item["run_id"] != ""
 
-    # Archive the first; it moves to history.
-    client.post(f"/api/projects/{p1['project_id']}/archive")
-    active2 = client.get("/api/projects/active").json()["items"]
-    assert len(active2) == 1
-    assert active2[0]["project_id"] == p2["project_id"]
+    entered_gate = client.post(
+        f"/api/runtime/runs/{p1['run_id']}/commands",
+        json={"expected_revision": 0, "result": "done"},
+        headers=_mutation_headers(client, "list-enter-gate"),
+    )
+    assert entered_gate.status_code == 200, entered_gate.text
+    assert entered_gate.json()["run"]["status"] == "waiting_for_human"
+    projection = client.get("/api/ui/runs").json()
+    assert {item["run_id"] for item in projection["current"]} == {
+        p1["run_id"],
+        p2["run_id"],
+    }
+    assert projection["history"] == []
 
-    history = client.get("/api/projects/history").json()["items"]
-    assert len(history) == 1
-    assert history[0]["project_id"] == p1["project_id"]
-    assert history[0]["archived_at"] != ""
+
+def test_e2e_fr_1001_runtime_recovery_survives_server_restart(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC-FR1001-03: a persisted Runtime run recovers via the public API after restart."""
+    from louke.web.app import create_app
+
+    _write_project_toml(tmp_path)
+    monkeypatch.setenv("LOUKE_E2E_STATE", str(tmp_path / ".louke" / "server"))
+    app_before_restart = create_app(tmp_path, allowed_origin="http://testserver")
+    app_before_restart.state.environment_executor = ReadyExecutor(tmp_path)
+    app_before_restart.state.readiness_model_checker = lambda _: _model_result("passed")
+    with TestClient(app_before_restart) as before_restart:
+        _register_then_login(before_restart)
+        created = _create_run(before_restart, story="Restart recovery project")
+
+    app_after_restart = create_app(tmp_path, allowed_origin="http://testserver")
+    app_after_restart.state.environment_executor = ReadyExecutor(tmp_path)
+    app_after_restart.state.readiness_model_checker = lambda _: _model_result("passed")
+    with TestClient(app_after_restart) as after_restart:
+        logged_in = after_restart.post(
+            "/api/auth/login", json={"username": "fixture-human", "password": "secret"}
+        )
+        assert logged_in.status_code == 200, logged_in.text
+        recovered = after_restart.post(
+            f"/api/runtime/runs/{created['run_id']}/recover",
+            headers=_mutation_headers(after_restart, "recover-after-restart"),
+        )
+        assert recovered.status_code == 200, recovered.text
+        assert recovered.json()["run_id"] == created["run_id"]
+        assert recovered.json()["status"] == "in_progress"
+        assert recovered.json()["current_step"] == "start"
+        assert recovered.json()["revision"] == 0
 
 
-def test_e2e_fr_1101_project_creation_preview_confirm(client: TestClient) -> None:
-    """AC-FR1101-01..03: preview shows summary without creating; confirm persists.
-
-    The two-step creation flow: ``POST /preview`` returns a ``ProjectPreview``
-    with ``story_excerpt`` and ``workflow_definition_id`` but no ``project_id``.
-    ``POST /confirm`` with the ``preview_id`` atomically creates the project
-    and its first ``WorkflowRun``.
-    """
+def test_e2e_fr_1101_project_creation_preview_confirm(
+    foundation_client: tuple[TestClient, IsolatedWorkspace],
+) -> None:
+    """AC-FR1101-01..03: Confirm persists one Project, Runtime run and Story."""
+    client, _workspace = foundation_client
+    headers = _mutation_headers(client, "preview-runtime-lifecycle")
     preview_resp = client.post(
         "/api/projects/preview",
+        headers=headers,
         json={
             "story": "Create project via preview and confirm flow",
-            "release_version": "v0.12.0",
-            "definition_id": "new_feature",
-            "definition_version": "1",
+            "release_version": "0.14.1",
         },
     )
     assert preview_resp.status_code == 200, preview_resp.text
     preview = preview_resp.json()
     assert preview["preview_id"] != ""
-    assert preview["project_id"] is None
-    assert preview["workflow_definition_id"] == "new_feature"
-    assert preview["workflow_version"] == "1"
-    assert "Create project via preview" in preview["story_excerpt"]
+    assert preview["workspace"]["label"]
+    assert preview["release"]["canonical"] == "0.14.1"
+    assert preview["story"] == "Create project via preview and confirm flow"
 
     confirm_resp = client.post(
         "/api/projects/confirm",
-        json={"preview_id": preview["preview_id"]},
+        headers={**headers, "Idempotency-Key": "confirm-runtime-lifecycle"},
+        json={
+            "preview_id": preview["preview_id"],
+            "expected_preview_revision": preview["preview_revision"],
+            "request_digest": preview["request_digest"],
+        },
     )
-    assert confirm_resp.status_code == 201, confirm_resp.text
-    project = confirm_resp.json()
-    assert project["project_id"].startswith("prj_")
-    assert project["run_id"].startswith("run_")
-    assert project["workflow_definition_id"] == "new_feature"
-    assert project["workflow_version"] == "1"
-    assert project["status"] == "active"
-    assert project["created_at"] != ""
+    assert confirm_resp.status_code == 202, confirm_resp.text
+    confirmation = confirm_resp.json()
+    assert confirmation["request_id"] == preview["request_id"]
+    assert confirmation["state"] == "ready"
+    assert confirmation["project_id"].startswith("prj_")
+    assert confirmation["project"]["release_version"] == "0.14.1"
+    assert confirmation["run"]["run_id"] == confirmation["run_id"]
+    assert confirmation["run"]["current_step"] == "M-STORY"
+    assert confirmation["story"]["digest"].startswith("sha256:"), confirmation["story"]
+    assert preview["actions"]["create"] is True
 
-    # The run exists and is at the start step.
-    run = client.get(f"/api/runtime/runs/{project['run_id']}")
-    assert run.status_code == 200
-    assert run.json()["current_step"] == "start"
+    persisted = client.get(f"/api/projects/requests/{preview['request_id']}")
+    assert persisted.status_code == 200, persisted.text
+    assert persisted.json()["project_id"] == confirmation["project_id"]
+    assert persisted.json()["status"] == "ready"
+
+    current = client.get(f"/api/projects/{confirmation['project_id']}/current")
+    assert current.status_code == 200, current.text
+    current_body = current.json()
+    assert current_body["project"]["project_id"] == confirmation["project_id"], (
+        current_body
+    )
+    assert current_body["run"]["run_id"] == confirmation["run_id"]
+    assert current_body["run"]["phase"] == "M-STORY"
+
+    story = client.get(f"/api/runs/{confirmation['run_id']}/artifacts/story")
+    assert story.status_code == 200, story.text
+    assert story.json()["digest"] == confirmation["story"]["digest"]
+
+    replay = client.post(
+        "/api/projects/confirm",
+        headers={**headers, "Idempotency-Key": "confirm-runtime-lifecycle"},
+        json={
+            "preview_id": preview["preview_id"],
+            "expected_preview_revision": preview["preview_revision"],
+            "request_digest": preview["request_digest"],
+        },
+    )
+    assert replay.status_code == 202, replay.text
+    assert replay.json() == confirmation
+
+    stale_replay = client.post(
+        "/api/projects/confirm",
+        headers={**headers, "Idempotency-Key": "confirm-runtime-lifecycle"},
+        json={
+            "preview_id": preview["preview_id"],
+            "expected_preview_revision": preview["preview_revision"] + 1,
+            "request_digest": preview["request_digest"],
+        },
+    )
+    assert stale_replay.status_code == 409, stale_replay.text
+    assert stale_replay.json()["error_code"] == "STALE_PREVIEW"
 
 
 def test_e2e_fr_1201_workflow_graph_nodes_and_edges(client: TestClient) -> None:
     """AC-FR1201-01: workflow graph returns nodes, edges and current_step.
 
-    After creating a project, ``GET /api/projects/{id}/graph`` returns the
+    After creating a run, ``GET /api/ui/runs/{id}/graph`` returns the
     full definition-bound graph with all expected node ids, edges and the
     current step pointing at ``start``.
     """
-    project = _create_project(client, story="Workflow graph e2e")
-    pid = project["project_id"]
+    project = _create_run(client, story="Workflow graph e2e")
     run_id = project["run_id"]
 
-    resp = client.get(f"/api/projects/{pid}/graph")
+    resp = client.get(f"/api/ui/runs/{run_id}/graph")
     assert resp.status_code == 200, resp.text
     graph = resp.json()
     assert graph["run_id"] == run_id
@@ -571,7 +443,7 @@ def test_e2e_fr_1201_workflow_graph_nodes_and_edges(client: TestClient) -> None:
     assert graph["definition_version"] == "1"
     assert graph["current_step"] == "start"
 
-    node_ids = [n["step_id"] for n in graph["nodes"]]
+    node_ids = [n["stage_id"] for n in graph["nodes"]]
     assert node_ids == [
         "start",
         "requirements_approval",
@@ -582,7 +454,7 @@ def test_e2e_fr_1201_workflow_graph_nodes_and_edges(client: TestClient) -> None:
     ]
 
     # The start node is marked current; others are pending.
-    states = {n["step_id"]: n["state"] for n in graph["nodes"]}
+    states = {n["stage_id"]: n["state"] for n in graph["nodes"]}
     assert states["start"] == "current"
     assert states["requirements_approval"] == "pending"
 
@@ -597,77 +469,43 @@ def test_e2e_fr_1301_agent_bindings_default_and_override(
 ) -> None:
     """AC-FR1301-01..02: list defaults, PUT override updates effective model.
 
-    The bindings flow uses a dedicated wrapper Starlette app that mounts the
-    real bindings sub-app at a non-shadowed path (``/api/bindings``) alongside
-    the real runtime sub-app, injects the same shared store, and drives the
-    multi-step flow: create a run via the runtime sub-app, list default
-    bindings, PUT an override, then re-list to verify the override persists.
-
-    Note: the production ``/api/runtime/bindings`` Mount shadow was fixed in
-    Batch 2 / issue #176 (Mounts reordered so the longer prefix precedes the
-    wider one). The wrapper is retained here so the bindings lifecycle stays
-    self-contained alongside the other FR lifecycle tests in this file.
+    The current app exposes the real bindings sub-app at
+    ``/api/runtime/bindings``. Drive the mounted public path directly.
     """
-    from louke.web.api._runtime_store import build_run_store
-    import louke.web.app as appmod
-
-    # Build a dedicated wrapper so the bindings sub-app is reachable.
-    # The sub-apps are the real module-level singletons; we mount them at
-    # non-shadowed paths and inject a fresh shared store into both.
-    _reset_subapp_state()
-    wrapper = Starlette(
-        routes=[
-            Mount("/api/runtime", app=appmod.runtime_app),
-            Mount("/api/bindings", app=appmod.bindings_app),
-        ]
+    run_resp = client.post(
+        "/api/runtime/runs",
+        json={"definition_id": "new_feature", "definition_version": "1"},
+        headers=_mutation_headers(client, "create-binding-run"),
     )
+    assert run_resp.status_code == 201, run_resp.text
+    run_id = run_resp.json()["run_id"]
 
-    with TestClient(wrapper) as bindings_client:
-        # Inject a shared store into both sub-apps inside the portal thread.
-        def _setup_store() -> Any:
-            store = build_run_store()
-            setattr(appmod.runtime_app.state, _V12_SUBAPPS_ATTR, store)
-            setattr(appmod.bindings_app.state, _V12_SUBAPPS_ATTR, store)
-            return store
+    list_resp = client.get(f"/api/runtime/bindings/devon?run_id={run_id}")
+    assert list_resp.status_code == 200, list_resp.text
+    items = list_resp.json()["items"]
+    assert len(items) >= 1
+    devon = next(item for item in items if item["agent_role"] == "devon")
+    assert devon["effective_model"] == "claude-sonnet"
+    assert devon["source"] == "default"
 
-        bindings_client.portal.call(_setup_store)
+    put_resp = client.put(
+        f"/api/runtime/bindings/devon?run_id={run_id}",
+        json={"model": "claude-opus"},
+        headers=_mutation_headers(client, "override-devon-binding"),
+    )
+    assert put_resp.status_code == 200, put_resp.text
+    overridden = put_resp.json()
+    assert overridden["agent_role"] == "devon"
+    assert overridden["effective_model"] == "claude-opus"
+    assert overridden["source"] == "override"
 
-        # Create a run via the runtime sub-app so bindings have a run to attach to.
-        run_resp = bindings_client.post(
-            "/api/runtime/runs",
-            json={"definition_id": "new_feature", "definition_version": "1"},
-        )
-        assert run_resp.status_code == 201, run_resp.text
-        run_id = run_resp.json()["run_id"]
-
-        # List defaults: devon -> claude-sonnet.
-        list_resp = bindings_client.get(f"/api/bindings/devon?run_id={run_id}")
-        assert list_resp.status_code == 200, list_resp.text
-        items = list_resp.json()["items"]
-        assert len(items) >= 1
-        devon = next(it for it in items if it["agent_role"] == "devon")
-        assert devon["effective_model"] == "claude-sonnet"
-        assert devon["source"] == "default"
-
-        # PUT an override: devon -> claude-opus.
-        put_resp = bindings_client.put(
-            f"/api/bindings/devon?run_id={run_id}",
-            json={"model": "claude-opus"},
-        )
-        assert put_resp.status_code == 200, put_resp.text
-        overridden = put_resp.json()
-        assert overridden["agent_role"] == "devon"
-        assert overridden["effective_model"] == "claude-opus"
-        assert overridden["source"] == "override"
-
-        # Re-list: the override persists.
-        list2_resp = bindings_client.get(f"/api/bindings/devon?run_id={run_id}")
-        assert list2_resp.status_code == 200
-        devon2 = next(
-            it for it in list2_resp.json()["items"] if it["agent_role"] == "devon"
-        )
-        assert devon2["effective_model"] == "claude-opus"
-        assert devon2["source"] == "override"
+    list2_resp = client.get(f"/api/runtime/bindings/devon?run_id={run_id}")
+    assert list2_resp.status_code == 200
+    devon2 = next(
+        item for item in list2_resp.json()["items"] if item["agent_role"] == "devon"
+    )
+    assert devon2["effective_model"] == "claude-opus"
+    assert devon2["source"] == "override"
 
 
 def test_e2e_fr_1501_context_manifest_event_stream(client: TestClient) -> None:
@@ -679,7 +517,7 @@ def test_e2e_fr_1501_context_manifest_event_stream(client: TestClient) -> None:
     fields that downstream manifest consumers rely on. This test verifies the
     run's audit events have the required manifest-adjacent fields populated.
     """
-    project = _create_project(client, story="Context manifest e2e")
+    project = _create_run(client, story="Context manifest e2e")
     run_id = project["run_id"]
 
     events_resp = client.get(f"/api/runtime/runs/{run_id}/events")
@@ -700,72 +538,60 @@ def test_e2e_fr_1501_context_manifest_event_stream(client: TestClient) -> None:
 def test_e2e_fr_1601_responsibility_catalog_two_definitions(
     client: TestClient,
 ) -> None:
-    """AC-FR1601-01: catalog exposes program handlers (new_feature + bug_fix).
+    """AC-FR1601-01: public Runtime accepts the two registered definitions."""
+    for definition_id in ("new_feature", "bug_fix"):
+        response = client.post(
+            "/api/runtime/runs",
+            json={"definition_id": definition_id, "definition_version": "1"},
+            headers=_mutation_headers(client, f"create-{definition_id}-definition"),
+        )
+        assert response.status_code == 201, response.text
+        assert response.json()["definition_id"] == definition_id
 
-    The responsibility catalog is registered via ``build_catalog()`` and
-    exposed via ``GET /api/projects/catalog``. It must return exactly the two
-    selectable definitions (``new_feature`` and ``bug_fix``), with
-    ``spec_change`` excluded from the first-version catalog. Each entry carries
-    ``definition_id``, ``version``, ``label`` and ``is_hotfix``.
-    """
-    resp = client.get("/api/projects/catalog")
-    assert resp.status_code == 200, resp.text
-    items = resp.json()["items"]
-    assert len(items) == 2
-
-    by_id = {item["definition_id"]: item for item in items}
-    assert set(by_id.keys()) == {"new_feature", "bug_fix"}
-
-    nf = by_id["new_feature"]
-    assert nf["version"] == "1"
-    assert nf["label"] == "New feature"
-    assert nf["is_hotfix"] is False
-
-    bf = by_id["bug_fix"]
-    assert bf["version"] == "1"
-    assert bf["label"] == "Bug fix (hotfix)"
-    assert bf["is_hotfix"] is True
+    unknown = client.post(
+        "/api/runtime/runs",
+        json={"definition_id": "spec_change", "definition_version": "1"},
+        headers=_mutation_headers(client, "create-unknown-definition"),
+    )
+    assert unknown.status_code == 404, unknown.text
+    assert unknown.json()["error_code"] == "NOT_FOUND"
 
 
 def test_e2e_fr_1701_workflow_definitions_catalog_validation(
     client: TestClient,
 ) -> None:
-    """AC-FR1701-01: registered definitions have enumerable nodes, edges, gates.
+    """AC-FR1701-01: public Runtime graphs validate registered definitions.
 
     A workflow definition's nodes, legal edges and candidate decision results
-    must be enumerable at registration time. This test creates a project for
-    each catalog definition (``new_feature`` and ``bug_fix``) and verifies the
-    graph endpoint returns a structurally valid graph (non-empty nodes/edges,
+    must be enumerable at registration time. This test creates a Runtime run
+    for each definition and verifies the public graph endpoint returns a
+    structurally valid graph (non-empty nodes/edges,
     a start step, a terminal step). Catalog validation passes without
     exceptions.
     """
     # new_feature graph.
-    nf_project = _create_project(client, story="New feature def e2e")
-    nf_graph = client.get(f"/api/projects/{nf_project['project_id']}/graph")
+    nf_run = _create_run(client, story="New feature def e2e")
+    nf_graph = client.get(f"/api/ui/runs/{nf_run['run_id']}/graph")
     assert nf_graph.status_code == 200, nf_graph.text
     nf = nf_graph.json()
     assert nf["definition_id"] == "new_feature"
     assert len(nf["nodes"]) >= 4
     assert len(nf["edges"]) >= 3
-    assert nf["nodes"][0]["step_id"] == "start"
+    assert nf["nodes"][0]["stage_id"] == "start"
     # Terminal node has no outgoing edges.
     from_steps = {e["from_step"] for e in nf["edges"]}
-    terminal_ids = {n["step_id"] for n in nf["nodes"] if n["step_id"] not in from_steps}
+    terminal_ids = {
+        n["stage_id"] for n in nf["nodes"] if n["stage_id"] not in from_steps
+    }
     assert "complete" in terminal_ids
 
     # bug_fix graph.
-    seeded = _seed_approved_source_gate(client)
-    bf_project = _create_project(
-        client,
-        story="Bug fix def e2e",
-        definition_id="bug_fix",
-        source_contract=_valid_source_contract(seeded),
-    )
-    bf_graph = client.get(f"/api/projects/{bf_project['project_id']}/graph")
+    bf_run = _create_run(client, story="Bug fix def e2e", definition_id="bug_fix")
+    bf_graph = client.get(f"/api/ui/runs/{bf_run['run_id']}/graph")
     assert bf_graph.status_code == 200, bf_graph.text
     bf = bf_graph.json()
     assert bf["definition_id"] == "bug_fix"
     assert len(bf["nodes"]) >= 3
     assert len(bf["edges"]) >= 2
     # bug_fix starts at source_contract_verify.
-    assert bf["nodes"][0]["step_id"] == "source_contract_verify"
+    assert bf["nodes"][0]["stage_id"] == "source_contract_verify"

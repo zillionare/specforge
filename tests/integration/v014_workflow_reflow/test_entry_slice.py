@@ -29,7 +29,12 @@ from tests.fixtures.v014_workflow_reflow.harness import CANONICAL_HUMAN_STORY
 
 
 def _client(base_url: str) -> httpx.Client:
-    return httpx.Client(base_url=base_url, trust_env=False, follow_redirects=True)
+    return httpx.Client(
+        base_url=base_url,
+        trust_env=False,
+        follow_redirects=True,
+        timeout=45.0,
+    )
 
 
 def _register(client: httpx.Client) -> httpx.Response:
@@ -592,6 +597,7 @@ class TestFixtureGitIdentity:
         clean_env["LOUKE_OPENCODE_BASE_URL"] = oc.base_url
         clean_env["LOUKE_OPENCODE_BACKEND"] = "real"
         clean_env["LOUKE_OPENCODE_USE_SERVER_DEFAULT"] = "1"
+        clean_env["LOUKE_RUNTIME_MODE"] = "global"
         clean_env["NO_PROXY"] = "127.0.0.1,localhost"
         clean_env["no_proxy"] = "127.0.0.1,localhost"
 

@@ -255,24 +255,17 @@ class TestInstalledLkServeBoot:
         )
         assert payload["spec_id"], "spec_id must be a non-empty string"
 
-    def test_installed_lk_serve_setup_only_redirects_to_setup(
+    def test_installed_lk_serve_unauthenticated_root_redirects_to_login(
         self, running_lk_serve
     ) -> None:
-        """GET ``/`` in setup-only mode returns 303 redirect to ``/setup``.
-
-        A fresh project root has no first principal, so ``lk serve`` enters
-        setup-only mode and the root route redirects to the setup wizard.
-        This is the contract documented in :mod:`louke.web.app` and the
-        setup wizard entry point users see on first run.
-        """
+        """GET ``/`` on a fresh install returns the public Login entry."""
         base_url, _server = running_lk_serve
         status, location = get_status(base_url, "/")
         assert status == 303, (
-            f"expected 303 redirect from / in setup-only mode, got {status}; "
+            f"expected 303 redirect from unauthenticated /, got {status}; "
             f"location={location!r}"
         )
-        assert location is not None and location.rstrip("/").endswith(
-            "/setup"
-        ), (  # AC-FR1801-01
-            f"expected / to redirect to /setup, got location={location!r}"
+        assert location == "/login?next=/", (
+            "expected unauthenticated / to redirect exactly to the public "
+            f"Login entry '/login?next=/', got location={location!r}"
         )

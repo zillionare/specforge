@@ -137,14 +137,14 @@ def assert_contract_shape(
 
 
 DEVON_MODULES: dict[str, str] = {
-    "IF-WEB-01": "louke.web.setup_gate",
-    "IF-SETUP-01": "louke.web.setup_projection",
-    "IF-SETUP-02": "louke.web.first_user",
+    "IF-WEB-01": "louke.web.app",
+    "IF-SETUP-01": "louke.web.login_readiness",
+    "IF-SETUP-02": "louke.web.auth",
     "IF-SETUP-03": "louke.web.opencode_probe",
     "IF-PROJECT-01": "louke.web.projects_context",
     "IF-GUIDE-01": "louke.web.guide_session",
-    "IF-ENV-01": "louke.web.environment_gate",
-    "IF-ENV-02": "louke.web.environment_gate",
+    "IF-ENV-01": "louke.web.environment_service",
+    "IF-ENV-02": "louke.web.repository_readiness",
     "IF-DRAFT-01": "louke.web.draft_storage",
     "IF-PREVIEW-01": "louke.runtime.release_entry",
     "IF-CREATE-01": "louke.runtime.foundation_scribe",

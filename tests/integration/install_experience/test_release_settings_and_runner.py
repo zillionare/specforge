@@ -23,35 +23,6 @@ def _workspace(tmp_path: Path) -> Path:
         '[project]\nversion="0.13.1"\nspec_id="fixture"\n[meta]\ncurrent_stage="M-E2E"\n',
         encoding="utf-8",
     )
-    # v2 complete Setup manifest so the gate does not block
-    # the endpoints under test.
-    from louke.web.setup_state import (
-        SetupManifest,
-        SetupStatus,
-        write_manifest,
-    )
-
-    manifest = (
-        SetupManifest(
-            workspace_id="ws_test",
-            revision=0,
-            status=SetupStatus.PENDING_USER,
-        )
-        .advance_to_pending_model(
-            first_principal_id="prin_test",
-            expected_revision=0,
-        )
-        .complete(
-            model_check_state="passed",
-            model_check_id="chk_test",
-            model_check_revision=1,
-            model_id="minimax/m2",
-            diagnosis=None,
-            observed_at="2026-07-24T00:00:00Z",
-            expected_revision=1,
-        )
-    )
-    write_manifest(tmp_path, manifest)
     return tmp_path
 
 
@@ -61,6 +32,10 @@ def test_settings_read_model_matches_rendered_runtime(
     """I-15 / AC-FR1512-01/02@v0.13.1: API and page share identity."""
     monkeypatch.setenv("LOUKE_RUNTIME_MODE", "global")
     client = TestClient(create_app(_workspace(tmp_path)))
+    registered = client.post(
+        "/api/auth/register", json={"username": "fixture-human", "password": "secret"}
+    )
+    assert registered.status_code == 200
     runtime = client.get("/api/ui/settings/runtime")
     assert runtime.status_code == 200
     payload = runtime.json()

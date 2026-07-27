@@ -1,412 +1,239 @@
-"""IF-SETUP-01 / IF-SETUP-02 / IF-SETUP-03 — Setup projection, first-user, real probe.
+"""Login/Register, aggregate readiness, and post-Setup entry contracts.
 
-AC-FR0101-01, AC-FR0101-02, AC-FR0201-01, AC-FR0201-02, AC-FR0301-01, AC-FR0301-02
+AC-FR0101-01, AC-FR0101-02, AC-FR0201-01, AC-FR0201-02,
+AC-FR0301-01, AC-FR0301-02, AC-FR0401-01,
+AC-FR0901-01, AC-FR1001-01, AC-FR1101-01, AC-FR1501-01
 
-Cross-module:
-* Setup projection (Setup Application × Setup Gate × OpenCode Adapter ×
-  Fact Stores × Workbench Presentation).
-* Unique first-user command (Setup Application × Setup Gate × Fact
-  Stores × Workbench Presentation).
-* Real OpenCode probe (OpenCode Adapter × Setup Application × Fact
-  Stores).
-
-All tests drive the real ``louke.web.setup_projection``,
-``louke.web.first_user``, and ``louke.web.opencode_probe`` modules
-against real on-disk manifests (where applicable) and a real,
-controllable subprocess (for the OpenCode probe).
+These tests use the public Login and Project HTTP surfaces. Only the external
+GitHub/Git command boundary and OpenCode model probe are controlled; no user
+or Setup manifest is privately seeded.
 """
 
 from __future__ import annotations
 
-import subprocess
+import json
 from pathlib import Path
+from typing import Callable
 
-import pytest
+from starlette.testclient import TestClient
 
-from louke.web.first_user import (
-    create_first_user,
-    login_recovery,
-    principal_id_for,
-)
-from louke.web.opencode_probe import (
-    PROBE_PROMPT,
-    SINGLE_TIMEOUT_SECONDS,
-    is_available,
-    run_minimal,
-)
-from louke.web.setup_projection import (
-    SCHEMA_VERSION,
-    STATUS_COMPLETE,
-    STATUS_PENDING_MODEL,
-    STATUS_PENDING_USER,
-    read as read_projection,
-)
-from louke.web.setup_state import (
-    SetupManifest,
-    SetupStateError,
-    SetupStatus,
-    read_manifest,
-    write_manifest,
-)
-from louke.web.store import ProjectStore
+from louke.web.app import create_app
+from louke.web.csrf_middleware import issue_for_session
+from louke.web.environment_commands import CommandResult
+from louke.web.opencode_probe import ModelCheckResult
+
+from tests.test_web_server import authenticate, build_project
 
 
-WORKSPACE_ID = "ws_setup"
+ORIGIN = "https://louke.example"
 
 
-def _write(workspace: Path, manifest: SetupManifest) -> None:
-    """Persist a manifest into the real workspace ``.louke/`` layout."""
-    write_manifest(workspace, manifest)
+class ReadyExecutor:
+    """Return a realistic, bounded GitHub/Git readiness transcript."""
+
+    def __init__(self, root: Path) -> None:
+        sha = "a" * 40
+        self.responses = {
+            ("gh", "--version"): CommandResult(0, "gh version 2.89.0\n"),
+            ("gh", "auth", "status"): CommandResult(
+                0,
+                "github.com\n"
+                "  ✓ Logged in to github.com account fixture-login\n"
+                "  - Active account: true\n"
+                "  - Token scopes: 'gist', 'project', 'read:org', 'repo', 'workflow'\n",
+            ),
+            ("git", "rev-parse", "--is-inside-work-tree"): CommandResult(0, "true\n"),
+            ("git", "rev-parse", "--show-toplevel"): CommandResult(
+                0, f"{root.resolve()}\n"
+            ),
+            ("git", "remote", "get-url", "origin"): CommandResult(
+                0, "git@github.com:zillionare/louke.git\n"
+            ),
+            ("git", "rev-parse", "--verify", "refs/heads/main"): CommandResult(
+                0, f"{sha}\n"
+            ),
+            ("git", "ls-remote", "--heads", "origin", "main"): CommandResult(
+                0, f"{sha}\trefs/heads/main\n"
+            ),
+        }
+
+    def run(self, argv: tuple[str, ...], *, cwd: Path, timeout: float) -> CommandResult:
+        """Return the configured bounded command response."""
+        del cwd, timeout
+        return self.responses[tuple(argv)]
 
 
-def _make_pending_user_manifest() -> SetupManifest:
-    """Initial ``pending_user`` manifest with the locked workspace id."""
-    return SetupManifest(
-        workspace_id=WORKSPACE_ID,
-        revision=0,
-        status=SetupStatus.PENDING_USER,
+def _model_result(state: str) -> ModelCheckResult:
+    """Return one redacted model-check result for the public seam."""
+    diagnosis = None
+    if state != "passed":
+        diagnosis = {
+            "object": "selected OpenCode model",
+            "known_facts": "the selected model probe did not pass",
+            "impact": "Login readiness cannot verify a working OpenCode model",
+            "recovery_url": "/login",
+        }
+    return ModelCheckResult(
+        check_id="chk_login_integration",
+        revision=1,
+        state=state,
+        current_model_id="ark/minimax-m3",
+        diagnosis=diagnosis,
     )
 
 
-def _make_pending_model_manifest() -> SetupManifest:
-    """``pending_model`` after the first user is established."""
-    return _make_pending_user_manifest().advance_to_pending_model(
-        first_principal_id="prin_alpha", expected_revision=0
-    )
-
-
-def _make_complete_manifest() -> SetupManifest:
-    """``complete`` after a passed model probe."""
-    return _make_pending_model_manifest().complete(
-        model_check_state="passed",
-        model_check_id="chk_1",
-        model_check_revision=1,
-        model_id="minimax/m2",
-        diagnosis=None,
-        observed_at="2026-07-24T00:00:00Z",
-        expected_revision=1,
-    )
-
-
-# ---------------------------------------------------------------------------
-# IF-SETUP-01: Setup projection + v2 manifest
-# ---------------------------------------------------------------------------
-
-
-def test_setup_projection_read_returns_v2_fields(synthetic_host) -> None:
-    """AC-FR0301-01: ``read`` returns every v2 contract field."""
-    # AC-FR0301-01
-    _write(synthetic_host, _make_pending_user_manifest())
-    body = read_projection(synthetic_host, workspace_id=WORKSPACE_ID)
-    assert body["workspace_id"] == WORKSPACE_ID
-    assert body["revision"] == 0
-    assert body["status"] == STATUS_PENDING_USER
-    assert body["first_user"] is None
-    assert body["model_check"] is None
-    assert body["available_actions"] == ["create_first_user"]
-    assert body["continue_url"] == "/setup"
-
-
-def test_setup_projection_pending_model_exposes_actions(synthetic_host) -> None:
-    """AC-FR0101-01: ``pending_model`` exposes the model-check actions."""
-    # AC-FR0101-01
-    _write(synthetic_host, _make_pending_model_manifest())
-    body = read_projection(synthetic_host, workspace_id=WORKSPACE_ID)
-    assert body["status"] == STATUS_PENDING_MODEL
-    assert "start_model_check" in body["available_actions"]
-    assert "retry_model_check" in body["available_actions"]
-    assert body["first_user"] == {"principal_id": "prin_alpha"}
-
-
-def test_setup_projection_complete_points_to_projects(synthetic_host) -> None:
-    """AC-FR0301-01: ``complete`` projection points at Projects activity."""
-    # AC-FR0301-01
-    _write(synthetic_host, _make_complete_manifest())
-    body = read_projection(synthetic_host, workspace_id=WORKSPACE_ID)
-    assert body["status"] == STATUS_COMPLETE
-    assert body["continue_url"] == "/workbench?activity=projects"
-    assert body["first_user"] == {"principal_id": "prin_alpha"}
-    assert body["model_check"]["state"] == "passed"
-    assert body["model_check"]["model_id"] == "minimax/m2"
-
-
-def test_setup_projection_missing_manifest_is_pending_user(synthetic_host) -> None:
-    """AC-FR0301-01: missing manifest is treated as ``pending_user``."""
-    # AC-FR0301-01
-    body = read_projection(synthetic_host, workspace_id=WORKSPACE_ID)
-    assert body["status"] == STATUS_PENDING_USER
-    assert body["first_user"] is None
-    assert "create_first_user" in body["available_actions"]
-
-
-def test_setup_projection_status_constants_match_contract() -> None:
-    """AC-FR0101-01: three closed states are the contract."""
-    # AC-FR0101-01
-    assert STATUS_PENDING_USER == "pending_user"
-    assert STATUS_PENDING_MODEL == "pending_model"
-    assert STATUS_COMPLETE == "complete"
-    assert SCHEMA_VERSION == 2
-
-
-def test_setup_projection_revision_filter(synthetic_host) -> None:
-    """AC-FR0101-02: stale-revision reads expose ``available_actions=[]``."""
-    # AC-FR0101-02
-    _write(synthetic_host, _make_complete_manifest())
-    body = read_projection(synthetic_host, workspace_id=WORKSPACE_ID, revision=99)
-    assert body["revision"] == 2  # actual current revision
-    assert body["available_actions"] == []
-    assert body["continue_url"] == "/setup"
-
-
-# ---------------------------------------------------------------------------
-# IF-SETUP-02: unique first-user command
-# ---------------------------------------------------------------------------
-
-
-def test_first_user_create_advances_to_pending_model(synthetic_host) -> None:
-    """AC-FR0201-01: first user creation advances the manifest atomically."""
-    # AC-FR0201-01
-    _write(synthetic_host, _make_pending_user_manifest())
-    store = ProjectStore(synthetic_host)
-    result = create_first_user(
-        synthetic_host,
-        workspace_id=WORKSPACE_ID,
-        name="demo_owner",
-        credential="canary",
-        expected_revision=0,
-        store=store,
-    )
-    assert result["principal_id"] == principal_id_for("demo_owner")
-    assert result["status"] == STATUS_PENDING_MODEL
-    assert result["setup_revision"] == 1
-    assert result["continue_url"] == "/setup"
-    # Manifest is on disk
-    reread = read_manifest(synthetic_host, workspace_id=WORKSPACE_ID)
-    assert reread.status == SetupStatus.PENDING_MODEL
-    assert reread.first_principal_id == principal_id_for("demo_owner")
-    # Credential was persisted via the real ProjectStore
-    assert store.user_exists("demo_owner")
-
-
-def test_first_user_idempotent_for_same_payload(synthetic_host) -> None:
-    """AC-FR0201-01: identical payload returns the same principal."""
-    # AC-FR0201-01
-    _write(synthetic_host, _make_pending_user_manifest())
-    store = ProjectStore(synthetic_host)
-    first = create_first_user(
-        synthetic_host,
-        workspace_id=WORKSPACE_ID,
-        name="demo_owner",
-        credential="canary",
-        expected_revision=0,
-        store=store,
-    )
-    # Second call with the same identity: revision has advanced to 1
-    second = create_first_user(
-        synthetic_host,
-        workspace_id=WORKSPACE_ID,
-        name="demo_owner",
-        credential="canary",
-        expected_revision=1,
-        store=store,
-    )
-    assert second["principal_id"] == first["principal_id"]
-    # No second user created
-    assert len(store.list_users()) == 1
-
-
-def test_first_user_different_name_after_existing_raises(synthetic_host) -> None:
-    """AC-FR0201-01: a different name after the first user is a conflict."""
-    # AC-FR0201-01
-    _write(synthetic_host, _make_pending_model_manifest())
-    with pytest.raises(SetupStateError):
-        create_first_user(
-            synthetic_host,
-            workspace_id=WORKSPACE_ID,
-            name="someone_else",
-            credential="canary",
-            expected_revision=1,
-            store=ProjectStore(synthetic_host),
+def _app(
+    tmp_path: Path,
+    model_checker: Callable[[Path], ModelCheckResult],
+) -> TestClient:
+    """Build a canonical ``zillionare/louke`` app with controlled seams."""
+    root = build_project(tmp_path / "louke")
+    project_toml = root / ".louke" / "project" / "project.toml"
+    project_toml.write_text(
+        project_toml.read_text(encoding="utf-8")
+        .replace('version = "0.8"', 'version = "0.14.1"')
+        .replace(
+            'repo = "github.com/example/louke"', 'repo = "github.com/zillionare/louke"'
         )
-
-
-def test_first_user_login_recovery_returns_existing(synthetic_host) -> None:
-    """AC-FR0201-02: login recovery returns the existing principal."""
-    # AC-FR0201-02
-    # Set up manifest with the principal id derived from the username so
-    # the manifest and the credential store agree on the identity.
-    pid = principal_id_for("demo_owner")
-    manifest = SetupManifest(
-        workspace_id=WORKSPACE_ID,
-        revision=0,
-        status=SetupStatus.PENDING_USER,
-    ).advance_to_pending_model(first_principal_id=pid, expected_revision=0)
-    _write(synthetic_host, manifest)
-    store = ProjectStore(synthetic_host)
-    store.create_user("demo_owner", "canary")
-    result = login_recovery(
-        synthetic_host,
-        workspace_id=WORKSPACE_ID,
-        name="demo_owner",
-        credential="canary",
-        store=store,
+        .replace('project = "louke-v0.8"', 'project = "louke-0.14.0"'),
+        encoding="utf-8",
     )
-    assert result["principal_id"] == pid
-    assert result["status"] == STATUS_PENDING_MODEL
-    assert result["continue_url"] == "/setup"
+    app = create_app(root, allowed_origin=ORIGIN)
+    app.state.environment_executor = ReadyExecutor(root)
+    app.state.readiness_model_checker = model_checker
+    return TestClient(app)
 
 
-def test_first_user_login_recovery_rejects_unknown(synthetic_host) -> None:
-    """AC-FR0201-02: login recovery refuses when no first user exists."""
-    # AC-FR0201-02
-    _write(synthetic_host, _make_pending_user_manifest())
-    with pytest.raises(SetupStateError):
-        login_recovery(
-            synthetic_host,
-            workspace_id=WORKSPACE_ID,
-            name="demo_owner",
-            credential="canary",
-        )
+def _csrf(client: TestClient) -> str:
+    """Issue the current session-bound mutation token."""
+    return issue_for_session(
+        session_id=client.cookies["louke_session"].strip('"'), revision=0
+    )
 
 
-def test_first_user_login_recovery_rejects_when_complete(synthetic_host) -> None:
-    """AC-FR0201-02: login recovery is refused once Setup is complete."""
-    # AC-FR0201-02
-    _write(synthetic_host, _make_complete_manifest())
-    with pytest.raises(SetupStateError):
-        login_recovery(
-            synthetic_host,
-            workspace_id=WORKSPACE_ID,
-            name="demo_owner",
-            credential="canary",
-        )
+def _headers(client: TestClient) -> dict[str, str]:
+    """Return the public mutation headers for the authenticated Human."""
+    return {"Origin": ORIGIN, "X-Louke-CSRF": _csrf(client)}
 
 
-# ---------------------------------------------------------------------------
-# IF-SETUP-03: real OpenCode probe
-# ---------------------------------------------------------------------------
-
-
-def test_opencode_probe_prompt_and_defaults() -> None:
-    """AC-FR0201-01: probe uses ``please echo hi`` and 15s deadline."""
-    # AC-FR0201-01
-    assert PROBE_PROMPT == "please echo hi"
-    assert SINGLE_TIMEOUT_SECONDS == 15
-
-
-def test_opencode_probe_run_minimal_returns_uncertain_on_timeout(
-    tmp_path, monkeypatch
+def test_login_forms_and_warning_remain_public_when_model_is_blocked(
+    tmp_path: Path,
 ) -> None:
-    """AC-FR0201-02: timeout is classified ``uncertain`` (never ``passed``)."""
-    # AC-FR0201-02
+    """AC-FR0201-02/AC-FR0301-01: readiness failure never blocks auth forms."""
+    # AC-FR0201-02 / AC-FR0301-01
+    client = _app(tmp_path, lambda _: _model_result("failed"))
 
-    def fake_run(*args, **kwargs):
-        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+    login = client.get("/login")
+    readiness = client.get("/api/readiness/login")
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    result = run_minimal(
-        model_id="minimax/m2",
-        prompt=PROBE_PROMPT,
-        deadline_seconds=15,
+    assert login.status_code == 200
+    assert 'id="tab-login"' in login.text
+    assert 'id="tab-register"' in login.text
+    assert 'id="readiness-warning"' in login.text
+    assert 'id="readiness-retry"' in login.text
+    assert readiness.status_code == 200
+    body = readiness.json()
+    assert body["state"] == "blocked"
+    assert body["current_step"] == "opencode_model"
+    failed = body["steps"][-1]
+    assert failed["diagnosis"]["object"]
+    assert failed["diagnosis"]["impact"]
+    assert failed["actions"] == ["Retry"]
+
+    registered = client.post(
+        "/api/auth/register", json={"username": "human", "password": "secret"}
     )
-    assert result.state == "uncertain"
-    # AC-FR0201-02: timeout carries a non-null diagnosis object
-    assert result.diagnosis is not None
-    assert result.diagnosis["reason"] == "timeout"
+    assert registered.status_code == 200
+    client.post("/api/auth/logout")
+    logged_in = client.post(
+        "/api/auth/login", json={"username": "human", "password": "secret"}
+    )
+    assert logged_in.status_code == 200
 
 
-def test_opencode_probe_run_minimal_returns_failed_for_nonzero_exit(
-    tmp_path, monkeypatch
+def test_login_readiness_retry_is_fresh_and_preserves_uncertainty(
+    tmp_path: Path,
 ) -> None:
-    """AC-FR0201-02: non-zero exit is classified ``failed``."""
+    """AC-FR0201-02: each readiness request is a fresh terminal rerun."""
     # AC-FR0201-02
+    states = iter(("uncertain", "passed"))
+    calls: list[int] = []
 
-    def fake_run(*args, **kwargs):
-        return subprocess.CompletedProcess(
-            args=args[0], returncode=1, stdout="", stderr="boom"
-        )
+    def checker(_: Path) -> ModelCheckResult:
+        calls.append(1)
+        return _model_result(next(states))
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    result = run_minimal(
-        model_id="minimax/m2", prompt=PROBE_PROMPT, deadline_seconds=15
+    client = _app(tmp_path, checker)
+    first = client.get("/api/readiness/login").json()
+    second = client.get("/api/readiness/login").json()
+
+    assert first["state"] == "uncertain"
+    assert first["current_step"] == "opencode_model"
+    assert second["state"] == "passed"
+    assert calls == [1, 1]
+
+
+def test_unauthenticated_workbench_uses_the_public_login_entry(
+    tmp_path: Path,
+) -> None:
+    """AC-FR0401-01: Login is the sole unauthenticated Web entry."""
+    # AC-FR0401-01
+    client = _app(tmp_path, lambda _: _model_result("passed"))
+
+    root = client.get("/", follow_redirects=False)
+    workbench = client.get("/workbench", follow_redirects=False)
+    assert root.status_code == 303
+    assert root.headers["location"].startswith("/login")
+    assert workbench.status_code == 303
+    assert workbench.headers["location"].startswith("/login")
+
+
+def test_project_preview_identity_and_confirm_gate_bind_to_aggregate_readiness(
+    tmp_path: Path,
+) -> None:
+    """AC-FR0901-01/AC-FR1001-01/AC-FR1101-01/AC-FR1501-01: Project gate."""
+    # AC-FR0901-01 / AC-FR1001-01 / AC-FR1101-01 / AC-FR1501-01
+    state = {"value": "failed"}
+    client = _app(tmp_path, lambda _: _model_result(state["value"]))
+    authenticate(client, username="human", password="secret")
+
+    wizard = client.get("/workbench?activity=projects&action=new_project")
+    assert wizard.status_code == 200
+    assert 'name="story"' in wizard.text
+    assert 'name="release_version"' in wizard.text
+    assert 'name="story"' in wizard.text and "required disabled" in wizard.text
+    assert 'data-testid="env-step-opencode_model"' in wizard.text
+
+    state["value"] = "passed"
+    ready = client.post("/api/projects/environment-checks", headers=_headers(client))
+    assert ready.status_code == 200
+    assert ready.json()["state"] == "passed"
+
+    preview = client.post(
+        "/api/projects/preview",
+        headers={**_headers(client), "Idempotency-Key": "login-preview"},
+        json={"story": "Ship Login readiness", "release_version": "0.14.1"},
     )
-    assert result.state == "failed"
-    # AC-FR0201-02: non-zero exit carries a non-null diagnosis object
-    assert result.diagnosis is not None
-    assert result.diagnosis["reason"] == "nonzero_exit"
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["workspace"] == {
+        "workspace_id": "github.com/zillionare/louke",
+        "label": "louke",
+    }
+    assert body["repository"]["owner"] == "zillionare"
+    assert body["repository"]["name"] == "louke"
+    assert body["release"]["canonical"] == "0.14.1"
+    assert "louke-0.14.0" not in json.dumps(body["workspace"])
 
-
-def test_opencode_probe_run_minimal_returns_passed_for_exit_zero(monkeypatch) -> None:
-    """AC-FR0201-01: exit 0 means ``passed``."""
-    # AC-FR0201-01
-
-    def fake_run(*args, **kwargs):
-        return subprocess.CompletedProcess(
-            args=args[0], returncode=0, stdout="hi", stderr=""
-        )
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    result = run_minimal(
-        model_id="minimax/m2", prompt=PROBE_PROMPT, deadline_seconds=15
+    state["value"] = "failed"
+    confirm = client.post(
+        "/api/projects/confirm",
+        headers={**_headers(client), "Idempotency-Key": "login-confirm"},
+        json={
+            "preview_id": body["preview_id"],
+            "expected_preview_revision": body["preview_revision"],
+            "request_digest": body["request_digest"],
+        },
     )
-    assert result.state == "passed"
-    assert result.diagnosis is None
-
-
-def test_opencode_probe_run_minimal_isolates_prompt_and_args(monkeypatch) -> None:
-    """AC-FR0201-01: the call uses the fixed minimal prompt and no stdin."""
-    # AC-FR0201-01
-    captured: dict[str, object] = {}
-
-    def fake_run(args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-        return subprocess.CompletedProcess(
-            args=args, returncode=0, stdout="hi", stderr=""
-        )
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    run_minimal(model_id="minimax/m2", prompt=PROBE_PROMPT, deadline_seconds=15)
-    args = captured["args"]
-    kwargs = captured["kwargs"]
-    assert args[0] == "opencode"
-    assert args[1] == "run"
-    assert args[2] == "--model"
-    assert args[3] == "minimax/m2"
-    assert args[4] == PROBE_PROMPT
-    # No workspace file, story, or artifact context
-    assert kwargs.get("stdin") == subprocess.DEVNULL
-    assert kwargs.get("timeout") == 15
-
-
-def test_opencode_probe_is_available_returns_bool() -> None:
-    """AC-FR0201-01: ``is_available`` is a real PATH-based check."""
-    # AC-FR0201-01
-    assert isinstance(is_available(), bool)
-
-
-# ---------------------------------------------------------------------------
-# Activation: real artifact surface
-# ---------------------------------------------------------------------------
-
-
-def test_real_setup_projection_artifact_surface() -> None:
-    """AC-FR0301-01: real ``louke.web.setup_projection`` exposes the contract."""
-    # AC-FR0301-01
-    import louke.web.setup_projection as mod
-
-    assert mod.SCHEMA_VERSION == 2
-    assert mod.STATUS_PENDING_USER == "pending_user"
-    assert mod.STATUS_PENDING_MODEL == "pending_model"
-    assert mod.STATUS_COMPLETE == "complete"
-    assert callable(mod.read)
-
-
-def test_real_opencode_probe_artifact_surface() -> None:
-    """AC-FR0201-01: real ``louke.web.opencode_probe`` exposes the contract."""
-    # AC-FR0201-01
-    import louke.web.opencode_probe as mod
-
-    assert mod.PROBE_PROMPT == "please echo hi"
-    assert callable(mod.run_minimal)
-    assert callable(mod.is_available)
+    assert confirm.status_code == 409
+    assert confirm.json()["error_code"] == "ENVIRONMENT_GATE_BLOCKED"

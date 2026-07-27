@@ -20,7 +20,7 @@ import textwrap
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -144,7 +144,7 @@ def _parse_manifest(prompt_text: str) -> dict | None:
         if isinstance(manifest, dict):
             return manifest
     except (json.JSONDecodeError, ValueError):
-        pass
+        return None
     return None
 
 
@@ -497,8 +497,8 @@ def _record(ledger: str, entry: dict) -> None:
     try:
         with open(ledger, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, sort_keys=True) + "\\n")
-    except Exception:
-        pass
+    except OSError as exc:
+        raise RuntimeError("OpenCode stand-in ledger could not be written") from exc
 
 
 def main(argv: list[str]) -> int:
@@ -562,62 +562,10 @@ class IsolatedWorkspace:
         self.git("branch", "-D", RELEASE_BRANCH)
 
 
-def _seed_setup_manifest(root: Path, setup_status: str) -> None:
-    """Seed the v2 Setup manifest at ``root`` for the requested state.
-
-    Args:
-        root: Workspace root (containing ``.louke/``).
-        setup_status: One of ``complete`` (default workspace; first user +
-            passed model probe), ``pending_model`` (first user established,
-            awaiting a model check), or ``pending_user`` (blank Setup).
-
-    Raises:
-        ValueError: If ``setup_status`` is not one of the three states.
-    """
-    from louke.web.setup_state import (
-        SetupManifest,
-        SetupStatus,
-        write_manifest,
-    )
-
-    manifest = SetupManifest(
-        workspace_id="ws_entry_slice",
-        revision=0,
-        status=SetupStatus.PENDING_USER,
-    )
-    if setup_status == "pending_user":
-        write_manifest(root, manifest)
-        return
-    manifest = manifest.advance_to_pending_model(
-        first_principal_id="prin_entry_slice",
-        expected_revision=0,
-    )
-    if setup_status == "pending_model":
-        write_manifest(root, manifest)
-        return
-    if setup_status == "complete":
-        manifest = manifest.complete(
-            model_check_state="passed",
-            model_check_id="chk_entry_slice",
-            model_check_revision=1,
-            model_id="minimax/m2",
-            diagnosis=None,
-            observed_at="2026-07-24T00:00:00Z",
-            expected_revision=1,
-        )
-        write_manifest(root, manifest)
-        return
-    raise ValueError(
-        f"unknown setup_status {setup_status!r}; expected one of "
-        "'complete', 'pending_model', 'pending_user'"
-    )
-
-
 def build_isolated_workspace(
     tmp_path: Path,
     *,
     include_story: bool = False,
-    setup_status: str = "complete",
 ) -> IsolatedWorkspace:
     """Create a Louke-like workspace with a bare Git remote.
 
@@ -630,12 +578,6 @@ def build_isolated_workspace(
     Args:
         tmp_path: Temp directory for the workspace.
         include_story: Whether to seed a canonical ``story.md``.
-        setup_status: The v2 Setup manifest state to seed. ``"complete"``
-            (default) lets the v0.14-001 entry-slice endpoints run past the
-            v0.14-004 Setup gate; ``"pending_model"`` seeds an established
-            first user awaiting a model check; ``"pending_user"`` seeds a
-            blank Setup so the two-context Setup journey can be driven from
-            the first-user form.
     """
     root = tmp_path / "workspace"
     root.mkdir(parents=True)
@@ -675,6 +617,21 @@ def build_isolated_workspace(
         ),
         encoding="utf-8",
     )
+    # Login readiness selects only explicitly configured concrete models.
+    # Keep the fixture's model identity independent from the host project and
+    # let the real ``opencode run --model`` boundary prove availability.
+    (root / ".louke" / "models.json").write_text(
+        json.dumps(
+            {
+                "$schema": "louke://models-config",
+                "version": 1,
+                "aliases": {"minimax-m2": "minimax/m2"},
+                "assignments": {"roles": {"A": "minimax-m2"}, "agents": {}},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     shutil.copy2(
         REPO_ROOT / _CONTRACT_BUNDLE, project_dir / "release-contract-bundle.json"
@@ -685,13 +642,6 @@ def build_isolated_workspace(
         dst = root / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
-
-    # v0.14-004: seed a v2 Setup manifest. The default ``complete`` lets the
-    # Setup gate (added in v0.14-004) pass so the v0.14-001 entry-slice
-    # endpoints under test are reachable; the v0.14-001 flow itself does not
-    # include Setup. ``pending_user`` / ``pending_model`` let the v0.14-004
-    # two-context Setup journey be driven from the matching context.
-    _seed_setup_manifest(root, setup_status)
 
     if include_story:
         story_template_path = REPO_ROOT / "louke" / "templates" / "story.md"
@@ -830,16 +780,38 @@ def build_isolated_workspace(
 # ---------------------------------------------------------------------------
 
 
-def wait_for_health(base_url: str, timeout: float = 30) -> None:
+def wait_for_health(
+    base_url: str,
+    timeout: float = 30,
+    *,
+    process: subprocess.Popen[bytes] | None = None,
+    log_tail: Callable[[], str] | None = None,
+) -> None:
+    """Wait for health, failing immediately on an exited server with log evidence.
+
+    Args:
+        base_url: Loopback server root.
+        timeout: Maximum readiness polling duration.
+        process: Optional spawned ``lk serve`` process to monitor.
+        log_tail: Optional redacted, bounded stdout/stderr tail supplier.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
+        if process is not None and process.poll() is not None:
+            raise RuntimeError(
+                f"lk serve exited early with code {process.returncode}; "
+                f"server log tail:\n{log_tail() if log_tail else '<unavailable>'}"
+            )
         try:
             with urlopen(f"{base_url}/health", timeout=1) as resp:
                 if resp.status == 200:
                     return
         except (URLError, OSError):
             time.sleep(0.2)
-    raise TimeoutError(f"lk serve did not become healthy at {base_url}")
+    raise TimeoutError(
+        f"lk serve did not become healthy at {base_url} within {timeout}s; "
+        f"server log tail:\n{log_tail() if log_tail else '<unavailable>'}"
+    )
 
 
 def server_command(

@@ -55,37 +55,16 @@ def _chromium_available() -> bool:
         return False
 
 
-#: The two-context Setup journeys drive the first-user form, so they must start
-#: from a ``pending_user`` workspace. Every other v0.14-004 journey assumes a
-#: Setup-complete workspace so it can reach ``/workbench?activity=projects``;
-#: journeys that need a different state still seed it themselves over the
-#: default (e.g. ``test_journey_diagnostic_quality`` writes ``pending_model``).
-_SETUP_JOURNEY_FILES: frozenset[str] = frozenset(
-    {
-        "test_journey_setup_wizard.py",
-        "test_journey_minimal_setup.py",
-    }
-)
-
-
 @pytest.fixture
-def live_server(tmp_path: Path, request):
+def live_server(tmp_path: Path):
     """Start ``lk serve`` from the product interpreter and OpenCode stand-in.
 
-    The seeded Setup state depends on the journey: the two-context Setup
-    journeys (``test_journey_setup_wizard`` / ``test_journey_minimal_setup``)
-    start from ``pending_user`` so they can drive the first-user form; every
-    other journey starts from ``complete`` so the Setup gate lets it reach the
-    Workbench. Journeys that need another state seed it themselves over this
-    default (e.g. ``test_journey_diagnostic_quality`` writes ``pending_model``).
+    Every journey starts from the public Login surface. Tests may seed
+    lower-level project context state when that state is the subject under
+    test, but this fixture never injects a Setup manifest or user state.
     """
     product_python = os.environ.get("LOUKE_E2E_SERVER_PYTHON", sys.executable)
-    setup_status = (
-        "pending_user"
-        if request.fspath.basename in _SETUP_JOURNEY_FILES
-        else "complete"
-    )
-    workspace = build_isolated_workspace(tmp_path, setup_status=setup_status)
+    workspace = build_isolated_workspace(tmp_path)
     opencode = start_opencode_standin(tmp_path)
 
     orig_path = os.environ.get("PATH", "")

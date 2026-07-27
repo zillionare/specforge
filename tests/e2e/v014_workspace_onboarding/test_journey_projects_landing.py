@@ -24,40 +24,24 @@ from tests.integration.v014_workspace_onboarding._mode_b import (
 # ---------------------------------------------------------------------------
 
 
+def _register_and_login(page, base_url: str) -> None:
+    """Use the public Register tab instead of seeding users or Setup state."""
+    page.goto(f"{base_url}/login", wait_until="domcontentloaded")
+    page.locator("#tab-register").click()
+    page.locator("#register-username").fill("projects-human")
+    page.locator("#register-password").fill("canary")
+    page.locator("#register-submit").click()
+    page.wait_for_url("**/workbench?activity=projects")
+
+
 def test_journey_login_lands_on_projects_empty(browser_page, live_server):
     """AC-FR0401-01: setup-complete login → Workbench Projects (empty)."""
     # AC-FR0401-01
     devon_module_skip("IF-WEB-01", fr="FR-0001")
     page, _ = browser_page
-    base_url, workspace, _ = live_server
+    base_url, _, _ = live_server
 
-    # Seed Setup-complete state directly into the synthetic host's manifest.
-    setup_state_path = workspace.root / ".louke" / "web-setup-state.json"
-    setup_state_path.parent.mkdir(parents=True, exist_ok=True)
-    setup_state_path.write_text(
-        json.dumps(
-            {
-                "version": 2,
-                "workspace_id": "ws_demo",
-                "revision": 5,
-                "status": "complete",
-                "first_principal_id": "prin_demo",
-                "model_check": {
-                    "check_id": "chk_demo",
-                    "state": "passed",
-                    "model_id": "minimax/m2",
-                    "observed_at": "2026-07-24T00:00:00Z",
-                },
-                "completed_at": "2026-07-24T00:00:00Z",
-            }
-        ),
-        encoding="utf-8",
-    )
-    page.goto(f"{base_url}/login", wait_until="domcontentloaded")
-    page.fill('input[name="name"]', "demo_owner")
-    page.fill('input[name="password"]', "canary")
-    page.click('button[type="submit"]')
-    page.wait_for_load_state("networkidle")
+    _register_and_login(page, base_url)
     assert page.url.endswith("/workbench?activity=projects"), page.url
     body = page.inner_text("body").lower()
     assert "new project" in body
@@ -70,6 +54,7 @@ def test_journey_login_lands_on_projects_active(browser_page, live_server):
     page, _ = browser_page
     base_url, workspace, _ = live_server
 
+    _register_and_login(page, base_url)
     workspace_state = workspace.root / ".louke" / "project-state.json"
     workspace_state.parent.mkdir(parents=True, exist_ok=True)
     workspace_state.write_text(
@@ -97,6 +82,7 @@ def test_journey_login_lands_on_projects_conflict(browser_page, live_server):
     page, _ = browser_page
     base_url, workspace, _ = live_server
 
+    _register_and_login(page, base_url)
     workspace_state = workspace.root / ".louke" / "project-state.json"
     workspace_state.parent.mkdir(parents=True, exist_ok=True)
     workspace_state.write_text(
@@ -130,6 +116,7 @@ def test_journey_projects_sidebar_has_guide_session(browser_page, live_server):
     devon_module_skip("IF-GUIDE-01", fr="FR-0501")
     page, _ = browser_page
     base_url, _, _ = live_server
+    _register_and_login(page, base_url)
     page.goto(f"{base_url}/workbench?activity=projects", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
     sidebar = page.query_selector('aside[data-role="guide"]') or page.query_selector(
@@ -148,7 +135,8 @@ def test_journey_guide_advice_after_environment_block(browser_page, live_server)
     page, _ = browser_page
     base_url, workspace, _ = live_server
 
-    # Seed an active Project so the Wizard can run; mark the gh scope check failed.
+    _register_and_login(page, base_url)
+    # Seed an active Project so the Projects surface can render its status.
     workspace_state = workspace.root / ".louke" / "project-state.json"
     workspace_state.parent.mkdir(parents=True, exist_ok=True)
     workspace_state.write_text(
@@ -162,24 +150,7 @@ def test_journey_guide_advice_after_environment_block(browser_page, live_server)
         ),
         encoding="utf-8",
     )
-    ledger = workspace.root / ".louke" / "gh-ledger.json"
-    ledger.parent.mkdir(parents=True, exist_ok=True)
-    ledger.write_text(
-        json.dumps(
-            {
-                "gh_executable": True,
-                "gh_auth_scopes": ["gist", "project", "workflow"],
-                "repository_binding": None,
-                "canonical_main": None,
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    page.goto(
-        f"{base_url}/workbench?activity=projects&new=1",
-        wait_until="domcontentloaded",
-    )
+    page.goto(f"{base_url}/workbench?activity=projects", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
     body = page.inner_text("body").lower()
 
@@ -193,6 +164,7 @@ def test_journey_guide_does_not_have_action_capability(browser_page, live_server
     devon_module_skip("IF-GUIDE-01", fr="FR-0501")
     page, _ = browser_page
     base_url, _, _ = live_server
+    _register_and_login(page, base_url)
     page.goto(f"{base_url}/workbench?activity=projects", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
     composer = page.query_selector('textarea[name="guide_message"]')

@@ -7,6 +7,7 @@ from pathlib import Path
 from starlette.testclient import TestClient
 
 from louke.web.app import create_app
+from tests.test_web_server import authenticate
 
 
 def _client(tmp_path: Path) -> TestClient:
@@ -15,7 +16,9 @@ def _client(tmp_path: Path) -> TestClient:
     (project / "project.toml").write_text(
         "[project]\nspec_id='fixture'\n", encoding="utf-8"
     )
-    return TestClient(create_app(tmp_path))
+    client = TestClient(create_app(tmp_path))
+    authenticate(client)
+    return client
 
 
 def _create_run(client: TestClient) -> dict[str, object]:
@@ -32,7 +35,7 @@ def test_runs_sidebar_lists_projects(tmp_path: Path, setup_complete: Path) -> No
     """AC-FR1313-01: Runtime-created projects appear in the Runs projection."""
     client = _client(tmp_path)
     run = _create_run(client)
-    response = client.get("/workbench")
+    response = client.get("/workbench?activity=chat")
     assert response.status_code == 200
     assert 'data-testid="runs-sidebar"' in response.text
     projection = client.get("/api/ui/runs").json()
@@ -55,7 +58,7 @@ def test_runs_workflow_graph_renders(tmp_path: Path, setup_complete: Path) -> No
         "implementation",
         "complete",
     ]
-    html = client.get("/workbench").text
+    html = client.get("/workbench?activity=chat").text
     assert 'data-testid="runs-graph"' in html
     assert "/api/ui/runs/" in html
 
@@ -73,7 +76,7 @@ def test_stage_node_click_opens_artifact_detail(
     assert body["stage_id"] == "start"
     assert body["unknown"] is False
     assert body["result_kind"] == "run.created"
-    assert "Save" not in client.get("/workbench").text
+    assert "Save" not in client.get("/workbench?activity=chat").text
 
 
 def test_stage_unknown_kind_fallback(tmp_path: Path, setup_complete: Path) -> None:

@@ -7,11 +7,13 @@ from pathlib import Path
 from starlette.testclient import TestClient
 
 from louke.web.app import create_app
-from tests.test_web_server import build_project
+from tests.test_web_server import authenticate, build_project
 
 
 def _html(tmp_path: Path) -> str:
-    return TestClient(create_app(build_project(tmp_path))).get("/workbench").text
+    client = TestClient(create_app(build_project(tmp_path)))
+    authenticate(client)
+    return client.get("/workbench?activity=chat").text
 
 
 def test_settings_menu_3_disabled_items(tmp_path: Path) -> None:

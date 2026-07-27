@@ -27,40 +27,18 @@ class _ButtonParser(HTMLParser):
 
 
 def _workbench_html(tmp_path) -> str:
-    from louke.web.setup_state import (
-        SetupManifest,
-        SetupStatus,
-        write_manifest,
-    )
-
     project_dir = tmp_path / ".louke" / "project"
     project_dir.mkdir(parents=True, exist_ok=True)
     (project_dir / "project.toml").write_text(
         '[project]\nversion = "0.8"\nspec_id = "demo"\n',
         encoding="utf-8",
     )
-    manifest = (
-        SetupManifest(
-            workspace_id="ws_test",
-            revision=0,
-            status=SetupStatus.PENDING_USER,
-        )
-        .advance_to_pending_model(
-            first_principal_id="prin_test",
-            expected_revision=0,
-        )
-        .complete(
-            model_check_state="passed",
-            model_check_id="chk_test",
-            model_check_revision=1,
-            model_id="minimax/m2",
-            diagnosis=None,
-            observed_at="2026-07-24T00:00:00Z",
-            expected_revision=1,
-        )
+    client = TestClient(create_app(tmp_path))
+    registered = client.post(
+        "/api/auth/register", json={"username": "fixture-human", "password": "secret"}
     )
-    write_manifest(tmp_path, manifest)
-    response = TestClient(create_app(tmp_path)).get("/workbench")
+    assert registered.status_code == 200
+    response = client.get("/workbench?activity=chat")
     assert response.status_code == 200
     return response.text
 
@@ -70,6 +48,7 @@ def test_toolbar_item_order(tmp_path) -> None:
     parser = _ButtonParser()
     parser.feed(_workbench_html(tmp_path))
     assert [button["aria-label"] for button in parser.buttons] == [
+        "Projects",
         "Chat",
         "Dev Docs",
         "End User Docs",
@@ -85,6 +64,7 @@ def test_toolbar_tooltip(tmp_path) -> None:
     parser = _ButtonParser()
     parser.feed(_workbench_html(tmp_path))
     assert [button["title"] for button in parser.buttons] == [
+        "Projects",
         "Chat",
         "Dev Docs",
         "End User Docs",
@@ -180,17 +160,14 @@ def test_root_renders_workbench_chrome(tmp_path) -> None:
     assert '<button class="sidebar-toggle"' not in home
 
 
-def test_legacy_query_param_keeps_v012_shell(tmp_path) -> None:
-    """GET /?legacy=1 must still render the v0.12 sidebar + main shell.
-
-    The v0.12 ``home_page`` (sidebar-toggle + app-shell + cards) remains in
-    the codebase while it is being cleaned up; the opt-in must keep working
-    until the legacy surface is removed.
-    """
+def test_legacy_query_param_still_resolves_to_the_canonical_projects_surface(
+    tmp_path,
+) -> None:
+    """Legacy query input cannot create a parallel pre-Login workbench."""
     _, legacy = _authenticated_root_html(tmp_path)
-    assert '<button class="sidebar-toggle"' in legacy
-    assert '<aside class="sidebar"' in legacy
-    assert 'data-louke-region="toolbar"' not in legacy
+    assert 'data-projects-state="empty"' in legacy
+    assert 'data-testid="new-project"' in legacy
+    assert '<button class="sidebar-toggle"' not in legacy
 
 
 def test_settings_runtime_read_model_is_public(monkeypatch, tmp_path) -> None:
