@@ -63,6 +63,7 @@ def _prepare_workspace(root: Path) -> None:
             (
                 "[project]",
                 'version = "0.13.1"',
+                'repo = "github.com/zillionare/louke"',
                 f'spec_id = "{spec_id}"',
                 'project = "browser fixture"',
                 "",
@@ -86,6 +87,79 @@ def _prepare_workspace(root: Path) -> None:
     (end_user / "guide.md").write_text("# User Guide\n\nHello.\n", encoding="utf-8")
     (wiki / "README.md").write_text("# README\n", encoding="utf-8")
     _seed_runtime_run(root)
+
+    # The canonical Project journey now requires a real repository binding and
+    # a remote main SHA.  Seed the runner-provided workspace with the same
+    # local-bare-remote contract used by the v0.14 E2E fixtures; the product
+    # still executes its real Git subprocess boundary through the PATH wrapper.
+    bare_remote = root.parent / "browser-fixture-remote.git"
+    subprocess.run(
+        ["git", "init", "--bare", str(bare_remote)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "init", str(root)], capture_output=True, text=True, check=True
+    )
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Test Human",
+        "GIT_AUTHOR_EMAIL": "human@test.local",
+        "GIT_COMMITTER_NAME": "Test Human",
+        "GIT_COMMITTER_EMAIL": "human@test.local",
+    }
+    for key, value in (
+        ("user.name", "Test Human"),
+        ("user.email", "human@test.local"),
+    ):
+        subprocess.run(
+            ["git", "config", key, value],
+            cwd=str(root),
+            env=git_env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    subprocess.run(["git", "add", "-A"], cwd=str(root), env=git_env, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "chore: initialise browser fixture"],
+        cwd=str(root),
+        env=git_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "branch", "-M", "main"], cwd=str(root), env=git_env, check=True
+    )
+    subprocess.run(
+        ["git", "remote", "add", "origin", str(bare_remote)],
+        cwd=str(root),
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "push", "-u", "origin", "main"],
+        cwd=str(root),
+        env=git_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    canonical_origin = "https://github.com/zillionare/louke.git"
+    subprocess.run(
+        ["git", "config", f"url.{bare_remote.as_uri()}.insteadOf", canonical_origin],
+        cwd=str(root),
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "remote", "set-url", "origin", canonical_origin],
+        cwd=str(root),
+        env=git_env,
+        check=True,
+    )
 
 
 def _seed_runtime_run(root: Path) -> None:
