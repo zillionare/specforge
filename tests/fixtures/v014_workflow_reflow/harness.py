@@ -416,8 +416,14 @@ def main(argv: list[str]) -> int:
         return 0
     if argv == ["auth", "status"]:
         print("github.com")
-        print("  account: zillionare")
-        print("  token scopes: gist, project, repo, workflow")
+        print(
+            "  ✓ Logged in to github.com account fixture-login "
+            "(/Users/openclaw/.config/gh/hosts.yml)"
+        )
+        print("  - Active account: true")
+        print("  - Git operations protocol: https")
+        print("  - Token: gho_************************************")
+        print("  - Token scopes: 'gist', 'project', 'repo', 'workflow'")
         return 0
     if len(argv) >= 2 and argv[0] == "project" and argv[1] == "list":
         owner = ""
