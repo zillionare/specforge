@@ -5,6 +5,7 @@
 [🇨🇳 中文](README.zh.md) · [🇺🇸 English](README.md)
 
 **Lòukè is a spec-first, test-driven, tool-aligned multi-agent collaborative development method.**
+**louke has not yet reached a level suitable for official release. Please refrain from installing and using it in your projects for now. It is expected to become fully functional within two weeks.**
 
 ---
 
